@@ -22,15 +22,19 @@ export function PointCard({ balance, ambiguous, issuerName, isMine, onOpen, onIs
   const { t } = useTranslation()
   const { pointType, amount } = balance
   const empty = amount === 0
-  const Container = empty || !onOpen ? Row : RowButton
+  const openable = !empty && onOpen
+  // 카드 안에 버튼을 넣으면 HTML 이 깨지고, 무엇보다 카드의 접근성 이름에
+  // 안쪽 버튼의 글자가 섞인다. 카드는 이체로 가는데 이름이 "발행 관리" 를 말하게 된다.
+  const Main = openable ? RowButton : Row
 
   return (
-    <Container
-      type={empty || !onOpen ? undefined : 'button'}
-      onClick={empty ? undefined : onOpen}
+    <Box
+      display="flex"
+      alignItems="center"
       colorPalette={pointType.accent}
       opacity={empty ? 0.55 : 1}
     >
+      <Main type={openable ? 'button' : undefined} onClick={openable ? onOpen : undefined} flex={1} minW={0}>
       {/* 색과 기호를 함께 준다. 회색조에서도 기호로 갈린다. */}
       <Box
         aria-hidden
@@ -51,20 +55,6 @@ export function PointCard({ balance, ambiguous, issuerName, isMine, onOpen, onIs
       <Box flex={1} minW={0}>
         <Box display="flex" alignItems="baseline" gap="1.5">
           <Text textStyle="name">{pointType.name}</Text>
-          {isMine && onIssue ? (
-            <Button
-              size="2xs"
-              variant="outline"
-              flexShrink={0}
-              onClick={(event) => {
-                // 카드는 보내기로 간다. 배지만 발행으로 갈라진다.
-                event.stopPropagation()
-                onIssue()
-              }}
-            >
-              {t('home.issue')}
-            </Button>
-          ) : null}
         </Box>
         {ambiguous ? (
           <Text textStyle="caption">{t('home.issuedBy', { name: issuerName })}</Text>
@@ -72,9 +62,23 @@ export function PointCard({ balance, ambiguous, issuerName, isMine, onOpen, onIs
         {empty ? <Text textStyle="caption">{t('home.zeroBalance')}</Text> : null}
       </Box>
 
-      <Text textStyle="balance" flexShrink={0}>
-        {toGrouped(amount)}
-      </Text>
-    </Container>
+        <Text textStyle="balance" flexShrink={0}>
+          {toGrouped(amount)}
+        </Text>
+      </Main>
+
+      {/* 형제로 둔다. 중첩하면 카드의 접근성 이름이 오염된다. */}
+      {isMine && onIssue ? (
+        <Button
+          size="2xs"
+          variant="outline"
+          flexShrink={0}
+          marginInlineEnd="gutter"
+          onClick={onIssue}
+        >
+          {t('home.issue')}
+        </Button>
+      ) : null}
+    </Box>
   )
 }

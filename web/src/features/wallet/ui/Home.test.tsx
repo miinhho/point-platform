@@ -80,6 +80,14 @@ describe('홈', () => {
     expect(entries).toHaveLength(1)
   })
 
+  // 카드는 이체로 가는 버튼이다. 이름에 다른 행동이 섞이면 스크린리더가 거짓을 읽는다.
+  it('카드의 접근성 이름에 발행 관리가 섞이지 않는다', async () => {
+    renderApp(<Home />)
+    const card = await screen.findByRole('button', { name: /금머니/ })
+    expect(card.textContent).not.toContain('발행 관리')
+    expect(card.querySelector('button')).toBeNull()
+  })
+
   it('색을 빼도 기호로 구별된다 — 카드마다 다른 기호가 있다', async () => {
     renderApp(<Home />)
     const symbols = await symbolOrder()
