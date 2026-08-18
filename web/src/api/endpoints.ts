@@ -10,13 +10,7 @@ import type {
   Wallet,
 } from '@/domain/types'
 
-/**
- * 엔드포인트.
- *
- * 여기까지가 서버와의 접점이다. 화면은 이 함수들을 직접 부르지 않고 TanStack Query
- * 를 통해 부른다 — 캐시·중복 제거·재시도가 필요한 자리이고, 그걸 손으로 만들면
- * TanStack Query 를 나쁘게 재구현하는 것이 된다.
- */
+// 화면은 이 함수들을 직접 부르지 않고 api/queries.ts 를 거친다.
 export interface CreateTransferInput {
   pointTypeId: PointTypeId
   toId: UserId
@@ -35,18 +29,13 @@ export const endpoints = {
   /** 내가 가진 포인트별 잔액 전부 */
   wallet: (options?: RequestOptions) => request<Wallet>('/wallet', options),
 
-  /** 이 앱에 존재하는 포인트 종류. 발행 권한은 `issuerId` 로 판단한다 */
+  /** 발행 권한은 `issuerId` 로 판단한다. */
   pointTypes: (options?: RequestOptions) => request<PointType[]>('/point-types', options),
 
   users: (query?: string, options?: RequestOptions) =>
     request<User[]>('/users', { ...options, query: { q: query || undefined } }),
 
-  /**
-   * 이 포인트로 최근에 보낸 사람.
-   *
-   * 포인트마다 다르다. 온포인트를 김지수에게, 하나포인트를 박태윤에게 보냈다면
-   * 온포인트를 보낼 때 앞에 와야 하는 것은 김지수다.
-   */
+  /** 포인트마다 다르다. */
   recent: (pointTypeId: PointTypeId, limit?: number, options?: RequestOptions) =>
     request<User[]>('/recent', { ...options, query: { pointTypeId, limit } }),
 

@@ -1,13 +1,5 @@
 import { QueryClient } from '@tanstack/react-query'
 
-/**
- * 서버 상태 캐시 설정.
- *
- * `refetchOnWindowFocus` 를 켜 두는 것이 이 앱에서는 기능이다. WebView 셸에서
- * 앱으로 돌아오면 포커스 이벤트가 오고, 그때 잔액을 다시 읽는다 — 다른 기기에서
- * 보냈거나 누가 나에게 보냈을 수 있다. 1차 구현은 이것을 `reloadToken` 이라는
- * 손으로 만든 숫자로 흉내냈고, 주석과 동작이 어긋났다.
- */
 export function createQueryClient(): QueryClient {
   return new QueryClient({
     defaultOptions: {

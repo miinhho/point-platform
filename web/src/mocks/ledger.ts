@@ -8,15 +8,7 @@ import type {
   UserId,
 } from '@/domain/types'
 
-/**
- * 인메모리 원장.
- *
- * 동시성 충돌은 만들지 않는다 — 요청은 직렬 처리된다. 이 파일은 MSW 핸들러의
- * 뒤편이고, 실서버(Spring Boot + MySQL)로 바꾸면 통째로 사라진다.
- *
- * **잔액은 포인트 종류별로 따로 있다.** 같은 사용자가 온포인트 324만과 솔포인트
- * 8만 7천을 동시에 가진다. 이체는 같은 종류끼리만 일어난다.
- */
+// 인메모리 원장. 잔액은 (pointTypeId, userId) 단위다.
 export const ME: UserId = 'u_minho'
 
 export class LedgerError extends Error {
@@ -51,12 +43,7 @@ function seedUsers(): User[] {
   ]
 }
 
-/**
- * 포인트 종류.
- *
- * 셋을 두는 이유가 있다. 하나는 내가 발행자(금머니), 둘은 보유자일 뿐이다.
- * 그래야 "발행자이면서 동시에 다른 포인트의 보유자"라는 실제 상태가 재현된다.
- */
+/** 하나는 내가 발행자, 둘은 보유자다. 그 조합이 실제 상태다. */
 function seedPointTypes(): PointType[] {
   return [
     {
@@ -107,7 +94,7 @@ function seedBalances(): Map<BalanceKey, Points> {
   ])
 }
 
-/** 포인트별 최근 대상. 온포인트로 보낸 사람과 솔포인트로 보낸 사람은 다르다. */
+/** 포인트별로 다르다. */
 function seedRecent(): Map<PointTypeId, UserId[]> {
   return new Map<PointTypeId, UserId[]>([
     ['pt_on', ['u_jisoo', 'u_taeyun', 'u_junho']],
@@ -162,12 +149,7 @@ export function balanceOf(pointTypeId: PointTypeId, userId: UserId): Points {
   return state.balances.get(balanceKey(pointTypeId, userId)) ?? 0
 }
 
-/**
- * 내가 가진 것.
- *
- * 잔액이 0인 포인트도 포함한다 — 가졌던 것과 가진 적 없는 것은 다르고, 그 판단은
- * 화면이 한다. 서버가 미리 걸러 버리면 화면이 "0원인 온포인트"를 표현할 수 없다.
- */
+/** 잔액 0 도 발행자라면 포함한다. 걸러 내면 화면이 그 상태를 표현할 수 없다. */
 export function balancesOf(userId: UserId) {
   return allPointTypes()
     .map((pointType) => ({ pointType, amount: balanceOf(pointType.id, userId) }))
@@ -213,12 +195,7 @@ export interface CommitInput {
   amount: Points
 }
 
-/**
- * 이체를 확정한다.
- *
- * 취소 창이 없으므로 검증과 반영이 한 순간에 일어난다. 중간 상태가 없다는 것은
- * 화면이 그릴 중간 상태도 없다는 뜻이다.
- */
+/** 검증과 반영이 한 순간에 일어난다. 중간 상태가 없다. */
 export function commitTransfer(input: CommitInput): Transfer {
   const pointType = requirePointType(input.pointTypeId)
   const recipient = requireRecipient(input.toId)

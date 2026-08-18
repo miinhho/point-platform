@@ -12,13 +12,7 @@ import {
   type TabName,
 } from './navigation'
 
-/**
- * 클라이언트 상태.
- *
- * 여기 있는 것은 서버가 모르는 것뿐이다 — 어디에 있는가, 개발자 패널이 열렸는가.
- * 잔액이나 사용자 목록은 여기 두지 않는다. 서버가 진실인 값을 여기 복사해 두면
- * 그 순간부터 진실이 둘이 되고, 둘 중 하나는 반드시 낡는다.
- */
+// 서버가 모르는 것만 둔다. 잔액·사용자는 TanStack Query 가 갖는다.
 export const navAtom = atom<NavState>(initialNav)
 
 export const currentScreenAtom = atom((get) => currentScreen(get(navAtom)))
@@ -39,14 +33,7 @@ export const leaveFlowAtom = atom(null, (get, set) => {
   set(navAtom, resetToRoot(get(navAtom)))
 })
 
-/**
- * 시스템 back.
- *
- * 결과를 돌려준다 — 셸(웹의 히스토리 덫, RN 의 BackHandler)이 소비 여부를 알아야
- * 하기 때문이다. `locked` 는 요청이 나가는 중인지이고, 그 값은 TanStack Query 의
- * 뮤테이션 상태에서 온다. 내비게이션이 그것을 직접 읽지 않게 인자로 받는다 —
- * 그러면 내비게이션 모델이 서버 상태를 몰라도 된다.
- */
+/** 셸이 소비 여부를 알아야 하므로 결과를 돌려준다. `locked` 는 호출부가 넘긴다. */
 export const backAtom = atom(null, (get, set, locked: boolean): BackResolution['kind'] => {
   const resolution = resolveBack(get(navAtom), locked)
   if (resolution.kind === 'handled') set(navAtom, resolution.next)

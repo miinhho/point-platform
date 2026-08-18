@@ -3,14 +3,7 @@ import type { FailureCode } from '@/domain/types'
 import * as ledger from './ledger'
 import { drawFailure, simulatedLatency } from './sim'
 
-/**
- * MSW 핸들러 — 계약의 서버 쪽.
- *
- * 계약은 TypeScript 인터페이스가 아니라 HTTP 다. 그래서 여기서 실제로 상태 코드와
- * 헤더를 다룬다. 앱은 진짜 `fetch` 를 하고, Spring Boot 가 오면 이 파일만 지운다.
- *
- * 멱등성 키는 **헤더**로 받는다. 본문 필드로 받으면 재시도 판정이 본문 스키마에 묶인다.
- */
+// 계약: docs/API.md
 const STATUS: Record<FailureCode, number> = {
   INSUFFICIENT_BALANCE: 422,
   CAP_EXCEEDED: 422,
@@ -25,13 +18,7 @@ function fail(code: FailureCode) {
   return HttpResponse.json({ code }, { status: STATUS[code] })
 }
 
-/**
- * 모든 요청 앞에 붙는 지연과 주입된 실패.
- *
- * `NETWORK` 는 응답을 만들지 않고 **전송 자체를 실패시킨다**. 서버가 준 오류 응답과
- * 요청이 닿지 못한 것은 클라이언트에게 전혀 다른 상황이고, 그 차이를 흉내내면
- * "결과를 알 수 없다"를 검증할 수 없다.
- */
+/** `NETWORK` 는 응답이 아니라 전송 실패다. 그 차이가 "결과를 알 수 없다"를 만든다. */
 async function gate(): Promise<Response | null> {
   await delay(simulatedLatency())
   const injected = drawFailure()
@@ -58,8 +45,7 @@ async function commit(
   if (blocked) return blocked
 
   const key = readKey(request)
-  // 멱등성 키 없는 쓰기를 받지 않는다. 받아 주면 클라이언트가 키를 빼먹었을 때
-  // 조용히 이중 이체가 가능해지고, 그건 배포된 뒤에 발견된다.
+  // 키 없는 쓰기를 받아 주면 이중 이체가 조용히 가능해진다.
   if (!key) return HttpResponse.json({ code: 'SERVER', message: 'Idempotency-Key 없음' }, { status: 400 })
 
   const existing = ledger.findByIdempotencyKey(key)
@@ -120,7 +106,7 @@ export const handlers = [
     const blocked = await gate()
     if (blocked) return blocked
     const transfer = ledger.findTransfer(String(params.id))
-    // 없다는 것은 일어나지 않았다는 뜻이다. 결과를 알 수 없던 요청의 답이 된다.
+    // 없다는 것은 일어나지 않았다는 뜻이다.
     if (!transfer) return HttpResponse.json({ code: 'SERVER', message: '없음' }, { status: 404 })
     return HttpResponse.json(transfer)
   }),
