@@ -1,4 +1,4 @@
-import { Box, Text, chakra } from '@chakra-ui/react'
+import { Box, Text, VisuallyHidden, chakra } from '@chakra-ui/react'
 import { useQuery } from '@tanstack/react-query'
 import { useAtomValue } from 'jotai'
 import { useTranslation } from 'react-i18next'
@@ -100,6 +100,10 @@ export function Confirm({ onBack, onConfirm, busy }: Props) {
       </Body>
 
       <Gutter paddingTop="3" paddingBottom="4">
+        {/* 화면은 그대로 두고 버튼만 잠긴다. 그 사실이 소리로도 닿아야 한다 */}
+        <VisuallyHidden aria-live="polite">
+          {busy ? t(issuing ? 'confirm.sendingIssue' : 'confirm.sendingTransfer') : ''}
+        </VisuallyHidden>
         <Box colorPalette={draft.pointType.accent}>
           <HoldButton
             label={issuing ? t('confirm.holdIssue') : t('confirm.holdTransfer')}

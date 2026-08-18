@@ -106,4 +106,11 @@ describe('홈', () => {
     renderApp(<Home />)
     expect(await screen.findByText('지갑을 불러오지 못했어요')).toBeTruthy()
   })
+
+  // 화면을 못 보는 사용자에게는 아무 일도 일어나지 않은 것이 된다.
+  it('실패는 소리로도 닿는다', async () => {
+    server.use(http.get('*/api/wallet', () => HttpResponse.error()))
+    renderApp(<Home />)
+    expect(await screen.findByRole('alert')).toHaveProperty('textContent', '지갑을 불러오지 못했어요')
+  })
 })

@@ -98,6 +98,16 @@ describe('요청이 나가는 동안', () => {
     expect(await screen.findByText('보냈어요', {}, { timeout: 4000 })).toBeTruthy()
   })
 
+  // 화면은 그대로 두는 것이 여정 5 의 결정이다. 그러면 소리가 유일한 통로가 된다.
+  it('진행 중이라는 사실이 소리로 전해진다', async () => {
+    await atConfirm()
+    setSim({ latencyMs: 800, jitterMs: 0 })
+    await hold(750)
+    expect(await screen.findByText('보내고 있어요')).toBeTruthy()
+    await screen.findByText('보냈어요', {}, { timeout: 5000 })
+    await waitFor(() => expect(screen.queryByText('보내고 있어요')).toBeNull())
+  })
+
   it('홀드를 두 번 완료해도 두 번 보내지 않는다', async () => {
     await atConfirm()
     setSim({ latencyMs: 500, jitterMs: 0 })

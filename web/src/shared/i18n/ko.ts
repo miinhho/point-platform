@@ -120,6 +120,9 @@ export const ko = {
     supplyChange: '유통량 변화',
     supplyFirst: '첫 발행',
     cap: '발행 상한',
+    /** 화면은 바뀌지 않는다. 진행 중이라는 사실은 소리로만 전한다 — docs/JOURNEY.md 여정 5 */
+    sendingTransfer: '보내고 있어요',
+    sendingIssue: '발행하고 있어요',
   },
 
   result: {

@@ -26,8 +26,9 @@ export function Home() {
       </Header>
 
       <Body>
-        {isPending ? <Note>{t('common.loading')}</Note> : null}
-        {isError ? <Note>{t('home.loadFailed')}</Note> : null}
+        {/* 상태 변화는 소리로도 전달된다 — docs/JOURNEY.md. 특히 실패는 오래 머문다 */}
+        {isPending ? <Note role="status">{t('common.loading')}</Note> : null}
+        {isError ? <Note role="alert">{t('home.loadFailed')}</Note> : null}
         {data?.balances.length === 0 ? <Note>{t('home.empty')}</Note> : null}
 
         {balances.map((balance) => (
@@ -46,10 +47,10 @@ export function Home() {
   )
 }
 
-function Note({ children }: { children: string }) {
+function Note({ children, role }: { children: string; role?: 'status' | 'alert' }) {
   return (
     <Gutter>
-      <Box paddingBlock="8">
+      <Box role={role} paddingBlock="8">
         <Text textStyle="caption" textAlign="center">
           {children}
         </Text>
