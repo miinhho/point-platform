@@ -25,9 +25,13 @@ class TransferService(
     private val transferRepository: TransferRepository,
     private val balanceInitializer: BalanceInitializer,
 ) {
+    // 관여한 사람만 읽는다 — 남의 것은 없는 것과 같다 (docs/API.md).
     // open-in-view=false 라 지연 연관관계(pointType·from·to)는 트랜잭션 안에서 매핑까지 끝내야 한다.
     @Transactional(readOnly = true)
-    fun findByIdempotencyKey(key: String): TransferResponse? = transferRepository.findByIdempotencyKey(key)?.toResponse()
+    fun findByIdempotencyKey(key: String, requesterId: Long): TransferResponse? =
+        transferRepository.findByIdempotencyKey(key)
+            ?.takeIf { it.from?.id == requesterId || it.to.id == requesterId }
+            ?.toResponse()
 
     @Transactional
     fun commitTransfer(meId: Long, idempotencyKey: String, pointTypeId: String, toId: String, amount: Long): TransferResponse {

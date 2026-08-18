@@ -45,10 +45,14 @@ class TransferController(
 
     @GetMapping("/transfers/by-key")
     @Transactional(readOnly = true)
-    fun byKey(@RequestParam idempotencyKey: String?): TransferResponse? {
+    fun byKey(
+        @RequestParam idempotencyKey: String?,
+        @AuthenticationPrincipal userId: Long,
+    ): TransferResponse? {
         val key = idempotencyKey?.takeIf { it.isNotBlank() }
             ?: throw DomainFailureException("SERVER", HttpStatus.BAD_REQUEST, "idempotencyKey 없음")
-        return transferService.findByIdempotencyKey(key)
+        // 남의 것이면 null 이다 — 없을 때와 같다. 「추측하기 어렵다」는 접근 제어가 아니다.
+        return transferService.findByIdempotencyKey(key, userId)
     }
 
     // 근거: docs/API.md — 404 는 "안 일어났다"는 뜻. 내 것이 아닌 이체도 같은 404 로 감춘다(IDOR 방지).
@@ -88,7 +92,7 @@ class TransferController(
 
         // 이미 있으면 새로 만들지 않는다. 다만 이 조회는 최적화일 뿐 방어가 아니다 —
         // 동시에 온 둘은 여기서 둘 다 없다고 본다. 진짜 방어는 아래 unique 위반 처리다.
-        transferService.findByIdempotencyKey(key)?.let { return ResponseEntity.ok(it) }
+        transferService.findByIdempotencyKey(key, userId)?.let { return ResponseEntity.ok(it) }
 
         val toId = if (selfOnly) null else body.toId
         val amount = body.amount?.let { raw ->
@@ -110,7 +114,7 @@ class TransferController(
         } catch (e: DataIntegrityViolationException) {
             // 같은 키가 동시에 왔다. 키의 unique 위반은 오류가 아니라 "이미 만들었다"는 뜻이다 —
             // 사용자는 응답을 못 받아 다시 누른 것뿐이고, 두 번 빠지면 되돌릴 경로가 없다.
-            val existing = transferService.findByIdempotencyKey(key) ?: throw e
+            val existing = transferService.findByIdempotencyKey(key, userId) ?: throw e
             return ResponseEntity.ok(existing)
         }
         return ResponseEntity.status(HttpStatus.CREATED).body(transfer)

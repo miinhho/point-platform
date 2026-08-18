@@ -149,6 +149,47 @@ class ConcurrencyTest {
         assertEquals(998_000, after.totalIssued)
     }
 
+    // 계약: docs/API.md — 이체는 관여한 사람만 읽는다. by-key 는 남의 것이면 null 이다.
+    @Test
+    fun `관여하지 않은 사람은 이체를 id 로도 키로도 읽지 못한다`() {
+        giveBalance(issuer, 100_000)
+        val key = UUID.randomUUID().toString()
+        val created = postTransfer(
+            login("@minho").accessToken,
+            key,
+            TransferRequest(pointTypeId = publicPointTypeId(), toId = publicId(recipient), amount = BigDecimal(1_000)),
+        )
+        val transferId = assertNotNull(transferIdOf(created.body))
+
+        val outsider = userRepository.save(user("@taeyun", "박태윤"))
+        assertNotNull(outsider.id)
+        val outsiderToken = login("@taeyun").accessToken
+        val headers = HttpHeaders().apply { setBearerAuth(outsiderToken) }
+
+        val byId = restTemplate.exchange("/api/transfers/$transferId", HttpMethod.GET, HttpEntity<Void>(headers), String::class.java)
+        assertEquals(HttpStatus.NOT_FOUND, byId.statusCode, "남의 이체는 없는 것과 같은 404 여야 한다")
+
+        // 403 이면 "그 키는 존재한다"를 알려 주는 셈이다. 없을 때와 구별되면 안 된다.
+        val byKey = restTemplate.exchange(
+            "/api/transfers/by-key?idempotencyKey=$key",
+            HttpMethod.GET,
+            HttpEntity<Void>(headers),
+            String::class.java,
+        )
+        assertEquals(HttpStatus.OK, byKey.statusCode)
+        assertTrue(byKey.body.isNullOrBlank(), "남의 것이면 null 이어야 한다: ${byKey.body}")
+
+        // 당사자는 둘 다 읽을 수 있어야 한다.
+        val mineHeaders = HttpHeaders().apply { setBearerAuth(login("@jisoo").accessToken) }
+        val mine = restTemplate.exchange(
+            "/api/transfers/by-key?idempotencyKey=$key",
+            HttpMethod.GET,
+            HttpEntity<Void>(mineHeaders),
+            String::class.java,
+        )
+        assertEquals(transferId, transferIdOf(mine.body), "받은 쪽은 자기 이체를 키로 확인할 수 있어야 한다")
+    }
+
     @Test
     fun `refresh 회전이 겹치면 하나만 성공하고 진 쪽이 사슬을 죽이지 않는다`() {
         val session = login("@minho")
