@@ -37,6 +37,7 @@ import kotlin.test.assertTrue
 @AutoConfigureTestRestTemplate
 @Import(TestcontainersConfiguration::class)
 class NameIsSharedTest {
+    @Autowired lateinit var ledgerReset: LedgerReset
     @Autowired lateinit var restTemplate: TestRestTemplate
     @Autowired lateinit var userRepository: UserRepository
     @Autowired lateinit var pointTypeRepository: PointTypeRepository
@@ -47,11 +48,7 @@ class NameIsSharedTest {
 
     @BeforeEach
     fun seed() {
-        transferRepository.deleteAll()
-        balanceRepository.deleteAll()
-        pointTypeRepository.deleteAll()
-        refreshTokenRepository.deleteAll()
-        userRepository.deleteAll()
+        ledgerReset.wipe()
 
         val onmart = save("@onmart", "온마트")
         val solcafe = save("@solcafe", "솔카페")

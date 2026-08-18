@@ -15,11 +15,13 @@ private val SYMBOL = Regex("^[A-Za-z]{2,3}$")
 @Service
 class PointTypeCreateService(
     private val pointTypeRepository: PointTypeRepository,
+    private val membershipRepository: MembershipRepository,
     private val userRepository: UserRepository,
+    private val pointTypeResponses: PointTypeResponses,
 ) {
     @Transactional(readOnly = true)
     fun findByIdempotencyKey(key: String, viewerId: Long): PointTypeResponse? =
-        pointTypeRepository.findByIssuerIdAndIdempotencyKey(viewerId, key)?.toResponse(viewerId, pointTypeRepository.sharedNames())
+        pointTypeRepository.findByIssuerIdAndIdempotencyKey(viewerId, key)?.let { pointTypeResponses.of(it, viewerId) }
 
     /** 발행자 자격을 심사하지 않는다 — 누구나 만들고 상한도 자기가 정한다 (docs/JOURNEY.md 여정 9). */
     @Transactional
@@ -40,11 +42,12 @@ class PointTypeCreateService(
 
         // 조회는 방어가 아니다 — 같은 기호가 동시에 오면 둘 다 비어 있다고 본다.
         // 진짜 방어는 symbol unique 제약이고, 위반 판정은 호출부가 한다.
+        val issuer = userRepository.getReferenceById(creatorId)
         val created = pointTypeRepository.saveAndFlush(
             PointType(
                 name = name,
                 symbol = symbol,
-                issuer = userRepository.getReferenceById(creatorId),
+                issuer = issuer,
                 accent = PointAccent.valueOf(accent!!),
                 visibility = visibility!!,
                 issueCap = issueCap!!,
@@ -52,7 +55,11 @@ class PointTypeCreateService(
                 idempotencyKey = idempotencyKey,
             ),
         )
-        return created.toResponse(creatorId, pointTypeRepository.sharedNames())
+        // 은행장은 나갈 수도 내보내질 수도 없다 — 창설과 같은 트랜잭션에서 회원이 된다.
+        if (created.visibility == PointVisibility.PRIVATE) {
+            membershipRepository.saveAndFlush(Membership(pointType = created, user = issuer))
+        }
+        return pointTypeResponses.of(created, creatorId)
     }
 
     private fun BigDecimal.asSafeInteger(): Long? =

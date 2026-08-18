@@ -5,6 +5,7 @@ import io.github.miinhho.point.shared.DomainFailureException
 import io.github.miinhho.point.shared.FailureCode
 import io.github.miinhho.point.wallet.Balance
 import io.github.miinhho.point.wallet.BalanceRepository
+import io.github.miinhho.point.pointtype.BankAccess
 import io.github.miinhho.point.pointtype.PointType
 import io.github.miinhho.point.pointtype.PointTypeRepository
 import io.github.miinhho.point.user.User
@@ -23,6 +24,7 @@ class TransferService(
     private val balanceRepository: BalanceRepository,
     private val transferRepository: TransferRepository,
     private val balanceInitializer: BalanceInitializer,
+    private val bankAccess: BankAccess,
 ) {
     // 관여한 사람만 읽는다 — 남의 것은 없는 것과 같다 (docs/API.md).
     // open-in-view=false 라 지연 연관관계(pointType·from·to)는 트랜잭션 안에서 매핑까지 끝내야 한다.
@@ -32,7 +34,7 @@ class TransferService(
 
     @Transactional
     fun commitTransfer(meId: Long, idempotencyKey: String, pointTypeId: String, toId: String, amount: Long): TransferResponse {
-        val pointType = requirePointType(pointTypeId)
+        val pointType = requirePointType(pointTypeId, meId)
         val recipient = requireRecipient(toId)
         if (recipient.id == meId) throw malformed("자기 자신에게는 보낼 수 없음")
 
@@ -66,6 +68,10 @@ class TransferService(
         ensureBalanceRow(meId, id)
 
         val pointType = pointTypeRepository.findForUpdate(id)!!
+        // NOT_ISSUER 로 답하면 닿을 수 없는 비공개 은행이 없는 포인트(404)와 갈려 존재가 샌다.
+        if (!bankAccess.canReach(pointType, meId)) {
+            throw DomainFailureException(FailureCode.POINT_TYPE_NOT_FOUND, "포인트 없음")
+        }
         if (pointType.issuer.id != meId) throw DomainFailureException(FailureCode.NOT_ISSUER, "발행자가 아님")
         if (pointType.totalIssued + amount > pointType.issueCap) {
             throw DomainFailureException(FailureCode.CAP_EXCEEDED, "발행 상한 초과")
@@ -80,9 +86,10 @@ class TransferService(
         return record(TransferKind.ISSUE, idempotencyKey, pointType, requester = issuer, from = null, to = issuer, amount = amount).toResponse()
     }
 
-    private fun requirePointType(pointTypeId: String): PointType {
+    // 닿을 수 없는 은행은 없는 포인트와 같은 404 다 — 갈리는 순간 존재가 샌다.
+    private fun requirePointType(pointTypeId: String, viewerId: Long): PointType {
         val id = runCatching { UUID.fromString(pointTypeId) }.getOrNull()
-        return id?.let(pointTypeRepository::findByPublicId)
+        return id?.let(pointTypeRepository::findByPublicId)?.takeIf { bankAccess.canReach(it, viewerId) }
             ?: throw DomainFailureException(FailureCode.POINT_TYPE_NOT_FOUND, "포인트 없음")
     }
 

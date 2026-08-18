@@ -54,6 +54,52 @@ class MigrationTest {
         }
     }
 
+    @Test
+    fun `V7 까지 적용한 뒤 비공개 은행을 넣고 V8 을 올리면 은행장이 회원이 된다`() {
+        MySQLContainer(DockerImageName.parse("mysql:8.4")).use { db ->
+            db.start()
+            fun flywayTo(target: String?) = Flyway.configure()
+                .dataSource(db.jdbcUrl, db.username, db.password)
+                .locations("classpath:db/migration")
+                .apply { target?.let { target(MigrationVersion.fromVersion(it)) } }
+                .load()
+
+            flywayTo("7").migrate()
+
+            DriverManager.getConnection(db.jdbcUrl, db.username, db.password).use { c ->
+                c.createStatement().use { s ->
+                    s.execute(
+                        """insert into users (handle, name, password_hash, public_id)
+                           values ('@a','A','x',unhex(replace(uuid(),'-',''))), ('@b','B','x',unhex(replace(uuid(),'-','')))""",
+                    )
+                    s.execute(
+                        """insert into point_types (name, symbol, issuer_id, accent, issue_cap, total_issued, public_id, created_at, visibility)
+                           select '동아리비','CL', id, 'BLUE', 100, 0, unhex(replace(uuid(),'-','')), now(6), 'PRIVATE'
+                           from users where handle='@a'""",
+                    )
+                    s.execute(
+                        """insert into point_types (name, symbol, issuer_id, accent, issue_cap, total_issued, public_id, created_at, visibility)
+                           select '온포인트','ON', id, 'BLUE', 100, 0, unhex(replace(uuid(),'-','')), now(6), 'PUBLIC'
+                           from users where handle='@b'""",
+                    )
+                }
+                flywayTo(null).migrate()
+
+                // 은행장은 나갈 수도 내보내질 수도 없다 — 비공개 은행에는 반드시 그 행이 있어야 한다.
+                c.createStatement().executeQuery(
+                    """select p.visibility, count(m.user_id)
+                       from point_types p left join memberships m on m.point_type_id = p.id and m.user_id = p.issuer_id
+                       group by p.id, p.visibility order by p.symbol""",
+                ).use { rs ->
+                    assertTrue(rs.next()); assertEquals("PRIVATE", rs.getString(1))
+                    assertEquals(1, rs.getInt(2), "비공개 은행의 은행장은 회원이어야 한다")
+                    assertTrue(rs.next()); assertEquals("PUBLIC", rs.getString(1))
+                    assertEquals(0, rs.getInt(2), "공개 은행에는 회원 행이 생기지 않는다")
+                }
+            }
+        }
+    }
+
     private fun seed(c: Connection) = c.createStatement().use { s ->
         s.execute(
             """insert into users (handle, name, password_hash, public_id)

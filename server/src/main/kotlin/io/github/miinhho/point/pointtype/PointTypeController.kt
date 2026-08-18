@@ -28,6 +28,14 @@ class PointTypeController(
     fun pointTypes(@AuthenticationPrincipal userId: Long): List<PointTypeResponse> =
         pointTypeQueryService.all(userId)
 
+    // 은행 페이지. 포인트 하나에 페이지 하나이고 보는 사람에 따라 내용이 늘 뿐이다
+    // (docs/JOURNEY.md 「은행 페이지」).
+    @GetMapping("/point-types/{id}")
+    fun pointType(
+        @PathVariable id: String,
+        @AuthenticationPrincipal userId: Long,
+    ): PointTypeResponse = pointTypeQueryService.one(id, userId)
+
     @PostMapping("/point-types")
     fun createPointType(
         @RequestHeader("Idempotency-Key", required = false) idempotencyKey: String?,

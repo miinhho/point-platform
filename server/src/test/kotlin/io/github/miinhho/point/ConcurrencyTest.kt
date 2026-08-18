@@ -48,6 +48,7 @@ import kotlin.test.assertTrue
 @AutoConfigureTestRestTemplate
 @Import(TestcontainersConfiguration::class)
 class ConcurrencyTest {
+    @Autowired lateinit var ledgerReset: LedgerReset
     @Autowired lateinit var restTemplate: TestRestTemplate
     @Autowired lateinit var userRepository: UserRepository
     @Autowired lateinit var pointTypeRepository: PointTypeRepository
@@ -63,12 +64,7 @@ class ConcurrencyTest {
 
     @BeforeEach
     fun seed() {
-        transferRepository.deleteAll()
-        capChangeRepository.deleteAll()
-        balanceRepository.deleteAll()
-        pointTypeRepository.deleteAll()
-        refreshTokenRepository.deleteAll()
-        userRepository.deleteAll()
+        ledgerReset.wipe()
 
         issuer = userRepository.save(user("@minho", "장민호"))
         recipient = userRepository.save(user("@jisoo", "김지수"))

@@ -17,11 +17,13 @@ class CapChangeService(
     private val capChangeRepository: CapChangeRepository,
     private val userRepository: UserRepository,
     private val capChangeLookup: CapChangeLookup,
+    private val pointTypeResponses: PointTypeResponses,
+    private val bankAccess: BankAccess,
 ) {
     @Transactional(readOnly = true)
     fun findByIdempotencyKey(key: String, viewerId: Long): PointTypeResponse? =
         capChangeRepository.findByByIdAndIdempotencyKey(viewerId, key)
-            ?.let { it.pointType.toResponse(viewerId, pointTypeRepository.sharedNames()) }
+            ?.let { pointTypeResponses.of(it.pointType, viewerId) }
 
     /**
      * 상한을 바꾼다. 되돌릴 수 없고 이력에 남는다.
@@ -39,10 +41,15 @@ class CapChangeService(
             ?: throw DomainFailureException(FailureCode.POINT_TYPE_NOT_FOUND, "포인트 없음")
         val pointType = pointTypeRepository.findForUpdate(id)!!
 
+        // 닿을 수 없는 은행에 NOT_ISSUER 로 답하면 없는 포인트(404)와 갈려 존재가 샌다.
+        if (!bankAccess.canReach(pointType, actorId)) {
+            throw DomainFailureException(FailureCode.POINT_TYPE_NOT_FOUND, "포인트 없음")
+        }
+
         // 멱등 재요청 판정이 검증보다 먼저다 — 경쟁에서 진 쪽은 이 시점에 상한이 이미
         // 바뀌어 있어, 순서가 뒤바뀌면 "지금과 같은 값" 으로 잘못 거절된다.
         capChangeLookup.freshFindByIdempotencyKey(actorId, idempotencyKey)?.let {
-            return pointType.toResponse(actorId, pointTypeRepository.sharedNames())
+            return pointTypeResponses.of(pointType, actorId)
         }
 
         if (pointType.issuer.id != actorId) {
@@ -69,7 +76,7 @@ class CapChangeService(
                 issueCap = newCap,
             ),
         )
-        return pointType.toResponse(actorId, pointTypeRepository.sharedNames())
+        return pointTypeResponses.of(pointType, actorId)
     }
 
     private fun BigDecimal.asSafeInteger(): Long? =

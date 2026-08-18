@@ -1,5 +1,6 @@
 package io.github.miinhho.point.auth
 
+import io.github.miinhho.point.LedgerReset
 import io.github.miinhho.point.TestcontainersConfiguration
 import io.github.miinhho.point.shared.FailureResponse
 import io.github.miinhho.point.wallet.BalanceRepository
@@ -31,6 +32,7 @@ import kotlin.test.assertTrue
 @AutoConfigureTestRestTemplate
 @Import(TestcontainersConfiguration::class)
 class AuthIntegrationTest {
+    @Autowired lateinit var ledgerReset: LedgerReset
     @Autowired lateinit var restTemplate: TestRestTemplate
     @Autowired lateinit var userRepository: UserRepository
     @Autowired lateinit var refreshTokenRepository: RefreshTokenRepository
@@ -39,14 +41,9 @@ class AuthIntegrationTest {
     @Autowired lateinit var pointTypeRepository: PointTypeRepository
     @Autowired lateinit var passwordEncoder: PasswordEncoder
 
-    // 다른 테스트가 같은 DB 에 남긴 것을 FK 역순으로 지운다 — 순서가 어긋나면 제약에 걸린다.
     @BeforeEach
     fun seedUser() {
-        transferRepository.deleteAll()
-        balanceRepository.deleteAll()
-        pointTypeRepository.deleteAll()
-        refreshTokenRepository.deleteAll()
-        userRepository.deleteAll()
+        ledgerReset.wipe()
         userRepository.save(User(name = "김지수", handle = "@jisoo", passwordHash = passwordEncoder.encode("point")!!))
     }
 
