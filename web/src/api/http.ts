@@ -1,4 +1,4 @@
-import type { FailureCode } from '@/api/contract'
+import { FAILURE_CODES, type FailureCode } from '@/api/contract'
 
 // 계약: docs/API.md
 
@@ -21,17 +21,7 @@ export class ApiError extends Error {
   }
 }
 
-const FAILURE_CODES = new Set<string>([
-  'BAD_CREDENTIALS',
-  'UNAUTHENTICATED',
-  'INSUFFICIENT_BALANCE',
-  'CAP_EXCEEDED',
-  'NOT_ISSUER',
-  'RECIPIENT_NOT_FOUND',
-  'POINT_TYPE_NOT_FOUND',
-  'NETWORK',
-  'SERVER',
-])
+const KNOWN_CODES = new Set<string>(FAILURE_CODES)
 
 interface ErrorBody {
   code?: string
@@ -154,7 +144,7 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
 
   // 서버가 준 코드를 우선하고, 없으면 상태 코드로 떨어진다.
   const code: FailureCode =
-    parsed.code && FAILURE_CODES.has(parsed.code) ? (parsed.code as FailureCode) : 'SERVER'
+    parsed.code && KNOWN_CODES.has(parsed.code) ? (parsed.code as FailureCode) : 'SERVER'
 
   if (code === 'UNAUTHENTICATED' && !skipRefresh) {
     // 멱등성 키가 있으므로 원요청 재시도가 안전하다. 그 키를 헤더로 둔 값이 여기서 난다.

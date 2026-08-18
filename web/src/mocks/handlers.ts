@@ -1,5 +1,5 @@
 import { delay, http, HttpResponse } from 'msw'
-import type { FailureCode } from '@/api/contract'
+import type { FailureCode, PointAccent } from '@/api/contract'
 import * as ledger from './ledger'
 import { authenticate, burnFamily, issueTokens, rotate, userIdFromHeader } from './sessions'
 import { drawFailure, drawResponseLoss, simulatedLatency } from './sim'
@@ -13,6 +13,7 @@ const STATUS: Record<FailureCode, number> = {
   NOT_ISSUER: 403,
   RECIPIENT_NOT_FOUND: 404,
   POINT_TYPE_NOT_FOUND: 404,
+  SYMBOL_TAKEN: 409,
   NETWORK: 599,
   SERVER: 500,
 }
@@ -105,6 +106,29 @@ async function commit(
   }
 }
 
+interface CreatePointTypeBody {
+  name?: unknown
+  symbol?: unknown
+  accent?: unknown
+  issueCap?: unknown
+}
+
+const ACCENTS: readonly PointAccent[] = ['blue', 'green', 'purple', 'orange', 'pink', 'teal']
+
+/**
+ * 형식은 HTTP 경계가 본다 — 계약: docs/API.md 여정 9 절.
+ * 통과하지 못하면 원장을 부르지 않는다.
+ */
+function readCreateBody(body: CreatePointTypeBody): ledger.CreatePointTypeInput | null {
+  const { name, symbol, accent, issueCap } = body
+  if (typeof name !== 'string' || typeof symbol !== 'string') return null
+  if (name.trim().length < 1 || name.trim().length > 12) return null
+  if (!/^[A-Za-z]{2,3}$/.test(symbol)) return null
+  if (typeof accent !== 'string' || !ACCENTS.includes(accent as PointAccent)) return null
+  if (typeof issueCap !== 'number' || !Number.isSafeInteger(issueCap) || issueCap <= 0) return null
+  return { idempotencyKey: '', name, symbol, accent: accent as PointAccent, issueCap }
+}
+
 /** 인증이 필요한 읽기. 한 곳에서만 토큰을 확인한다 */
 function authed(handle: (userId: string, request: Request) => unknown) {
   return async ({ request }: { request: Request }) => {
@@ -125,6 +149,33 @@ export const handlers = [
     const user = authenticate(handle ?? '', password ?? '', ledger.allUsers())
     if (!user) return fail('BAD_CREDENTIALS')
     return HttpResponse.json({ ...issueTokens(user.id), user })
+  }),
+
+  http.post('*/api/point-types', async ({ request }) => {
+    const blocked = await gate()
+    if (blocked) return blocked
+    const auth = requireUser(request)
+    if (auth instanceof Response) return auth
+
+    const key = readKey(request)
+    // 창설도 되돌릴 수 없다. 응답을 못 받고 다시 눌러도 하나만 생겨야 한다.
+    if (!key) {
+      return HttpResponse.json({ code: 'SERVER', message: 'Idempotency-Key 없음' }, { status: 400 })
+    }
+
+    const input = readCreateBody((await request.json()) as CreatePointTypeBody)
+    if (!input) {
+      return HttpResponse.json({ code: 'SERVER', message: '요청 형식 오류' }, { status: 400 })
+    }
+
+    try {
+      const created = ledger.createPointType(auth.userId, { ...input, idempotencyKey: key })
+      if (drawResponseLoss()) return HttpResponse.error()
+      return HttpResponse.json(created, { status: 201 })
+    } catch (error) {
+      if (error instanceof ledger.LedgerError) return fail(error.code)
+      throw error
+    }
   }),
 
   http.post('*/api/auth/refresh', async ({ request }) => {

@@ -1,5 +1,6 @@
 import { request, type RequestOptions } from './http'
 import type {
+  PointAccent,
   PointType,
   PointTypeId,
   Points,
@@ -21,6 +22,14 @@ export interface CreateTransferInput {
 export interface CreateIssueInput {
   pointTypeId: PointTypeId
   amount: Points
+}
+
+/** 만든 사람이 발행자다 — 본문에 `issuerId` 가 없다. docs/JOURNEY.md 여정 9 */
+export interface CreatePointTypeInput {
+  name: string
+  symbol: string
+  accent: PointAccent
+  issueCap: Points
 }
 
 export interface HistoryQuery {
@@ -70,6 +79,9 @@ export const endpoints = {
 
   createTransfer: (input: CreateTransferInput, idempotencyKey: string) =>
     request<Transfer>('/transfers', { method: 'POST', body: input, idempotencyKey }),
+
+  createPointType: (input: CreatePointTypeInput, idempotencyKey: string) =>
+    request<PointType>('/point-types', { method: 'POST', body: input, idempotencyKey }),
 
   /** 발행. 해당 포인트의 발행자만 성공한다 */
   createIssue: (input: CreateIssueInput, idempotencyKey: string) =>

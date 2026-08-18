@@ -224,6 +224,67 @@ describe('발행', () => {
   })
 })
 
+describe('포인트 창설', () => {
+  const bakery = { name: '동네빵집', symbol: 'BK', accent: 'orange' as const, issueCap: 1_000_000 }
+
+  it('만든 사람이 발행자이고 유통량은 0 에서 시작한다', async () => {
+    const created = await endpoints.createPointType(bakery, key())
+    expect(created).toMatchObject({
+      name: '동네빵집',
+      symbol: 'BK',
+      issuerId: ME,
+      totalIssued: 0,
+      issueCap: 1_000_000,
+      canIssue: true,
+    })
+  })
+
+  // 만들자마자 홈에 있어야 한다. 잔액이 0 이라고 사라지면 발행하러 갈 길이 없다.
+  it('만든 즉시 지갑에 잔액 0 으로 들어온다', async () => {
+    const created = await endpoints.createPointType(bakery, key())
+    const wallet = await endpoints.wallet()
+    const mine = wallet.balances.find((b) => b.pointType.id === created.id)
+    expect(mine).toMatchObject({ amount: 0 })
+    expect(mine?.pointType.canIssue).toBe(true)
+  })
+
+  it('기호가 겹치면 409 다 — 판정은 서버만 한다', async () => {
+    await expect(
+      endpoints.createPointType({ ...bakery, symbol: 'ON' }, key()),
+    ).rejects.toMatchObject({ code: 'SYMBOL_TAKEN', status: 409 })
+  })
+
+  it('대소문자가 달라도 같은 기호다', async () => {
+    await expect(
+      endpoints.createPointType({ ...bakery, symbol: 'on' }, key()),
+    ).rejects.toMatchObject({ code: 'SYMBOL_TAKEN' })
+  })
+
+  // 창설도 되돌릴 수 없다. 응답을 못 받고 다시 눌러도 하나만 생겨야 한다.
+  it('같은 키로 두 번 보내면 하나만 생긴다', async () => {
+    const k = key()
+    const first = await endpoints.createPointType({ ...bakery, symbol: 'BX' }, k)
+    const second = await endpoints.createPointType({ ...bakery, symbol: 'BX' }, k)
+    expect(second.id).toBe(first.id)
+    const types = await endpoints.pointTypes()
+    expect(types.filter((t) => t.symbol === 'BX')).toHaveLength(1)
+  })
+
+  it.each([
+    ['이름이 비었다', { name: '  ' }],
+    ['이름이 13자다', { name: '가나다라마바사아자차카타파' }],
+    ['기호가 네 자다', { symbol: 'ABCD' }],
+    ['기호에 숫자가 있다', { symbol: 'B1' }],
+    ['상한이 소수다', { issueCap: 1.5 }],
+    ['상한이 0 이다', { issueCap: 0 }],
+    ['없는 색이다', { accent: 'crimson' as never }],
+  ])('%s 면 400 이다', async (_label, patch) => {
+    await expect(
+      endpoints.createPointType({ ...bakery, symbol: 'ZZ', ...patch }, key()),
+    ).rejects.toMatchObject({ status: 400 })
+  })
+})
+
 describe('응답 유실 — 서버는 만들었는데 클라이언트가 못 받았다', () => {
   it('멱등성 키로 조회하면 일어난 것이 보인다', async () => {
     const k = key()

@@ -1,4 +1,5 @@
 import type {
+  PointAccent,
   PointType,
   PointTypeId,
   Points,
@@ -28,6 +29,7 @@ export type LedgerErrorCode =
   | 'NOT_ISSUER'
   | 'RECIPIENT_NOT_FOUND'
   | 'POINT_TYPE_NOT_FOUND'
+  | 'SYMBOL_TAKEN'
 
 function seedUsers(): User[] {
   return [
@@ -128,6 +130,8 @@ interface State {
   transfers: Map<TransferId, Transfer>
   /** 멱등성 키 → 이체 id */
   byKey: Map<string, TransferId>
+  /** 멱등성 키 → 창설된 포인트 id. 창설도 되돌릴 수 없으므로 두 번 만들지 않는다 */
+  createdByKey: Map<string, PointTypeId>
   /** 최신순 */
   order: TransferId[]
   recent: Map<PointTypeId, UserId[]>
@@ -140,6 +144,7 @@ function initialState(): State {
     balances: seedBalances(),
     transfers: new Map(),
     byKey: new Map(),
+    createdByKey: new Map(),
     order: [],
     recent: seedRecent(),
   }
@@ -227,6 +232,45 @@ export function history(meId: UserId, pointTypeId: PointTypeId | null, limit: nu
     .filter((transfer) => transfer.fromId === meId || transfer.toId === meId)
     .filter((transfer) => !pointTypeId || transfer.pointTypeId === pointTypeId)
     .slice(0, limit)
+}
+
+export interface CreatePointTypeInput {
+  idempotencyKey: string
+  name: string
+  symbol: string
+  accent: PointAccent
+  issueCap: Points
+}
+
+/**
+ * 만든 사람이 발행자다. 자격을 심사하지 않는다 — docs/JOURNEY.md 여정 9.
+ * 형식 검사는 HTTP 경계가 하고 여기서는 원장의 불변식만 본다.
+ */
+export function createPointType(meId: UserId, input: CreatePointTypeInput): PointType {
+  const existing = state.createdByKey.get(input.idempotencyKey)
+  if (existing) return viewOf(state.pointTypes.get(existing)!, meId)
+
+  const symbol = input.symbol.toUpperCase()
+  if (seedPoints().some((pointType) => pointType.symbol === symbol)) {
+    throw new LedgerError('SYMBOL_TAKEN')
+  }
+
+  const issuer = state.users.get(meId)
+  if (!issuer) throw new LedgerError('RECIPIENT_NOT_FOUND')
+
+  const created: SeedPoint = {
+    id: `pt_${symbol.toLowerCase()}_${state.pointTypes.size + 1}`,
+    name: input.name.trim(),
+    symbol,
+    issuerId: meId,
+    issuerName: issuer.name,
+    accent: input.accent,
+    totalIssued: 0,
+    issueCap: input.issueCap,
+  }
+  state.pointTypes.set(created.id, created)
+  state.createdByKey.set(input.idempotencyKey, created.id)
+  return viewOf(created, meId)
 }
 
 export interface CommitInput {

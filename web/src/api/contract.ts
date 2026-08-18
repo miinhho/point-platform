@@ -49,19 +49,28 @@ export interface Wallet {
 
 export type TransferKind = 'transfer' | 'issue'
 
-export type FailureCode =
-  | 'INSUFFICIENT_BALANCE'
-  | 'CAP_EXCEEDED'
-  | 'NOT_ISSUER'
-  | 'RECIPIENT_NOT_FOUND'
-  | 'POINT_TYPE_NOT_FOUND'
+/**
+ * 런타임 목록이 진실이고 타입은 여기서 파생된다. 둘을 따로 두면 코드를 추가할 때
+ * 한쪽을 빠뜨리고, 그러면 서버가 보낸 코드가 조용히 `SERVER` 로 떨어진다.
+ */
+export const FAILURE_CODES = [
   /** 핸들이나 암호가 틀렸다 */
-  | 'BAD_CREDENTIALS'
+  'BAD_CREDENTIALS',
   /** 토큰이 없거나 만료됐다. 화면은 로그인으로 보낸다 */
-  | 'UNAUTHENTICATED'
-  /** 결과를 알 수 없다. NETWORK·SERVER 만 여기 해당한다. */
-  | 'NETWORK'
-  | 'SERVER'
+  'UNAUTHENTICATED',
+  'INSUFFICIENT_BALANCE',
+  'CAP_EXCEEDED',
+  'NOT_ISSUER',
+  'RECIPIENT_NOT_FOUND',
+  'POINT_TYPE_NOT_FOUND',
+  /** 그 기호를 이미 쓰는 포인트가 있다 */
+  'SYMBOL_TAKEN',
+  /** 결과를 알 수 없다. 이 둘만 그렇다 */
+  'NETWORK',
+  'SERVER',
+] as const
+
+export type FailureCode = (typeof FAILURE_CODES)[number]
 
 export interface Failure {
   code: FailureCode
