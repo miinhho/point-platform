@@ -1,6 +1,7 @@
 package io.github.miinhho.point.auth
 
 import io.github.miinhho.point.TestcontainersConfiguration
+import io.github.miinhho.point.domain.auth.RefreshTokenRepository
 import io.github.miinhho.point.domain.user.User
 import io.github.miinhho.point.domain.user.UserRepository
 import org.junit.jupiter.api.BeforeEach
@@ -25,10 +26,12 @@ import kotlin.test.assertNotNull
 class AuthIntegrationTest {
     @Autowired lateinit var restTemplate: TestRestTemplate
     @Autowired lateinit var userRepository: UserRepository
+    @Autowired lateinit var refreshTokenRepository: RefreshTokenRepository
     @Autowired lateinit var passwordEncoder: PasswordEncoder
 
     @BeforeEach
     fun seedUser() {
+        refreshTokenRepository.deleteAll()
         userRepository.deleteAll()
         userRepository.save(User(name = "김지수", handle = "@jisoo", passwordHash = passwordEncoder.encode("point")!!))
     }
@@ -46,6 +49,19 @@ class AuthIntegrationTest {
         assertNotNull(body.accessToken)
         assertNotNull(body.refreshToken)
         assertEquals("@jisoo", body.user.handle)
+    }
+
+    @Test
+    fun `핸들 표기가 흔들려도 서버가 정규화해 같은 사람으로 본다`() {
+        for (variant in listOf("jisoo", "JISOO", "@@jisoo", "  @Jisoo  ")) {
+            val response = restTemplate.postForEntity(
+                "/api/auth/login",
+                LoginRequest(variant, "point"),
+                LoginResponse::class.java,
+            )
+            assertEquals(HttpStatus.OK, response.statusCode, "handle=$variant")
+            assertEquals("@jisoo", assertNotNull(response.body).user.handle)
+        }
     }
 
     @Test
@@ -69,11 +85,12 @@ class AuthIntegrationTest {
         val login = login()
         val headers = HttpHeaders().apply { setBearerAuth(login.accessToken) }
         // 매핑된 컨트롤러가 없으니 인증을 통과하면 404, 통과 못 하면 401 이다.
+        // 404 본문은 { code } 모양이 아니라 Boot 기본 에러 바디라 상태 코드만 본다.
         val withToken = restTemplate.exchange(
             "/api/protected-probe",
             HttpMethod.POST,
             HttpEntity<Void>(headers),
-            FailureResponse::class.java,
+            String::class.java,
         )
         assertEquals(HttpStatus.NOT_FOUND, withToken.statusCode)
     }
@@ -89,8 +106,8 @@ class AuthIntegrationTest {
         )
         assertEquals(HttpStatus.OK, rotated.statusCode)
         val rotatedBody = assertNotNull(rotated.body)
+        // access 는 같은 초에 발급되면 클레임(sub·iat·exp)이 같아 서명까지 동일할 수 있다 — 비교 대상이 아니다.
         assertNotEquals(login.refreshToken, rotatedBody.refreshToken)
-        assertNotEquals(login.accessToken, rotatedBody.accessToken)
 
         // 이미 회전으로 폐기된 옛 토큰 재사용 — 탈취로 간주하고 사슬 전체를 revoke 한다.
         val reuse = restTemplate.postForEntity(

@@ -19,7 +19,7 @@ class AuthController(
 ) {
     @PostMapping("/login")
     fun login(@RequestBody body: LoginRequest): LoginResponse {
-        val user = userRepository.findByHandle(body.handle)?.takeIf {
+        val user = userRepository.findByHandle(normalizeHandle(body.handle))?.takeIf {
             passwordEncoder.matches(body.password, it.passwordHash)
         } ?: throw BadCredentialsException("핸들 또는 암호가 틀림")
 
@@ -42,3 +42,8 @@ class AuthController(
         return ResponseEntity.noContent().build()
     }
 }
+
+// 근거: docs/API.md 「실패」 — @minho·minho·MINHO 가 모두 같은 사람이다.
+// User.handle 은 이 형태로 저장돼 있어야 한다 — 저장 시점에 정규화하지 않으면
+// @Minho 와 @minho 두 행이 함께 존재할 수 있다.
+fun normalizeHandle(handle: String): String = "@" + handle.trim().replace(Regex("^@+"), "").lowercase()

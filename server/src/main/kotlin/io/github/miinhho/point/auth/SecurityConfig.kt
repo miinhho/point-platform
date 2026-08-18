@@ -17,7 +17,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 @Configuration
 @EnableWebSecurity
 @EnableConfigurationProperties(JwtProperties::class)
-class SecurityConfig(private val jwtAuthenticationFilter: JwtAuthenticationFilter) {
+class SecurityConfig(private val jwtService: JwtService) {
     @Bean
     fun passwordEncoder(): PasswordEncoder = BCryptPasswordEncoder()
 
@@ -34,7 +34,9 @@ class SecurityConfig(private val jwtAuthenticationFilter: JwtAuthenticationFilte
             }
             // 본문을 { "code": "UNAUTHENTICATED" } 로 맞춘다 — 프론트가 code 로 분기한다.
             .exceptionHandling { it.authenticationEntryPoint(unauthenticatedEntryPoint()) }
-            .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter::class.java)
+            // @Component 로 두면 Boot 가 서블릿 필터로도 자동 등록해 SecurityContextHolderFilter 보다
+            // 먼저 실행되고, 그 필터가 컨텍스트를 초기화하면서 여기서 세운 인증이 지워진다.
+            .addFilterBefore(JwtAuthenticationFilter(jwtService), UsernamePasswordAuthenticationFilter::class.java)
         return http.build()
     }
 
