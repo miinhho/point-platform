@@ -34,6 +34,7 @@ export type LedgerErrorCode =
   | 'POINT_TYPE_NOT_FOUND'
   | 'SYMBOL_TAKEN'
   | 'CAP_BELOW_ISSUED'
+  | 'ISSUER_CANNOT_LEAVE'
 
 /** 겹침은 원장을 봐야 알 수 있다. 시드가 들고 있으면 사용자가 늘 때 거짓이 된다. */
 type SeedUser = Omit<User, 'nameIsShared'>
@@ -97,6 +98,33 @@ function seedPointTypes(): SeedPoint[] {
       createdAt: '2025-06-02T11:20:00.000Z',
       visibility: 'public',
     },
+    // 비공개 은행 둘. 하나는 내가 은행장이고 하나는 회원일 뿐이다 — 그 조합이 실제 상태다.
+    {
+      id: 'pt_cl',
+      name: '동아리회비',
+      symbol: 'CL',
+      issuerId: SEED_ISSUER,
+      issuerName: '장민호',
+      issuerHandle: '@minho',
+      accent: 'pink',
+      totalIssued: 400_000,
+      issueCap: 2_000_000,
+      createdAt: '2026-02-11T01:00:00.000Z',
+      visibility: 'private',
+    },
+    {
+      id: 'pt_hd',
+      name: '한동네',
+      symbol: 'HD',
+      issuerId: 'u_solcafe',
+      issuerName: '솔카페',
+      issuerHandle: '@solcafe',
+      accent: 'orange',
+      totalIssued: 900_000,
+      issueCap: 3_000_000,
+      createdAt: '2025-11-04T08:00:00.000Z',
+      visibility: 'private',
+    },
     // 이름이 겹치는 포인트를 일부러 둔다. 김지수를 둘 심은 것과 같은 이유다.
     {
       id: 'pt_on2',
@@ -130,6 +158,10 @@ function seedBalances(): Map<BalanceKey, Points> {
     [balanceKey('pt_gm', SEED_ISSUER), 620_000],
     [balanceKey('pt_gm', 'u_jisu'), 45_000],
     [balanceKey('pt_on2', SEED_ISSUER), 12_000],
+    [balanceKey('pt_cl', SEED_ISSUER), 50_000],
+    [balanceKey('pt_cl', 'u_jisoo'), 30_000],
+    [balanceKey('pt_hd', SEED_ISSUER), 25_000],
+    [balanceKey('pt_hd', 'u_taeyun'), 60_000],
   ])
 }
 
@@ -141,6 +173,17 @@ function seedSpent(): Set<BalanceKey> {
   // 받기만 하고 아직 써 보지 않은 포인트가 하나는 있어야 그 표시가 검증된다.
   const fresh = balanceKey('pt_on2', SEED_ISSUER)
   return new Set([...seedBalances().keys()].filter((key) => key !== fresh))
+}
+
+/**
+ * 비공개 은행의 회원. 공개 은행에는 회원 개념이 없다 — 관문이 없는데 통과 기록을
+ * 두면 그것은 공개가 아니다. 계약: docs/API.md
+ */
+function seedMembers(): Map<PointTypeId, Set<UserId>> {
+  return new Map<PointTypeId, Set<UserId>>([
+    ['pt_cl', new Set([SEED_ISSUER, 'u_jisoo'])],
+    ['pt_hd', new Set(['u_solcafe', SEED_ISSUER, 'u_taeyun'])],
+  ])
 }
 
 /** 포인트별로 다르다. */
@@ -167,6 +210,8 @@ interface State {
   order: TransferId[]
   /** 최신순. 이체와 섞여 내역이 된다 */
   capChanges: CapChange[]
+  /** 비공개 은행의 회원. 은행장은 언제나 여기 있다 */
+  members: Map<PointTypeId, Set<UserId>>
   recent: Map<PointTypeId, UserId[]>
 }
 
@@ -181,6 +226,7 @@ function initialState(): State {
     createdByKey: new Map(),
     order: [],
     capChanges: [],
+    members: seedMembers(),
     recent: seedRecent(),
   }
 }
@@ -217,13 +263,35 @@ function seedPoints(): SeedPoint[] {
 }
 
 export function pointTypesFor(userId: UserId): PointType[] {
-  return seedPoints().map((pointType) => viewOf(pointType, userId))
+  return seedPoints()
+    .filter((pointType) => reachable(pointType, userId))
+    .map((pointType) => viewOf(pointType, userId))
 }
 
-/** 은행 페이지가 읽는다. 내 지갑에 없는 포인트도 소개는 보인다 — 계약: docs/API.md */
+/**
+ * 은행 페이지가 읽는다. 공개 은행은 안 가진 사람도 보고, 비공개 은행은 회원이
+ * 아니면 없는 것과 같다 — 계약: docs/API.md
+ */
 export function findPointType(pointTypeId: PointTypeId, userId: UserId): PointType | undefined {
   const pointType = state.pointTypes.get(pointTypeId)
-  return pointType && viewOf(pointType, userId)
+  return pointType && reachable(pointType, userId) ? viewOf(pointType, userId) : undefined
+}
+
+/** 비공개 은행은 초대 없이 닿을 수 없다. 존재를 감추는 것이 비공개의 뜻이다 */
+function reachable(pointType: SeedPoint, userId: UserId): boolean {
+  return pointType.visibility === 'public' || isMember(pointType.id, userId)
+}
+
+export function isMember(pointTypeId: PointTypeId, userId: UserId): boolean {
+  return state.members.get(pointTypeId)?.has(userId) ?? false
+}
+
+/**
+ * 이 포인트를 지금 쓸 수 있는가. 나간 사람·내보내진 사람의 잔액은 그대로 남지만
+ * 쓸 수 없다 — 잔액을 지우거나 옮기지 않는다. 계약: docs/API.md
+ */
+function usable(pointType: SeedPoint, userId: UserId): boolean {
+  return pointType.visibility === 'public' || isMember(pointType.id, userId)
 }
 
 export function balanceOf(pointTypeId: PointTypeId, userId: UserId): Points {
@@ -239,7 +307,8 @@ export function balancesOf(userId: UserId) {
       return {
         pointType: viewOf(pointType, userId),
         amount,
-        sendable: amount,
+        // 쓸 수 없는 잔액은 보낼 수 있는 양이 0 이다. 규칙 판정을 화면이 다시 하지 않게.
+        sendable: usable(pointType, userId) ? amount : 0,
         neverSpent: !state.spent.has(balanceKey(pointType.id, userId)),
       }
     })
@@ -360,6 +429,8 @@ export function createPointType(meId: UserId, input: CreatePointTypeInput): Poin
   }
   state.pointTypes.set(created.id, created)
   state.createdByKey.set(input.idempotencyKey, created.id)
+  // 은행장은 언제나 회원이다. 아니면 자기가 만든 은행에 닿을 수 없다.
+  if (created.visibility === 'private') state.members.set(created.id, new Set([meId]))
   return viewOf(created, meId)
 }
 
@@ -409,7 +480,11 @@ export interface CommitInput {
 /** 검증과 반영이 한 순간에 일어난다. 중간 상태가 없다. */
 export function commitTransfer(meId: UserId, input: CommitInput): Transfer {
   const pointType = requirePointType(input.pointTypeId)
+  // 나에게 닿지 않는 은행은 없는 은행이다. 그 은행이 존재한다고 알려 주지 않는다.
+  if (!usable(pointType, meId)) throw new LedgerError('POINT_TYPE_NOT_FOUND')
   const recipient = requireRecipient(input.toId)
+  // 비공개 은행에서 회원이 아닌 사람은 없는 사람과 구별되지 않아야 한다.
+  if (!usable(pointType, recipient.id)) throw new LedgerError('RECIPIENT_NOT_FOUND')
 
   if (input.amount > balanceOf(pointType.id, meId)) {
     throw new LedgerError('INSUFFICIENT_BALANCE')

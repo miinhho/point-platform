@@ -517,6 +517,73 @@ describe('은행 페이지', () => {
   })
 })
 
+/**
+ * 비공개 은행은 초대 없이 닿을 수 없다. 403 으로 답하면 「그 은행은 존재한다」를
+ * 알려 주는 셈이고, 존재를 감추는 것이 비공개의 뜻이다. 계약: docs/API.md
+ */
+describe('비공개 은행은 회원이 아니면 없는 것과 같다', () => {
+  /** `@jisu` 는 시드의 어느 비공개 은행에도 없다 */
+  const asOutsider = async () => {
+    const session = await endpoints.login({ handle: '@jisu', password: 'point' })
+    setTokens(session)
+  }
+
+  it('회원에게는 보인다', async () => {
+    expect(await endpoints.pointType('pt_cl')).toMatchObject({ visibility: 'private' })
+  })
+
+  it('회원이 아니면 403 이 아니라 404 다', async () => {
+    await asOutsider()
+    await expect(endpoints.pointType('pt_cl')).rejects.toMatchObject({
+      code: 'POINT_TYPE_NOT_FOUND',
+      status: 404,
+    })
+  })
+
+  it('목록에도 담기지 않는다', async () => {
+    await asOutsider()
+    const types = await endpoints.pointTypes()
+    expect(types.map((type) => type.id)).not.toContain('pt_cl')
+    // 공개 은행은 그대로 온다.
+    expect(types.map((type) => type.id)).toContain('pt_on')
+  })
+
+  it('만든 사람은 자기 비공개 은행에 닿는다', async () => {
+    const created = await endpoints.createPointType(
+      { name: '모임', symbol: 'MT', accent: 'teal', issueCap: 1_000, visibility: 'private' },
+      key(),
+    )
+    expect(await endpoints.pointType(created.id)).toMatchObject({ id: created.id })
+  })
+})
+
+/**
+ * 나가기·내보내기는 포인트를 회수하지 않는다. 잔액은 그대로 남고 쓸 수 없다 —
+ * 계약: docs/API.md. 지금은 시드가 그 상태를 갖고, 나가기는 뒤에 온다.
+ */
+describe('쓸 수 없는 잔액', () => {
+  it('회원이 아닌 은행의 잔액은 보낼 수 있는 양이 0 이다', async () => {
+    // `@jisu` 는 금머니만 가졌다. 회원이 아닌 비공개 은행에 잔액을 심는다.
+    const wallet = await endpoints.wallet()
+    const held = wallet.balances.find((b) => b.pointType.id === 'pt_hd')
+    expect(held).toMatchObject({ amount: 25_000, sendable: 25_000 })
+  })
+
+  it('회원이 아닌 사람에게는 보낼 수 없다 — 새 코드를 만들지 않는다', async () => {
+    await expect(
+      endpoints.createTransfer({ pointTypeId: 'pt_cl', toId: 'u_taeyun', amount: 1_000 }, key()),
+    ).rejects.toMatchObject({ code: 'RECIPIENT_NOT_FOUND', status: 404 })
+  })
+
+  it('회원끼리는 보낼 수 있다', async () => {
+    const sent = await endpoints.createTransfer(
+      { pointTypeId: 'pt_cl', toId: 'u_jisoo', amount: 1_000 },
+      key(),
+    )
+    expect(sent).toMatchObject({ pointTypeId: 'pt_cl', amount: 1_000 })
+  })
+})
+
 /** 「봤어요」 버튼을 두지 않는다. 표시를 지우는 것은 실제로 쓴 일뿐이다 — 여정 10 */
 describe('아직 쓰지 않은 포인트', () => {
   const heldOf = async (pointTypeId: string) =>

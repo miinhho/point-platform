@@ -11,7 +11,7 @@ beforeEach(async () => {
 })
 
 /** 확인 방법: docs/JOURNEY.md 여정 1 */
-const SYMBOL = /^(ON|SL|GM|OP|ZZ)$/
+const SYMBOL = /^(ON|SL|GM|OP|CL|HD|ZZ)$/
 
 /** 카드와 그 옆의 진입점은 이름이 겹친다 — 카드는 `aria-label` 이 없는 쪽이다 */
 function cardOf(name: string): HTMLElement {
@@ -52,8 +52,9 @@ const point = (id: string, name: string, symbol: string, issuerName: string, acc
 describe('홈', () => {
   it('잔액이 많은 포인트가 먼저 오고 이름이 겹치는 것은 나란히 온다', async () => {
     renderApp(<Home />)
-    // 온포인트 324만 · 온포인트(솔카페) 1만2천 · 금머니 62만 · 솔포인트 8만7천
-    expect(await symbolOrder()).toEqual(['ON', 'OP', 'GM', 'SL'])
+    // 온포인트 324만 · 금머니 62만 · 솔포인트 8만7천 · 동아리회비 5만 · 한동네 2만5천 ·
+    // 온포인트(솔카페) 1만2천. 겹치는 이름은 잔액을 건너뛰고 나란히 온다.
+    expect(await symbolOrder()).toEqual(['ON', 'OP', 'GM', 'SL', 'CL', 'HD'])
   })
 
   it('잔액 0 은 뒤로 간다', async () => {
@@ -123,6 +124,29 @@ describe('홈', () => {
   })
 
   /*
+   * 나간 은행의 잔액은 지우지도 옮기지도 않고 그대로 남는다. 조용히 두면 사용자는
+   * 보낼 수 있다고 믿는다. 계약: docs/API.md 「회원 자격」
+   */
+  it('쓸 수 없는 잔액은 그렇게 말하고 누를 수 없다', async () => {
+    server.use(
+      walletOf([
+        {
+          pointType: point('pt_hd', '한동네', 'HD', '솔카페', 'orange'),
+          amount: 25_000,
+          sendable: 0,
+        },
+      ]),
+    )
+    renderApp(<Home />)
+    await screen.findByText('한동네')
+
+    expect(screen.getByText('지금은 보낼 수 없어요')).toBeTruthy()
+    // 잔액은 그대로 보인다 — 사라진 것이 아니라 쓸 수 없는 것이다.
+    expect(screen.getByText('25,000')).toBeTruthy()
+    expect(cardOf('한동네')).toBeUndefined()
+  })
+
+  /*
    * 「봤어요」 버튼을 두지 않는다 — 눌러서 지우는 표시는 읽지 않고 눌린다.
    * 표시가 남아 있는 것은 거짓이 아니라 아직 판단하지 않았다는 뜻이다. 여정 10
    */
@@ -156,8 +180,8 @@ describe('홈', () => {
   it('발행자가 아닌 포인트에도 은행 페이지 진입점이 붙는다', async () => {
     renderApp(<Home />)
     await screen.findByText('금머니')
-    // 시드의 네 카드 전부.
-    expect(screen.getAllByRole('button', { name: /자세히$/ })).toHaveLength(4)
+    // 시드의 여섯 카드 전부.
+    expect(screen.getAllByRole('button', { name: /자세히$/ })).toHaveLength(6)
   })
 
   // 카드는 이체로 가는 버튼이다. 이름에 다른 행동이 섞이면 스크린리더가 거짓을 읽는다.

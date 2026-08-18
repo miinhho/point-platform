@@ -137,6 +137,8 @@ export const ko = {
     /** 발행 권한이 있는 포인트에만 붙는다 */
     issuerBadge: '내가 발행',
     zeroBalance: '보낼 잔액이 없어요',
+    /** 나간 은행의 잔액. 지우지도 옮기지도 않고 쓸 수 없는 채로 남는다 — 계약: docs/API.md */
+    locked: '지금은 보낼 수 없어요',
     /** 발행할 수 있는 사람에게는 다음 할 일이 기다리기가 아니라 발행이다 */
     zeroBalanceIssuer: '발행해서 채울 수 있어요',
     /** 표시를 지우는 것은 실제로 그 포인트를 쓴 일뿐이다 — 여정 10 */
@@ -233,6 +235,12 @@ export const ko = {
     },
     POINT_TYPE_NOT_FOUND: {
       title: '이 포인트를 찾을 수 없어요',
+      whereTransfer: '아무것도 나가지 않았어요',
+      whereIssue: '발행되지 않았어요',
+    },
+    /** 은행 화면 안에서 그 자리에 뜬다. where 는 키 구조를 맞추려고 둔다 */
+    ISSUER_CANNOT_LEAVE: {
+      title: '은행장은 나갈 수 없어요',
       whereTransfer: '아무것도 나가지 않았어요',
       whereIssue: '발행되지 않았어요',
     },

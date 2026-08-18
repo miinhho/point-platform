@@ -79,6 +79,8 @@ export const FAILURE_CODES = [
   'INSUFFICIENT_BALANCE',
   'CAP_EXCEEDED',
   'NOT_ISSUER',
+  /** 은행장은 나가거나 내보내질 수 없다. 발행할 사람이 없는 은행이 된다 */
+  'ISSUER_CANNOT_LEAVE',
   'RECIPIENT_NOT_FOUND',
   'POINT_TYPE_NOT_FOUND',
   /** 그 기호를 이미 쓰는 포인트가 있다 */

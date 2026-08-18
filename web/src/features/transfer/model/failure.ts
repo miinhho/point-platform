@@ -27,6 +27,10 @@ export function handleFailure(code: FailureCode, kind: TransferKind): FailureHan
       // 사용자가 화면에서 풀 수 없다.
       return { retryable: false, editable: false, repickable: false, aboutSupply }
 
+    case 'ISSUER_CANNOT_LEAVE':
+      // 은행 화면 안에서 뜬다. 이체 실패 화면으로는 오지 않는다.
+      return { retryable: false, editable: false, repickable: false, aboutSupply }
+
     case 'RECIPIENT_NOT_FOUND':
       return { retryable: false, editable: false, repickable: true, aboutSupply }
 
