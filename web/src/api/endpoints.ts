@@ -78,8 +78,12 @@ export const endpoints = {
   pointType: (pointTypeId: PointTypeId, options?: RequestOptions) =>
     request<PointType>(`/point-types/${pointTypeId}`, options),
 
-  users: (query?: string, options?: RequestOptions) =>
-    request<User[]>('/users', { ...options, query: { q: query || undefined } }),
+  /** 비공개 은행이면 회원만 온다 — 계약: docs/API.md 「회원 자격」 */
+  users: (query?: string, pointTypeId?: PointTypeId, options?: RequestOptions) =>
+    request<User[]>('/users', {
+      ...options,
+      query: { q: query || undefined, pointTypeId },
+    }),
 
   /** 포인트마다 다르다. */
   recent: (pointTypeId: PointTypeId, limit?: number, options?: RequestOptions) =>

@@ -199,3 +199,30 @@ describe('여정 4 — 금액', () => {
     expect(screen.getByRole('button', { name: '보내기 확인' })).toHaveProperty('disabled', true)
   })
 })
+
+/*
+ * 비공개 은행에서 회원이 아닌 사람은 없는 사람과 구별되지 않아야 한다. 목록에서
+ * 빼는 것이 「회원이 아니에요」라고 말하는 것보다 낫다 — 계약: docs/API.md
+ */
+describe('비공개 은행에서는 회원만 고를 수 있다', () => {
+  it('회원이 아닌 사람은 목록에 없다', async () => {
+    const user = userEvent.setup()
+    renderApp(<App />)
+    await user.click(await screen.findByRole('button', { name: /동아리회비.*50,000/ }))
+    await screen.findByText('누구에게 보낼까요?')
+
+    // `pt_cl` 의 회원은 나와 `@jisoo` 뿐이다.
+    expect(await screen.findByText('@jisoo')).toBeTruthy()
+    expect(screen.queryByText('@taeyun')).toBeNull()
+    expect(screen.queryByText('@seoyeon')).toBeNull()
+  })
+
+  it('공개 은행에서는 좁히지 않는다', async () => {
+    const user = userEvent.setup()
+    renderApp(<App />)
+    await user.click(await screen.findByRole('button', { name: /금머니.*620,000/ }))
+    await screen.findByText('누구에게 보낼까요?')
+
+    expect(await screen.findByText('@taeyun')).toBeTruthy()
+  })
+})

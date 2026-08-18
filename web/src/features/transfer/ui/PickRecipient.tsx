@@ -19,7 +19,8 @@ export function PickRecipient({ onBack }: { onBack: () => void }) {
   const [query, setQuery] = useState('')
 
   const searching = query.trim().length > 0
-  const users = useQuery(usersQuery(query.trim()))
+  // 비공개 은행이면 회원만 온다. 목록에 없는 사람에게는 보낼 수도 없다.
+  const users = useQuery(usersQuery(query.trim(), draft?.pointType.id))
   const recent = useQuery({ ...recentQuery(draft?.pointType.id ?? ''), enabled: !!draft })
 
   const list = searching

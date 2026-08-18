@@ -575,6 +575,22 @@ describe('쓸 수 없는 잔액', () => {
     ).rejects.toMatchObject({ code: 'RECIPIENT_NOT_FOUND', status: 404 })
   })
 
+  it('받는 사람 목록이 회원으로 좁아진다', async () => {
+    // `pt_cl` 의 회원은 나와 `@jisoo` 뿐이다. 요청자는 결과에서 빠진다.
+    const members = await endpoints.users(undefined, 'pt_cl')
+    expect(members.map((user) => user.handle)).toEqual(['@jisoo'])
+
+    // 공개 은행이면 좁히지 않는다.
+    const everyone = await endpoints.users(undefined, 'pt_on')
+    expect(everyone.length).toBeGreaterThan(1)
+  })
+
+  it('검색해도 회원 밖으로 나가지 않는다', async () => {
+    // `@taeyun` 은 원장에 있지만 `pt_cl` 의 회원이 아니다.
+    expect((await endpoints.users('태윤')).map((u) => u.handle)).toContain('@taeyun')
+    expect(await endpoints.users('태윤', 'pt_cl')).toEqual([])
+  })
+
   it('회원끼리는 보낼 수 있다', async () => {
     const sent = await endpoints.createTransfer(
       { pointTypeId: 'pt_cl', toId: 'u_jisoo', amount: 1_000 },

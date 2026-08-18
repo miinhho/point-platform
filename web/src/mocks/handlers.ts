@@ -236,9 +236,10 @@ export const handlers = [
 
   http.get(
     '*/api/users',
-    authed((userId, request) =>
-      ledger.searchUsers(new URL(request.url).searchParams.get('q'), userId),
-    ),
+    authed((userId, request) => {
+      const params = new URL(request.url).searchParams
+      return ledger.searchUsers(params.get('q'), userId, params.get('pointTypeId'))
+    }),
   ),
 
   http.get(

@@ -10,7 +10,8 @@ import { endpoints, type CreateTransferInput } from './endpoints'
 export const queryKeys = {
   me: ['me'] as const,
   wallet: ['wallet'] as const,
-  users: (query: string) => ['users', query] as const,
+  users: (query: string, pointTypeId: PointTypeId | undefined) =>
+    ['users', query, pointTypeId ?? null] as const,
   recent: (pointTypeId: PointTypeId) => ['recent', pointTypeId] as const,
   pointType: (pointTypeId: PointTypeId) => ['pointType', pointTypeId] as const,
   history: ['history'] as const,
@@ -33,10 +34,11 @@ export const meQuery = () =>
 export const walletQuery = () =>
   queryOptions({ queryKey: queryKeys.wallet, queryFn: () => endpoints.wallet() })
 
-export const usersQuery = (query: string) =>
+/** 보낼 포인트가 정해져 있으면 그 은행에서 받을 수 있는 사람만 온다 */
+export const usersQuery = (query: string, pointTypeId?: PointTypeId) =>
   queryOptions({
-    queryKey: queryKeys.users(query),
-    queryFn: () => endpoints.users(query),
+    queryKey: queryKeys.users(query, pointTypeId),
+    queryFn: () => endpoints.users(query, pointTypeId),
     // 글자를 칠 때마다 목록이 비었다가 차면 찾던 사람이 사라진 것처럼 보인다.
     placeholderData: (previous) => previous,
   })

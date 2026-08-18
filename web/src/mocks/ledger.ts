@@ -325,9 +325,21 @@ export function viewOf(pointType: SeedPoint, userId: UserId): PointType {
   }
 }
 
-/** 결과에 동명이인을 함께 담는다. 겹침은 결과의 성질이 아니라 원장의 성질이다. */
-export function searchUsers(query: string | null, meId: UserId): User[] {
-  const others = allUsers().filter((user) => user.id !== meId)
+/**
+ * 결과에 동명이인을 함께 담는다. 겹침은 결과의 성질이 아니라 원장의 성질이다.
+ *
+ * `pointTypeId` 가 오면 그 포인트로 보낼 수 있는 사람만 담는다 — 비공개 은행이면
+ * 회원뿐이다. 애초에 안 뜨게 하는 것이 「회원이 아니에요」라고 말하는 것보다 낫다.
+ */
+export function searchUsers(
+  query: string | null,
+  meId: UserId,
+  pointTypeId: PointTypeId | null,
+): User[] {
+  const bank = pointTypeId ? state.pointTypes.get(pointTypeId) : undefined
+  const others = allUsers().filter(
+    (user) => user.id !== meId && (!bank || usable(bank, user.id)),
+  )
   if (!query?.trim()) return others
 
   const needle = query.trim().toLowerCase()
