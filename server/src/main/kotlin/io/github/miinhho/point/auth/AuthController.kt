@@ -1,8 +1,8 @@
 package io.github.miinhho.point.auth
 
-import io.github.miinhho.point.api.toResponse
-import io.github.miinhho.point.domain.user.UserRepository
-import io.github.miinhho.point.domain.user.normalizeHandle
+import io.github.miinhho.point.user.toResponse
+import io.github.miinhho.point.user.UserRepository
+import io.github.miinhho.point.user.normalizeHandle
 import org.springframework.http.ResponseEntity
 import org.springframework.security.authentication.BadCredentialsException
 import org.springframework.security.crypto.password.PasswordEncoder

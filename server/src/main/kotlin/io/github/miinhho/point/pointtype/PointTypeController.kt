@@ -1,0 +1,73 @@
+package io.github.miinhho.point.pointtype
+
+import io.github.miinhho.point.shared.DomainFailureException
+import io.github.miinhho.point.shared.FailureCode
+import org.springframework.dao.DataIntegrityViolationException
+import org.springframework.http.HttpStatus
+import org.springframework.http.ResponseEntity
+import org.springframework.security.core.annotation.AuthenticationPrincipal
+import org.springframework.web.bind.annotation.GetMapping
+import org.springframework.web.bind.annotation.PatchMapping
+import org.springframework.web.bind.annotation.PathVariable
+import org.springframework.web.bind.annotation.PostMapping
+import org.springframework.web.bind.annotation.RequestBody
+import org.springframework.web.bind.annotation.RequestHeader
+import org.springframework.web.bind.annotation.RequestMapping
+import org.springframework.web.bind.annotation.RestController
+
+// 삭제 엔드포인트를 만들지 않는다 — 누군가 한 번이라도 받은 포인트를 지우는 것은
+// 남의 지갑을 지우는 일이다 (docs/JOURNEY.md 여정 9).
+@RestController
+@RequestMapping("/api")
+class PointTypeController(
+    private val pointTypeQueryService: PointTypeQueryService,
+    private val pointTypeCreateService: PointTypeCreateService,
+    private val capChangeService: CapChangeService,
+) {
+    @GetMapping("/point-types")
+    fun pointTypes(@AuthenticationPrincipal userId: Long): List<PointTypeResponse> =
+        pointTypeQueryService.all(userId)
+
+    @PostMapping("/point-types")
+    fun createPointType(
+        @RequestHeader("Idempotency-Key", required = false) idempotencyKey: String?,
+        @RequestBody body: CreatePointTypeRequest,
+        @AuthenticationPrincipal userId: Long,
+    ): ResponseEntity<PointTypeResponse> {
+        val key = idempotencyKey?.takeIf { it.isNotBlank() }
+            ?: throw DomainFailureException(FailureCode.MALFORMED_REQUEST, "Idempotency-Key 없음")
+
+        // 이 조회는 최적화일 뿐 방어가 아니다. 동시에 온 둘은 여기서 둘 다 없다고 본다.
+        pointTypeCreateService.findByIdempotencyKey(key, userId)?.let { return ResponseEntity.ok(it) }
+
+        return try {
+            ResponseEntity.status(HttpStatus.CREATED).body(pointTypeCreateService.create(userId, key, body))
+        } catch (e: DataIntegrityViolationException) {
+            // 어느 제약이 깨졌는지는 키로 갈린다. 키가 이미 있으면 같은 사람이 다시 누른 것이고,
+            // 없으면 기호가 겹친 것이다 — 그때는 기존 것을 돌려주지 않는다.
+            pointTypeCreateService.findByIdempotencyKey(key, userId)?.let { return ResponseEntity.ok(it) }
+            throw DomainFailureException(FailureCode.SYMBOL_TAKEN, "이미 쓰이는 기호")
+        }
+    }
+
+    // 취소 엔드포인트는 없다. 낮추는 것은 다시 PATCH 지만 취소가 아니다 —
+    // 올려 둔 동안 발행된 것은 이미 남의 지갑에 있다.
+    @PatchMapping("/point-types/{id}/cap")
+    fun changeCap(
+        @PathVariable id: String,
+        @RequestHeader("Idempotency-Key", required = false) idempotencyKey: String?,
+        @RequestBody body: ChangeCapRequest,
+        @AuthenticationPrincipal userId: Long,
+    ): PointTypeResponse {
+        val key = idempotencyKey?.takeIf { it.isNotBlank() }
+            ?: throw DomainFailureException(FailureCode.MALFORMED_REQUEST, "Idempotency-Key 없음")
+
+        capChangeService.findByIdempotencyKey(key, userId)?.let { return it }
+        return try {
+            capChangeService.changeCap(userId, id, key, body.issueCap)
+        } catch (e: DataIntegrityViolationException) {
+            // 같은 키가 동시에 왔다 — 한 번만 바뀌고 둘 다 같은 결과를 본다.
+            capChangeService.findByIdempotencyKey(key, userId) ?: throw e
+        }
+    }
+}

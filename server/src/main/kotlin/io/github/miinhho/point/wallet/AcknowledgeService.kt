@@ -1,10 +1,8 @@
 package io.github.miinhho.point.wallet
 
-import io.github.miinhho.point.api.DomainFailureException
-import io.github.miinhho.point.api.FailureCode
-import io.github.miinhho.point.domain.balance.BalanceId
-import io.github.miinhho.point.domain.balance.BalanceRepository
-import io.github.miinhho.point.domain.pointtype.PointTypeRepository
+import io.github.miinhho.point.shared.DomainFailureException
+import io.github.miinhho.point.shared.FailureCode
+import io.github.miinhho.point.pointtype.PointTypeRepository
 import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional

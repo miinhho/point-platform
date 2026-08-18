@@ -1,13 +1,12 @@
 package io.github.miinhho.point.auth
 
 import io.github.miinhho.point.TestcontainersConfiguration
-import io.github.miinhho.point.api.FailureResponse
-import io.github.miinhho.point.domain.auth.RefreshTokenRepository
-import io.github.miinhho.point.domain.balance.BalanceRepository
-import io.github.miinhho.point.domain.pointtype.PointTypeRepository
-import io.github.miinhho.point.domain.transfer.TransferRepository
-import io.github.miinhho.point.domain.user.User
-import io.github.miinhho.point.domain.user.UserRepository
+import io.github.miinhho.point.shared.FailureResponse
+import io.github.miinhho.point.wallet.BalanceRepository
+import io.github.miinhho.point.pointtype.PointTypeRepository
+import io.github.miinhho.point.transfer.TransferRepository
+import io.github.miinhho.point.user.User
+import io.github.miinhho.point.user.UserRepository
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired

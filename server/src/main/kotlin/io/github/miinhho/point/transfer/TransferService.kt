@@ -1,16 +1,14 @@
 package io.github.miinhho.point.transfer
 
-import io.github.miinhho.point.api.DomainFailureException
-import io.github.miinhho.point.api.FailureCode
-import io.github.miinhho.point.domain.balance.Balance
-import io.github.miinhho.point.domain.balance.BalanceRepository
-import io.github.miinhho.point.domain.pointtype.PointType
-import io.github.miinhho.point.domain.pointtype.PointTypeRepository
-import io.github.miinhho.point.domain.transfer.Transfer
-import io.github.miinhho.point.domain.transfer.TransferKind
-import io.github.miinhho.point.domain.transfer.TransferRepository
-import io.github.miinhho.point.domain.user.User
-import io.github.miinhho.point.domain.user.UserRepository
+import io.github.miinhho.point.wallet.BalanceInitializer
+import io.github.miinhho.point.shared.DomainFailureException
+import io.github.miinhho.point.shared.FailureCode
+import io.github.miinhho.point.wallet.Balance
+import io.github.miinhho.point.wallet.BalanceRepository
+import io.github.miinhho.point.pointtype.PointType
+import io.github.miinhho.point.pointtype.PointTypeRepository
+import io.github.miinhho.point.user.User
+import io.github.miinhho.point.user.UserRepository
 import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service

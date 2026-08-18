@@ -1,8 +1,6 @@
 package io.github.miinhho.point.auth
 
-import io.github.miinhho.point.domain.auth.RefreshToken
-import io.github.miinhho.point.domain.auth.RefreshTokenRepository
-import io.github.miinhho.point.domain.user.User
+import io.github.miinhho.point.user.User
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.security.MessageDigest

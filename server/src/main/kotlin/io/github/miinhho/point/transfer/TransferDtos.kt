@@ -1,6 +1,5 @@
 package io.github.miinhho.point.transfer
 
-import io.github.miinhho.point.domain.transfer.Transfer
 import java.math.BigDecimal
 import java.time.Instant
 

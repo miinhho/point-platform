@@ -1,9 +1,8 @@
 package io.github.miinhho.point.transfer
 
-import io.github.miinhho.point.api.DomainFailureException
-import io.github.miinhho.point.api.FailureCode
-import io.github.miinhho.point.domain.pointtype.PointTypeRepository
-import io.github.miinhho.point.domain.transfer.TransferRepository
+import io.github.miinhho.point.shared.DomainFailureException
+import io.github.miinhho.point.shared.FailureCode
+import io.github.miinhho.point.pointtype.PointTypeRepository
 import org.springframework.dao.DataIntegrityViolationException
 import tools.jackson.databind.JsonNode
 import tools.jackson.databind.ObjectMapper

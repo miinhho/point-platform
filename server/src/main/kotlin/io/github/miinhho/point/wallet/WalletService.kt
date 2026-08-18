@@ -1,9 +1,10 @@
 package io.github.miinhho.point.wallet
 
-import io.github.miinhho.point.api.toResponse
-import io.github.miinhho.point.domain.balance.BalanceRepository
-import io.github.miinhho.point.domain.pointtype.PointTypeRepository
-import io.github.miinhho.point.domain.user.UserRepository
+import io.github.miinhho.point.pointtype.PointTypeResponse
+import io.github.miinhho.point.pointtype.toResponse
+import io.github.miinhho.point.user.toResponse
+import io.github.miinhho.point.pointtype.PointTypeRepository
+import io.github.miinhho.point.user.UserRepository
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
@@ -37,12 +38,6 @@ class WalletService(
             )
         }
         return WalletResponse(user.toResponse(userRepository.sharedNames()), balances)
-    }
-
-    @Transactional(readOnly = true)
-    fun pointTypes(userId: Long): List<PointTypeResponse> {
-        val sharedPointNames = pointTypeRepository.sharedNames()
-        return pointTypeRepository.findAll().map { it.toResponse(userId, sharedPointNames) }
     }
 
     private fun requireUser(userId: Long) =

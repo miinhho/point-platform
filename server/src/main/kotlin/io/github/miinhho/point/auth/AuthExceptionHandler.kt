@@ -1,7 +1,7 @@
 package io.github.miinhho.point.auth
 
-import io.github.miinhho.point.api.FailureCode
-import io.github.miinhho.point.api.FailureResponse
+import io.github.miinhho.point.shared.FailureCode
+import io.github.miinhho.point.shared.FailureResponse
 import org.springframework.http.ResponseEntity
 import org.springframework.security.authentication.BadCredentialsException
 import org.springframework.web.bind.annotation.ExceptionHandler

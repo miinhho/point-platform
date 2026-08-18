@@ -1,10 +1,10 @@
 package io.github.miinhho.point.history
 
-import io.github.miinhho.point.domain.balance.BalanceRepository
-import io.github.miinhho.point.domain.pointtype.CapChange
-import io.github.miinhho.point.domain.pointtype.CapChangeRepository
-import io.github.miinhho.point.domain.pointtype.PointTypeRepository
-import io.github.miinhho.point.domain.transfer.TransferRepository
+import io.github.miinhho.point.wallet.BalanceRepository
+import io.github.miinhho.point.pointtype.CapChange
+import io.github.miinhho.point.pointtype.CapChangeRepository
+import io.github.miinhho.point.pointtype.PointTypeRepository
+import io.github.miinhho.point.transfer.TransferRepository
 import io.github.miinhho.point.transfer.toResponse
 import org.springframework.data.domain.Limit
 import org.springframework.stereotype.Service

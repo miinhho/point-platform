@@ -1,7 +1,7 @@
 package io.github.miinhho.point.auth
 
-import io.github.miinhho.point.api.UserResponse
-import io.github.miinhho.point.api.toResponse
+import io.github.miinhho.point.user.UserResponse
+import io.github.miinhho.point.user.toResponse
 
 data class LoginRequest(val handle: String, val password: String)
 data class RefreshRequest(val refreshToken: String)
