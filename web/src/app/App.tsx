@@ -24,7 +24,7 @@ import { useSubmit } from '@/features/transfer'
 import { Home } from '@/features/wallet'
 import { ScreenTransition } from '@/shared/ui/ScreenTransition'
 import { TabBar } from './TabBar'
-import { currentScreenAtom, navAtom } from './atoms'
+import { currentScreenAtom, navAtom, resetNavAtom } from './atoms'
 import { depthOf } from './depth'
 import { useAppBack } from './useAppBack'
 
@@ -40,6 +40,7 @@ export default function App() {
   const endFlow = useSetAtom(endFlowAtom)
   const editAmount = useSetAtom(editAmountAtom)
   const startTransfer = useSetAtom(startTransferAtom)
+  const resetNav = useSetAtom(resetNavAtom)
   const { submit, check, busy } = useSubmit()
   const back = useAppBack(busy)
 
@@ -49,6 +50,13 @@ export default function App() {
     () => setUnauthenticatedHandler(() => client.setQueryData(queryKeys.me, null)),
     [client],
   )
+
+  // 사람이 바뀌면 앞사람의 화면을 물려주지 않는다. 탭은 셸이, 초안은 transfer 가 갖는다.
+  const userId = session.data?.id ?? null
+  useEffect(() => {
+    resetNav()
+    endFlow()
+  }, [userId, resetNav, endFlow])
 
   // 첫 판정 전에는 아무것도 그리지 않는다. 로그인 화면을 깜빡이게 두지 않는다.
   if (session.isPending) return null

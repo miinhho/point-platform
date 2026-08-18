@@ -97,4 +97,21 @@ describe('로그아웃', () => {
     expect(await screen.findByRole('button', { name: '들어가기' })).toBeTruthy()
     expect(screen.queryByText('3,240,000')).toBeNull()
   })
+
+  it('다음 사람은 앞사람이 보던 탭이 아니라 홈에서 시작한다', async () => {
+    const user = userEvent.setup()
+    await signInAs()
+    renderApp(<App />)
+    await screen.findByText('내 포인트')
+
+    await user.click(screen.getByRole('button', { name: '설정' }))
+    await user.click(await screen.findByRole('button', { name: '로그아웃' }))
+
+    await user.type(await screen.findByLabelText('핸들'), '@jisoo')
+    await user.type(screen.getByLabelText('암호'), 'point')
+    await user.click(screen.getByRole('button', { name: '들어가기' }))
+
+    expect(await screen.findByText('내 포인트')).toBeTruthy()
+    expect(screen.queryByText('내 계정')).toBeNull()
+  })
 })

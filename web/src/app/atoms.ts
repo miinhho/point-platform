@@ -28,6 +28,11 @@ export const selectTabAtom = atom(null, (get, set, tab: TabName) => {
   set(navAtom, selectTab(get(navAtom), tab))
 })
 
+/** 사람이 바뀌면 화면도 처음으로. 앞사람이 보던 탭에서 시작할 이유가 없다 */
+export const resetNavAtom = atom(null, (_get, set) => {
+  set(navAtom, initialNav)
+})
+
 /** 플로우를 끝내고 탭 뿌리로 */
 export const leaveFlowAtom = atom(null, (get, set) => {
   set(navAtom, resetToRoot(get(navAtom)))
