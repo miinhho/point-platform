@@ -21,6 +21,8 @@ export interface PointType {
   /** 좁은 자리에서 이름 대신 쓴다. */
   symbol: string
   issuerId: UserId
+  /** 이름이 겹치는 포인트를 가르는 부제. 화면이 사용자 목록을 뒤지지 않게 서버가 준다. */
+  issuerName: string
   /** 발행자가 정한 색. 화면이 배정하면 순서가 바뀔 때 표식 노릇을 못 한다. */
   accent: PointAccent
   totalIssued: Points

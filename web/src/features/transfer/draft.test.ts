@@ -17,6 +17,7 @@ const ON: PointType = {
   name: '온포인트',
   symbol: 'ON',
   issuerId: 'u_onmart',
+  issuerName: '온마트',
   accent: 'blue',
   totalIssued: 50_000_000,
   issueCap: 100_000_000,
