@@ -1,4 +1,4 @@
-
+// 발행이 기존 보유자에게 무엇을 하는지 — docs/JOURNEY.md 여정 7
 // 작은 것과 없는 것은 다르다. 반올림으로 0% 를 만들지 않는다.
 export function formatRate(rate: number): string {
   if (rate === 0) return '0%'

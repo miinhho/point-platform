@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatRate, inflationRate } from './ledger'
+import { formatRate, inflationRate } from './inflation'
 
 describe('formatRate', () => {
   it('0 은 0 이다', () => {

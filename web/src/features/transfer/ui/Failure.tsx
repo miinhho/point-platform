@@ -1,11 +1,12 @@
 import { Box, Button, Text } from '@chakra-ui/react'
 import { useAtomValue } from 'jotai'
 import { useTranslation } from 'react-i18next'
-import { failureTitleKey, failureWhereKey, handleFailure } from '@/domain/failures'
+import { failureTitleKey, failureWhereKey } from '@/shared/i18n/keys'
 import { toGrouped } from '@/domain/points'
 import { IssueBanner } from '@/shared/ui/IssueBanner'
 import { Body, Gutter, Header, Screen, Title } from '@/shared/ui/Screen'
 import { draftAtom, failureAtom } from '../model/atoms'
+import { handleFailure } from '../model/failure'
 import { amountOf } from '../model/draft'
 
 interface Props {

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { failureTitleKey, failureWhereKey, handleFailure } from './failures'
-import type { FailureCode } from './types'
+import { handleFailure } from './failure'
+import { failureTitleKey, failureWhereKey } from '@/shared/i18n/keys'
+import type { FailureCode } from '@/domain/types'
 
 const ALL: FailureCode[] = [
   'INSUFFICIENT_BALANCE',

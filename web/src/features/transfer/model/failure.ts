@@ -1,6 +1,6 @@
-import type { FailureCode, TransferKind } from './types'
+import type { FailureCode, TransferKind } from '@/domain/types'
 
-// 근거: docs/JOURNEY.md 여정 6. 문구는 shared/i18n/ko.ts 가 갖는다.
+// 실패에서 사용자가 무엇을 할 수 있는가 — docs/JOURNEY.md 여정 6
 export interface FailureHandling {
   /** 서버가 받았는지 알 수 없는가. 화면이 단정하면 안 되는 경우다. */
   outcomeUnknown: boolean
@@ -44,17 +44,4 @@ export function handleFailure(code: FailureCode, kind: TransferKind): FailureHan
     case 'UNAUTHENTICATED':
       return { outcomeUnknown: false, retryable: false, editable: false, repickable: false, aboutSupply }
   }
-}
-
-/** 문자열 카탈로그 키. 화면이 문구를 조립하지 않게 한다. */
-export function failureTitleKey(code: FailureCode): `failure.${FailureCode}.title` {
-  return `failure.${code}.title`
-}
-
-/** 돈의 위치를 말하는 문구. 이체와 발행이 다르다 */
-export function failureWhereKey(
-  code: FailureCode,
-  kind: TransferKind,
-): `failure.${FailureCode}.whereTransfer` | `failure.${FailureCode}.whereIssue` {
-  return kind === 'issue' ? `failure.${code}.whereIssue` : `failure.${code}.whereTransfer`
 }

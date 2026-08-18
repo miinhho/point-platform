@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { endpoints, type Session } from '@/api/endpoints'
 import { ApiError } from '@/api/http'
-import { failureTitleKey } from '@/domain/failures'
+import { failureTitleKey } from '@/shared/i18n/keys'
 import { Body, Gutter, Screen } from '@/shared/ui/Screen'
 import { useSession } from '../model/session'
 
