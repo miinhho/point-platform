@@ -44,6 +44,3 @@ export const backAtom = atom(null, (get, set, locked: boolean): BackResolution['
   if (resolution.kind === 'handled') set(navAtom, resolution.next)
   return resolution.kind
 })
-
-/** 개발자 패널. 실서버로 바꾸면 사라진다 */
-export const devPanelOpenAtom = atom(false)
