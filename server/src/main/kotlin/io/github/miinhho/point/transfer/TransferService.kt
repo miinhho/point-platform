@@ -37,6 +37,10 @@ class TransferService(
         val pointType = requirePointType(pointTypeId, meId)
         val recipient = requireRecipient(toId)
         if (recipient.id == meId) throw malformed("자기 자신에게는 보낼 수 없음")
+        // 비공개 은행에서 회원이 아닌 사람은 없는 사람과 구별되지 않아야 한다 — 새 코드를 두지 않는다.
+        if (!bankAccess.isMember(pointType, recipient.id!!)) {
+            throw DomainFailureException(FailureCode.RECIPIENT_NOT_FOUND, "대상 없음")
+        }
 
         val sender = userRepository.getReferenceById(meId)
         val recipientId = recipient.id!!

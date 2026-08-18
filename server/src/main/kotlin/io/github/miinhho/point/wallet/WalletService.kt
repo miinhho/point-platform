@@ -1,7 +1,9 @@
 package io.github.miinhho.point.wallet
 
+import io.github.miinhho.point.pointtype.MembershipRepository
 import io.github.miinhho.point.pointtype.PointTypeRepository
 import io.github.miinhho.point.pointtype.PointTypeResponses
+import io.github.miinhho.point.pointtype.PointVisibility
 import io.github.miinhho.point.user.UserRepository
 import io.github.miinhho.point.user.toResponse
 import org.springframework.stereotype.Service
@@ -13,6 +15,7 @@ class WalletService(
     private val pointTypeRepository: PointTypeRepository,
     private val balanceRepository: BalanceRepository,
     private val pointTypeResponses: PointTypeResponses,
+    private val membershipRepository: MembershipRepository,
 ) {
     @Transactional(readOnly = true)
     fun me(userId: Long) = requireUser(userId).toResponse(userRepository.sharedNames())
@@ -27,9 +30,12 @@ class WalletService(
         }
         // id 로 맞춘다 — 순서로 맞추면 응답 조립이 하나를 거르는 날 잔액 카드가 조용히 사라진다.
         val responses = pointTypeResponses.of(held, userId).associateBy { it.id }
+        val myMemberships = membershipRepository.pointTypeIdsOf(userId)
         val balances = held.map { pointType ->
             val amount = amountByType[pointType.id] ?: 0
-            BalanceResponse(responses.getValue(pointType.publicId.toString()), amount, sendable = amount)
+            // 나온 사람의 잔액은 남지만 쓸 수 없다 — 화면이 묻기 전에 답이 실려 있어야 한다.
+            val locked = pointType.visibility == PointVisibility.PRIVATE && pointType.id !in myMemberships
+            BalanceResponse(responses.getValue(pointType.publicId.toString()), amount, sendable = if (locked) 0 else amount)
         }
         return WalletResponse(user.toResponse(userRepository.sharedNames()), balances)
     }

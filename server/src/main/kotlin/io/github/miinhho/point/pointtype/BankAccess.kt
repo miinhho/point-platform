@@ -20,6 +20,11 @@ class BankAccess(
             pointType.issuer.id == viewerId ||
             pointType.id in reachablePrivateIds(viewerId)
 
+    /** 공개 은행에는 회원이 없다 — 누구나 주고받으므로 언제나 참이다. */
+    fun isMember(pointType: PointType, userId: Long): Boolean =
+        pointType.visibility == PointVisibility.PUBLIC ||
+            membershipRepository.existsById(MembershipId(pointType.id!!, userId))
+
     /** 목록용. 은행마다 부르면 N+1 이라 도달 가능한 집합을 한 번 모아서 넘긴다. */
     fun canReach(pointType: PointType, viewerId: Long, reachablePrivateIds: Set<Long>): Boolean =
         pointType.visibility == PointVisibility.PUBLIC ||

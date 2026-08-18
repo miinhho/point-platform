@@ -1,0 +1,173 @@
+package io.github.miinhho.point
+
+import io.github.miinhho.point.auth.LoginRequest
+import io.github.miinhho.point.auth.LoginResponse
+import io.github.miinhho.point.pointtype.Membership
+import io.github.miinhho.point.pointtype.MembershipRepository
+import io.github.miinhho.point.pointtype.PointAccent
+import io.github.miinhho.point.pointtype.PointType
+import io.github.miinhho.point.pointtype.PointTypeRepository
+import io.github.miinhho.point.pointtype.PointVisibility
+import io.github.miinhho.point.transfer.TransferRequest
+import io.github.miinhho.point.user.User
+import io.github.miinhho.point.user.UserRepository
+import io.github.miinhho.point.wallet.Balance
+import io.github.miinhho.point.wallet.BalanceRepository
+import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.Test
+import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.boot.resttestclient.TestRestTemplate
+import org.springframework.boot.resttestclient.autoconfigure.AutoConfigureTestRestTemplate
+import org.springframework.boot.test.context.SpringBootTest
+import org.springframework.context.annotation.Import
+import org.springframework.http.HttpEntity
+import org.springframework.http.HttpHeaders
+import org.springframework.http.HttpMethod
+import org.springframework.http.HttpStatus
+import org.springframework.http.ResponseEntity
+import org.springframework.security.crypto.password.PasswordEncoder
+import java.math.BigDecimal
+import java.util.UUID
+import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertNotNull
+import kotlin.test.assertTrue
+
+/**
+ * 계약: docs/API.md 「회원 자격」 — 비공개 은행에서 회원이 아닌 사람은 **없는 사람과
+ * 구별되지 않아야** 한다. 그래서 새 실패 코드를 두지 않고 `RECIPIENT_NOT_FOUND` 다.
+ */
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@AutoConfigureTestRestTemplate
+@Import(TestcontainersConfiguration::class)
+class PrivateBankMembersTest {
+    @Autowired lateinit var ledgerReset: LedgerReset
+    @Autowired lateinit var restTemplate: TestRestTemplate
+    @Autowired lateinit var userRepository: UserRepository
+    @Autowired lateinit var pointTypeRepository: PointTypeRepository
+    @Autowired lateinit var membershipRepository: MembershipRepository
+    @Autowired lateinit var balanceRepository: BalanceRepository
+    @Autowired lateinit var passwordEncoder: PasswordEncoder
+
+    lateinit var issuer: User
+    lateinit var member: User
+    lateinit var leftBehind: User
+    lateinit var outsider: User
+    lateinit var open: PointType
+    lateinit var closed: PointType
+
+    @BeforeEach
+    fun seed() {
+        ledgerReset.wipe()
+
+        issuer = save("@onmart", "온마트")
+        member = save("@jisoo", "김지수")
+        leftBehind = save("@nara", "이나라")
+        outsider = save("@mose", "김지수")
+
+        open = pointTypeRepository.save(point("온포인트", "ON", PointVisibility.PUBLIC))
+        closed = pointTypeRepository.save(point("동아리비", "CL", PointVisibility.PRIVATE))
+
+        listOf(issuer, member).forEach { membershipRepository.save(Membership(pointType = closed, user = it)) }
+        listOf(issuer, member, leftBehind).forEach {
+            balanceRepository.save(Balance(user = it, pointType = closed, amount = 100_000))
+        }
+        balanceRepository.save(Balance(user = issuer, pointType = open, amount = 100_000))
+    }
+
+    @Test
+    fun `받는 사람 목록이 회원으로 좁아진다`() {
+        val body = assertNotNull(get(issuer, "/api/users?pointTypeId=${closed.publicId}").body)
+        assertTrue(body.contains("@jisoo"), "회원은 담긴다: $body")
+        assertFalse(body.contains("@nara"), "나간 사람은 담기지 않는다: $body")
+        assertFalse(body.contains("@mose"), "회원이었던 적 없는 사람도 담기지 않는다: $body")
+    }
+
+    @Test
+    fun `공개 은행은 좁아지지 않는다`() {
+        val body = assertNotNull(get(issuer, "/api/users?pointTypeId=${open.publicId}").body)
+        listOf("@jisoo", "@nara", "@mose").forEach { assertTrue(body.contains(it), "$it 이 담겨야 한다: $body") }
+    }
+
+    @Test
+    fun `회원이 아닌 사람에게는 명부가 나가지 않는다`() {
+        // 나간 사람은 은행 페이지에는 닿지만 회원 명부는 못 본다.
+        assertEquals("[]", get(leftBehind, "/api/users?pointTypeId=${closed.publicId}").body)
+        assertEquals("[]", get(outsider, "/api/users?pointTypeId=${closed.publicId}").body)
+    }
+
+    @Test
+    fun `없는 포인트로 좁히면 빈 목록이다`() {
+        assertEquals("[]", get(issuer, "/api/users?pointTypeId=${UUID.randomUUID()}").body)
+        assertEquals("[]", get(issuer, "/api/users?pointTypeId=not-a-uuid").body)
+    }
+
+    @Test
+    fun `회원이 아닌 사람에게 보내면 없는 사람과 같은 404 다`() {
+        val toLeftBehind = send(issuer, closed, leftBehind)
+        assertEquals(HttpStatus.NOT_FOUND, toLeftBehind.statusCode, toLeftBehind.body)
+        assertTrue(assertNotNull(toLeftBehind.body).contains("\"code\":\"RECIPIENT_NOT_FOUND\""), toLeftBehind.body)
+
+        // 없는 사람에게 보낸 것과 응답이 같아야 한다 — 구별되면 회원 여부가 새어 나간다.
+        val toNobody = post(
+            issuer,
+            "/api/transfers",
+            TransferRequest(closed.publicId.toString(), UUID.randomUUID().toString(), BigDecimal(1_000)),
+        )
+        assertEquals(toNobody.statusCode, toLeftBehind.statusCode)
+        assertEquals(toNobody.body, toLeftBehind.body)
+    }
+
+    @Test
+    fun `회원끼리는 그대로 오간다`() {
+        val ok = send(issuer, closed, member)
+        assertEquals(HttpStatus.CREATED, ok.statusCode, ok.body)
+
+        val public = send(issuer, open, outsider)
+        assertEquals(HttpStatus.CREATED, public.statusCode, "공개 은행에는 회원 개념이 없다: ${public.body}")
+    }
+
+    @Test
+    fun `나온 사람의 잔액은 남지만 보낼 수 없다고 실려 온다`() {
+        val wallet = assertNotNull(get(leftBehind, "/api/wallet").body)
+        assertTrue(wallet.contains("\"amount\":100000,\"sendable\":0"), "쓸 수 없는 채로 남는다: $wallet")
+
+        val mine = assertNotNull(get(member, "/api/wallet").body)
+        assertTrue(mine.contains("\"amount\":100000,\"sendable\":100000"), "회원의 잔액은 그대로다: $mine")
+    }
+
+    private fun send(from: User, pointType: PointType, to: User) = post(
+        from,
+        "/api/transfers",
+        TransferRequest(pointType.publicId.toString(), publicId(to), BigDecimal(1_000)),
+    )
+
+    private fun get(who: User, path: String): ResponseEntity<String> =
+        restTemplate.exchange(path, HttpMethod.GET, HttpEntity<Void>(authOf(who)), String::class.java)
+
+    private fun post(who: User, path: String, body: Any): ResponseEntity<String> {
+        val headers = authOf(who).apply { set("Idempotency-Key", UUID.randomUUID().toString()) }
+        return restTemplate.exchange(path, HttpMethod.POST, HttpEntity(body, headers), String::class.java)
+    }
+
+    private fun authOf(who: User) = HttpHeaders().apply { setBearerAuth(token(who)) }
+
+    private fun token(who: User): String = assertNotNull(
+        restTemplate.postForEntity("/api/auth/login", LoginRequest(who.handle, "point"), LoginResponse::class.java).body,
+    ).accessToken
+
+    private fun publicId(who: User) = assertNotNull(userRepository.findById(who.id!!).orElse(null)).publicId.toString()
+
+    private fun save(handle: String, name: String) =
+        userRepository.save(User(name = name, handle = handle, passwordHash = passwordEncoder.encode("point")!!))
+
+    private fun point(name: String, symbol: String, visibility: PointVisibility) = PointType(
+        name = name,
+        symbol = symbol,
+        issuer = issuer,
+        accent = PointAccent.BLUE,
+        visibility = visibility,
+        issueCap = 1_000_000,
+        totalIssued = 0,
+    )
+}

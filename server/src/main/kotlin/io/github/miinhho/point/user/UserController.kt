@@ -12,11 +12,13 @@ import org.springframework.web.bind.annotation.RestController
 @RestController
 @RequestMapping("/api")
 class UserController(private val userQueryService: UserQueryService) {
+    // pointTypeId 가 오면 받는 사람 목록이 그 은행으로 좁혀진다 (docs/API.md 「회원 자격」).
     @GetMapping("/users")
     fun search(
         @RequestParam(required = false) q: String?,
+        @RequestParam(required = false) pointTypeId: String?,
         @AuthenticationPrincipal userId: Long,
-    ): List<UserResponse> = userQueryService.search(q, userId)
+    ): List<UserResponse> = userQueryService.search(q, pointTypeId, userId)
 
     @GetMapping("/recent")
     fun recent(
