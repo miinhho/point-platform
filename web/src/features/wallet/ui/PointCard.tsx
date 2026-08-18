@@ -24,6 +24,9 @@ export function PointCard({ balance, nameIsShared, issuerName, isMine, onOpen, o
   const { pointType, amount } = balance
   const empty = amount === 0
   const openable = !empty && onOpen
+  // 방금 만든 포인트가 정확히 잔액 0 이라 흐려졌다 — 다음 할 일이 가장 확실한 카드였다.
+  // 근거: docs/JOURNEY.md 여정 1
+  const dimmed = empty && !isMine
   // 카드 안에 버튼을 넣으면 HTML 이 깨지고, 무엇보다 카드의 접근성 이름에
   // 안쪽 버튼의 글자가 섞인다. 카드는 이체로 가는데 이름이 "발행 관리" 를 말하게 된다.
   const Main = openable ? RowButton : Row
@@ -33,7 +36,7 @@ export function PointCard({ balance, nameIsShared, issuerName, isMine, onOpen, o
       display="flex"
       alignItems="center"
       colorPalette={pointType.accent}
-      opacity={empty ? 0.55 : 1}
+      opacity={dimmed ? 0.55 : 1}
     >
       <Main type={openable ? 'button' : undefined} onClick={openable ? onOpen : undefined} flex={1} minW={0}>
       <PointBadge symbol={pointType.symbol} />
@@ -45,7 +48,11 @@ export function PointCard({ balance, nameIsShared, issuerName, isMine, onOpen, o
         {nameIsShared ? (
           <Text textStyle="caption">{t('home.issuedBy', { name: issuerName })}</Text>
         ) : null}
-        {empty ? <Text textStyle="caption">{t('home.zeroBalance')}</Text> : null}
+        {empty ? (
+          <Text textStyle="caption">
+            {t(isMine ? 'home.zeroBalanceIssuer' : 'home.zeroBalance')}
+          </Text>
+        ) : null}
       </Box>
 
         <Text textStyle="balance" flexShrink={0}>

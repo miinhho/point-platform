@@ -1,6 +1,6 @@
-import { Box, Button, Field, Input, Text } from '@chakra-ui/react'
+import { Box, Field, Input, RadioCard, Text } from '@chakra-ui/react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { endpoints } from '@/api/endpoints'
 import { queryKeys } from '@/api/queries'
@@ -31,6 +31,7 @@ export function CreatePoint({ onBack, onCreated }: Props) {
 
   // 확정 직전에 만들지 않는다. 응답을 못 받고 다시 눌러도 같은 키여야 한다.
   const [idempotencyKey] = useState(newIdempotencyKey)
+  const symbolInput = useRef<HTMLInputElement>(null)
 
   const create = useMutation({
     mutationFn: () =>
@@ -42,6 +43,12 @@ export function CreatePoint({ onBack, onCreated }: Props) {
     onSuccess: (pointType) => {
       void client.invalidateQueries({ queryKey: queryKeys.wallet })
       onCreated(pointType)
+    },
+    // 어디를 고쳐야 하는지 포커스로도 말한다. 실패하면 포커스가 body 로 빠진다.
+    onError: (failure) => {
+      if (failure instanceof ApiError && failure.code === 'SYMBOL_TAKEN') {
+        symbolInput.current?.focus()
+      }
     },
   })
 
@@ -72,9 +79,14 @@ export function CreatePoint({ onBack, onCreated }: Props) {
           <Field.Root invalid={error?.code === 'SYMBOL_TAKEN'}>
             <Field.Label>{t('create.symbol')}</Field.Label>
             <Input
+              ref={symbolInput}
               value={symbol}
               // 기호는 대문자로만 보인다. 소문자로 쳐도 화면과 결과가 같아야 한다.
-              onChange={(event) => setSymbol(event.target.value.toUpperCase().slice(0, 3))}
+              onChange={(event) => {
+                setSymbol(event.target.value.toUpperCase().slice(0, 3))
+                // 고친 기호에 낡은 겹침 판정이 붙어 있으면 화면이 거짓을 말한다.
+                if (error?.code === 'SYMBOL_TAKEN') create.reset()
+              }}
               autoCapitalize="characters"
               autoCorrect="off"
               spellCheck={false}
@@ -164,27 +176,32 @@ function AccentPicker({
 }) {
   const { t } = useTranslation()
 
+  // 손으로 만들면 방향키 순회와 그룹당 탭 정지점 하나를 잃는다 — docs/FIELD.md S9-2
   return (
-    <Box role="radiogroup" aria-label={t('create.accent')}>
-      <Text textStyle="label">{t('create.accent')}</Text>
+    <RadioCard.Root
+      value={value}
+      onValueChange={({ value: next }) => next && onChange(next as PointAccent)}
+    >
+      <RadioCard.Label textStyle="label">{t('create.accent')}</RadioCard.Label>
       <Box marginTop="2" display="flex" gap="3">
         {ACCENTS.map((accent) => (
-          <Button
-            key={accent}
-            role="radio"
-            aria-checked={accent === value}
-            aria-label={t(`create.accents.${accent}`)}
-            colorPalette={accent}
-            variant={accent === value ? 'solid' : 'outline'}
-            size="lg"
-            flex={1}
-            minW={0}
-            onClick={() => onChange(accent)}
-          >
-            {accent === value ? '✓' : ''}
-          </Button>
+          <RadioCard.Item key={accent} value={accent} colorPalette={accent} flex={1} minW={0}>
+            <RadioCard.ItemHiddenInput />
+            {/* 색 이름이 라디오의 접근성 이름이 된다. 색만으로 고르게 두지 않는다. */}
+            <RadioCard.ItemText srOnly>{t(`create.accents.${accent}`)}</RadioCard.ItemText>
+            <RadioCard.ItemControl
+              justifyContent="center"
+              paddingBlock="3"
+              color="colorPalette.contrast"
+              bg={accent === value ? 'colorPalette.solid' : undefined}
+              borderColor={accent === value ? 'colorPalette.solid' : 'border'}
+            >
+              {/* 회색조에서도 갈린다 — 칠해진 사각형 + 체크 대 빈 테두리 */}
+              {accent === value ? '✓' : ''}
+            </RadioCard.ItemControl>
+          </RadioCard.Item>
         ))}
       </Box>
-    </Box>
+    </RadioCard.Root>
   )
 }

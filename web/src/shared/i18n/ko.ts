@@ -104,6 +104,8 @@ export const ko = {
     /** 이름이 겹칠 때만 붙는 부제 */
     issuedBy: '{{name}} 발행',
     zeroBalance: '보낼 잔액이 없어요',
+    /** 발행할 수 있는 사람에게는 다음 할 일이 기다리기가 아니라 발행이다 */
+    zeroBalanceIssuer: '발행해서 채울 수 있어요',
     loadFailed: '지갑을 불러오지 못했어요',
   },
 
