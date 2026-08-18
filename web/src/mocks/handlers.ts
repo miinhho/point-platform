@@ -1,7 +1,7 @@
 import { delay, http, HttpResponse } from 'msw'
 import type { FailureCode } from '@/domain/types'
 import * as ledger from './ledger'
-import { drawFailure, simulatedLatency } from './sim'
+import { drawFailure, drawResponseLoss, simulatedLatency } from './sim'
 
 // 계약: docs/API.md
 const STATUS: Record<FailureCode, number> = {
@@ -69,6 +69,8 @@ async function commit(
       toId: toId!,
       amount: body.amount!,
     })
+    // 서버는 만들었고 클라이언트는 못 받는다. 멱등성이 실제로 시험되는 유일한 경로다.
+    if (drawResponseLoss()) return HttpResponse.error()
     return HttpResponse.json(transfer, { status: 201 })
   } catch (error) {
     if (error instanceof ledger.LedgerError) return fail(error.code)

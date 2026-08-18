@@ -6,11 +6,10 @@ export function formatRate(rate: number): string {
   const magnitude = Math.abs(rate)
   if (magnitude < 0.01) return rate > 0 ? '0.01% 미만' : '-0.01% 미만'
 
-  const digits = magnitude < 0.1 ? 2 : magnitude < 1 ? 1 : 1
-  return `${rate.toFixed(digits)}%`
+  return `${rate.toFixed(magnitude < 0.1 ? 2 : 1)}%`
 }
 
-/** 발행이 총 유통량을 몇 % 늘리는가. 유통량이 0 이면 비율이 정의되지 않는다. */
-export function inflationRate(amount: number, totalIssued: number): number {
-  return totalIssued === 0 ? 0 : (amount / totalIssued) * 100
+/** 유통량이 0 이면 비율이 없다. `0%` 는 거짓이다 — 첫 발행은 무한 증가다. */
+export function inflationRate(amount: number, totalIssued: number): number | null {
+  return totalIssued === 0 ? null : (amount / totalIssued) * 100
 }

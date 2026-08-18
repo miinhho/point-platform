@@ -19,10 +19,19 @@ describe('조회', () => {
 
   it('지갑은 포인트별 잔액을 준다 — 이 앱에서 잔액은 하나가 아니다', async () => {
     const wallet = await endpoints.wallet()
-    const byName = new Map(wallet.balances.map((b) => [b.pointType.name, b.amount]))
-    expect(byName.get('온포인트')).toBe(3_240_000)
-    expect(byName.get('솔포인트')).toBe(87_500)
-    expect(byName.get('금머니')).toBe(620_000)
+    const byId = new Map(wallet.balances.map((b) => [b.pointType.id, b.amount]))
+    expect(byId.get('pt_on')).toBe(3_240_000)
+    expect(byId.get('pt_sol')).toBe(87_500)
+    expect(byId.get('pt_gm')).toBe(620_000)
+  })
+
+  // 사람 이름이 겹치는 것과 같은 위험이다. 이름으로 포인트를 찾을 수 없다.
+  it('이름이 같은 포인트가 둘 있고 발행자로만 갈린다', async () => {
+    const wallet = await endpoints.wallet()
+    const sameName = wallet.balances.filter((b) => b.pointType.name === '온포인트')
+    expect(sameName).toHaveLength(2)
+    expect(new Set(sameName.map((b) => b.pointType.issuerId)).size).toBe(2)
+    expect(new Set(sameName.map((b) => b.pointType.symbol)).size).toBe(2)
   })
 
   it('내가 발행자인 포인트는 잔액이 0이어도 지갑에 남는다', async () => {
@@ -169,6 +178,32 @@ describe('발행', () => {
     await expect(
       endpoints.createIssue({ pointTypeId: 'pt_on', amount: 1 }, key()),
     ).rejects.toMatchObject({ code: 'NOT_ISSUER', status: 403 })
+  })
+})
+
+describe('응답 유실 — 서버는 만들었는데 클라이언트가 못 받았다', () => {
+  it('멱등성 키로 조회하면 일어난 것이 보인다', async () => {
+    const k = key()
+    setSim({ loseNextResponse: true })
+    await expect(
+      endpoints.createTransfer({ pointTypeId: 'pt_on', toId: 'u_jisoo', amount: 30_000 }, k),
+    ).rejects.toMatchObject({ code: 'NETWORK', outcomeUnknown: true })
+
+    // 이쪽이 진짜 위험한 경우다. 잔액은 이미 움직였다.
+    expect(balanceOf('pt_on', ME)).toBe(3_210_000)
+    await expect(endpoints.transferByKey(k)).resolves.toMatchObject({ amount: 30_000 })
+  })
+
+  it('그 상태에서 재시도해도 잔액이 한 번만 움직인다', async () => {
+    const k = key()
+    setSim({ loseNextResponse: true })
+    await expect(
+      endpoints.createTransfer({ pointTypeId: 'pt_on', toId: 'u_jisoo', amount: 30_000 }, k),
+    ).rejects.toBeInstanceOf(ApiError)
+
+    await endpoints.createTransfer({ pointTypeId: 'pt_on', toId: 'u_jisoo', amount: 30_000 }, k)
+    expect(balanceOf('pt_on', ME)).toBe(3_210_000)
+    await expect(endpoints.history()).resolves.toHaveLength(1)
   })
 })
 

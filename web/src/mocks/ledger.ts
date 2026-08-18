@@ -73,6 +73,16 @@ function seedPointTypes(): PointType[] {
       totalIssued: 1_200_000,
       issueCap: 10_000_000,
     },
+    // 이름이 겹치는 포인트를 일부러 둔다. 김지수를 둘 심은 것과 같은 이유다.
+    {
+      id: 'pt_on2',
+      name: '온포인트',
+      symbol: 'OP',
+      issuerId: 'u_solcafe',
+      accent: 'teal',
+      totalIssued: 300_000,
+      issueCap: 5_000_000,
+    },
   ]
 }
 
@@ -91,6 +101,7 @@ function seedBalances(): Map<BalanceKey, Points> {
     [balanceKey('pt_sol', 'u_seoyeon'), 240_000],
     [balanceKey('pt_gm', ME), 620_000],
     [balanceKey('pt_gm', 'u_jisu'), 45_000],
+    [balanceKey('pt_on2', ME), 12_000],
   ])
 }
 

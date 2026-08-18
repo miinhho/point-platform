@@ -9,6 +9,11 @@ export interface SimConfig {
   failureRate: number
   /** 지정하면 다음 요청이 반드시 이 코드로 실패한다. 한 번 쓰면 소모된다 */
   forceFailure: FailureCode | null
+  /**
+   * 서버는 처리했는데 응답이 유실된 경우. 계약 밖의 주입이다.
+   * `forceFailure: 'NETWORK'` 는 항상 "아무것도 안 만든 상태" 라서 멱등성을 시험하지 못한다.
+   */
+  loseNextResponse: boolean
 }
 
 export const DEFAULT_SIM: SimConfig = {
@@ -16,6 +21,7 @@ export const DEFAULT_SIM: SimConfig = {
   jitterMs: 200,
   failureRate: 0,
   forceFailure: null,
+  loseNextResponse: false,
 }
 
 let current: SimConfig = { ...DEFAULT_SIM }
@@ -36,6 +42,13 @@ export function resetSim(): SimConfig {
 
 export function simulatedLatency(): number {
   return current.latencyMs + Math.random() * current.jitterMs
+}
+
+/** 쓰기가 끝난 뒤 응답을 버릴 것인가. 한 번만 쓰인다. */
+export function drawResponseLoss(): boolean {
+  if (!current.loseNextResponse) return false
+  current = { ...current, loseNextResponse: false }
+  return true
 }
 
 /** 이번 요청이 주입된 실패에 걸렸는가. `forceFailure` 는 한 번만 쓰인다. */

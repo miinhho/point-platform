@@ -29,7 +29,8 @@ describe('inflationRate', () => {
     expect(inflationRate(1_000_000, 50_000_000)).toBeCloseTo(2)
   })
 
-  it('유통량이 0 이면 비율이 없다', () => {
-    expect(inflationRate(100, 0)).toBe(0)
+  // 발행자가 포인트를 새로 만드는 세계에서는 첫 발행이 언제나 이 경로다.
+  it('유통량이 0 이면 비율이 없다 — 0% 라고 말하지 않는다', () => {
+    expect(inflationRate(100, 0)).toBeNull()
   })
 })

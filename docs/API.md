@@ -139,8 +139,17 @@ interface SimConfig {
   jitterMs: number         // 기본 200
   failureRate: number      // 0.0 ~ 1.0. 기본 0
   forceFailure: FailureCode | null   // 다음 한 요청만. 쓰면 소모된다
+  loseNextResponse: boolean          // 쓰기를 끝낸 뒤 응답을 버린다
 }
 ```
+
+`forceFailure: 'NETWORK'` 는 요청을 받기 **전에** 실패시키므로 서버는 언제나 아무것도
+만들지 않은 상태다. 그것만으로는 멱등성을 시험할 수 없다 — 잔액이 0번에서 1번으로
+가는 것을 보는 것뿐이다.
+
+`loseNextResponse` 가 진짜 위험한 경우를 만든다. **서버는 이체를 만들었고 클라이언트는
+응답을 받지 못한다.** 이때 같은 키로 재시도해서 잔액이 한 번만 움직이는지가 멱등성의
+유일한 실제 검증이다.
 
 ## 실기기에서 볼 때
 
