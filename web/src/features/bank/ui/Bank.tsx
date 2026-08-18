@@ -60,14 +60,11 @@ export function Bank({ pointTypeId, onBack }: { pointTypeId: PointTypeId; onBack
 
           {pointType.canIssue ? (
             <Box marginTop="8" display="flex" flexDirection="column" gap="3">
-              <Box display="flex" flexDirection="column" gap="2">
-                <Line label={t('bank.cap')} value={toGrouped(pointType.issueCap)} />
-                <Line
-                  label={t('bank.headroom')}
-                  value={toGrouped(pointType.issuableHeadroom)}
-                  textStyle="lineStrong"
-                />
-              </Box>
+              <Line
+                label={t('bank.headroom')}
+                value={toGrouped(pointType.issuableHeadroom)}
+                textStyle="lineStrong"
+              />
               <Button
                 size="xl"
                 width="full"
@@ -108,6 +105,8 @@ function Intro({ pointType }: { pointType: PointType }) {
         <Line label={t('bank.issuer')} value={pointType.issuerHandle} textStyle="mono" />
         <Line label={t('bank.created')} value={formatCreated(pointType.createdAt)} />
         <Line label={t('bank.supply')} value={toGrouped(pointType.totalIssued)} />
+        {/* 상한은 발행자의 설정이 아니라 보유자에게 하는 약속이다 — 계약: docs/API.md */}
+        <Line label={t('bank.cap')} value={toGrouped(pointType.issueCap)} />
       </Box>
     </>
   )

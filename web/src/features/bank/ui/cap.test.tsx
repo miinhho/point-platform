@@ -111,7 +111,9 @@ describe('상한을 바꾼다', () => {
     const user = userEvent.setup()
     await openChangeCap(user)
     expect(document.body.textContent).not.toMatch(/되돌리|취소하기|복구/)
-    expect(screen.getByText('바꾼 뒤에는 취소할 수 없어요')).toBeTruthy()
+    // 「취소」라는 말 자체를 쓰지 않는다. 실제로 일어나는 것을 말한다.
+    expect(document.body.textContent).not.toContain('취소')
+    expect(screen.getByText('낮춰도 이미 발행된 것은 돌아오지 않아요')).toBeTruthy()
   })
 })
 

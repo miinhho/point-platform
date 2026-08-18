@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next'
 import { endpoints } from '@/api/endpoints'
 import { queryKeys } from '@/api/queries'
 import { ApiError, newIdempotencyKey } from '@/api/http'
-import type { PointAccent, PointType } from '@/api/contract'
+import type { PointAccent, PointType, PointVisibility } from '@/api/contract'
 import { abbreviate, parseInput, toGrouped } from '@/shared/format'
 import { failureTitleKey } from '@/shared/i18n/keys'
 import { BackButton } from '@/shared/ui/BackButton'
@@ -27,6 +27,8 @@ export function CreatePoint({ onBack, onCreated }: Props) {
   const [name, setName] = useState('')
   const [symbol, setSymbol] = useState('')
   const [accent, setAccent] = useState<PointAccent>('blue')
+  // 미리 골라 두지 않는다. 바꿀 수 없는 값의 기본값은 고른 적 없는 상태를 영구히 남긴다.
+  const [visibility, setVisibility] = useState<PointVisibility | null>(null)
   const [cap, setCap] = useState('')
 
   // 확정 직전에 만들지 않는다. 응답을 못 받고 다시 눌러도 같은 키여야 한다.
@@ -34,10 +36,9 @@ export function CreatePoint({ onBack, onCreated }: Props) {
   const symbolInput = useRef<HTMLInputElement>(null)
 
   const create = useMutation({
-    mutationFn: () =>
+    mutationFn: (chosen: PointVisibility) =>
       endpoints.createPointType(
-        // 비공개는 초대·회원 없이는 뜻이 없다. 그것이 설 때까지 공개만 만든다.
-        { name: name.trim(), symbol, accent, issueCap: parseInput(cap), visibility: 'public' },
+        { name: name.trim(), symbol, accent, issueCap: parseInput(cap), visibility: chosen },
         idempotencyKey,
       ),
     retry: false,
@@ -54,7 +55,8 @@ export function CreatePoint({ onBack, onCreated }: Props) {
   })
 
   const capAmount = parseInput(cap)
-  const ready = name.trim() !== '' && /^[A-Za-z]{2,3}$/.test(symbol) && capAmount > 0
+  const ready =
+    name.trim() !== '' && /^[A-Za-z]{2,3}$/.test(symbol) && capAmount > 0 && visibility !== null
   const error = create.error instanceof ApiError ? create.error : null
 
   return (
@@ -102,6 +104,8 @@ export function CreatePoint({ onBack, onCreated }: Props) {
 
           <AccentPicker value={accent} onChange={setAccent} />
 
+          <VisibilityPicker value={visibility} onChange={setVisibility} />
+
           <Field.Root>
             <Field.Label>{t('create.cap')}</Field.Label>
             <Input
@@ -134,7 +138,7 @@ export function CreatePoint({ onBack, onCreated }: Props) {
         <Box colorPalette={accent}>
           <HoldButton
             label={t('create.hold')}
-            onComplete={() => create.mutate()}
+            onComplete={() => visibility && create.mutate(visibility)}
             disabled={!ready || create.isPending}
           />
         </Box>
@@ -165,6 +169,58 @@ function Preview({ name, symbol, accent }: { name: string; symbol: string; accen
         <Text textStyle="name">{name}</Text>
       </Box>
     </Box>
+  )
+}
+
+/**
+ * 골라 둔 쪽이 없다. 「기본이 공개」면 비공개로 두려던 은행이 조용히 열린 채로 남고
+ * 되돌릴 길이 없다 — 계약: docs/API.md
+ */
+function VisibilityPicker({
+  value,
+  onChange,
+}: {
+  value: PointVisibility | null
+  onChange: (visibility: PointVisibility) => void
+}) {
+  const { t } = useTranslation()
+
+  return (
+    <RadioCard.Root
+      value={value ?? undefined}
+      onValueChange={({ value: next }) => next && onChange(next as PointVisibility)}
+    >
+      <RadioCard.Label textStyle="label">{t('create.visibility')}</RadioCard.Label>
+      <Box marginTop="2" display="flex" gap="3">
+        {(['public', 'private'] as const).map((option) => (
+          <RadioCard.Item key={option} value={option} flex={1} minW={0}>
+            <RadioCard.ItemHiddenInput />
+            <RadioCard.ItemControl
+              alignItems="start"
+              paddingBlock="3"
+              borderColor={option === value ? 'colorPalette.solid' : 'border'}
+            >
+              <RadioCard.ItemContent>
+                <RadioCard.ItemText>
+                  {t(option === 'public' ? 'create.visibilityPublic' : 'create.visibilityPrivate')}
+                </RadioCard.ItemText>
+                <RadioCard.ItemDescription>
+                  {t(
+                    option === 'public'
+                      ? 'create.visibilityPublicNote'
+                      : 'create.visibilityPrivateNote',
+                  )}
+                </RadioCard.ItemDescription>
+              </RadioCard.ItemContent>
+              <RadioCard.ItemIndicator />
+            </RadioCard.ItemControl>
+          </RadioCard.Item>
+        ))}
+      </Box>
+      <Text textStyle="caption" marginTop="2">
+        {t('create.visibilityFixed')}
+      </Text>
+    </RadioCard.Root>
   )
 }
 

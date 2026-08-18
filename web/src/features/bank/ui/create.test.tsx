@@ -1,7 +1,8 @@
 // @vitest-environment happy-dom
 import { beforeEach, describe, expect, it } from 'vitest'
-import { screen, waitFor } from '@testing-library/react'
+import { screen, waitFor, within } from '@testing-library/react'
 import { userEvent } from '@testing-library/user-event'
+import { endpoints } from '@/api/endpoints'
 import { setSim } from '@/mocks/sim'
 import { renderApp, signInAs } from '@/test/render'
 import App from '@/app/App'
@@ -20,12 +21,18 @@ async function hold(ms: number) {
   button.dispatchEvent(new PointerEvent('pointerup', { bubbles: true }))
 }
 
-async function fillForm(user: ReturnType<typeof userEvent.setup>, symbol = 'BK') {
+async function fillForm(
+  user: ReturnType<typeof userEvent.setup>,
+  symbol = 'BK',
+  visibility = '공개',
+) {
   renderApp(<App />)
   await user.click(await screen.findByRole('button', { name: '포인트 만들기' }))
   await user.type(await screen.findByLabelText('이름'), '동네빵집')
   await user.type(screen.getByLabelText('기호'), symbol)
   await user.type(screen.getByLabelText('발행 상한'), '1000000')
+  // 골라 둔 쪽이 없다. 고르지 않으면 확정할 수 없다.
+  await user.click(screen.getByRole('radio', { name: new RegExp(`^${visibility}`) }))
 }
 
 describe('포인트를 만든다', () => {
@@ -112,13 +119,29 @@ describe('색 6택은 진짜 라디오그룹이다', () => {
     return user
   }
 
+  const accentRadios = () =>
+    within(screen.getByRole('radiogroup', { name: '색' })).getAllByRole(
+      'radio',
+    ) as HTMLInputElement[]
+
   // 방향키 순회는 같은 name 을 공유하는 네이티브 라디오가 브라우저에서 주는 것이다.
   it('여섯이 한 그룹을 이룬다', async () => {
     await openForm()
-    const radios = screen.getAllByRole('radio') as HTMLInputElement[]
+    const radios = accentRadios()
     expect(radios).toHaveLength(6)
     expect(new Set(radios.map((radio) => radio.name)).size).toBe(1)
     expect(radios[0].name).not.toBe('')
+  })
+
+  // 공개 여부도 라디오그룹이다. 두 그룹이 같은 name 을 나눠 쓰면 서로를 끈다.
+  it('색과 공개 여부는 다른 그룹이다', async () => {
+    await openForm()
+    const visibility = within(
+      screen.getByRole('radiogroup', { name: '누가 쓸 수 있나요?' }),
+    ).getAllByRole('radio') as HTMLInputElement[]
+
+    expect(visibility).toHaveLength(2)
+    expect(visibility[0].name).not.toBe(accentRadios()[0].name)
   })
 
   it('탭 정지점은 그룹당 하나다 — 여섯 번 눌러야 상한에 닿지 않는다', async () => {
@@ -127,6 +150,8 @@ describe('색 6택은 진짜 라디오그룹이다', () => {
 
     await user.tab()
     expect(document.activeElement).toBe(screen.getByRole('radio', { name: '파랑' }))
+    await user.tab()
+    expect(document.activeElement).toBe(screen.getByRole('radio', { name: /^공개/ }))
     await user.tab()
     expect(document.activeElement).toBe(screen.getByLabelText('발행 상한'))
   })
@@ -205,5 +230,45 @@ describe('되돌릴 수 없다고 먼저 말한다', () => {
     const user = userEvent.setup()
     await fillForm(user)
     await waitFor(() => expect(screen.getByText('만든 뒤에는 지울 수 없어요')).toBeTruthy())
+  })
+})
+
+/*
+ * 바꿀 수 없는 값에 기본값을 두면 만든 사람이 고른 적 없는 상태가 영구히 고정된다.
+ * 계약: docs/API.md
+ */
+describe('공개 여부는 만드는 사람이 고른다', () => {
+  it('고르기 전에는 확정할 수 없다', async () => {
+    const user = userEvent.setup()
+    renderApp(<App />)
+    await user.click(await screen.findByRole('button', { name: '포인트 만들기' }))
+    await user.type(await screen.findByLabelText('이름'), '동네빵집')
+    await user.type(screen.getByLabelText('기호'), 'BK')
+    await user.type(screen.getByLabelText('발행 상한'), '1000000')
+
+    // 어느 쪽도 미리 눌려 있지 않다.
+    const chosen = screen.getAllByRole('radio').filter((r) => (r as HTMLInputElement).checked)
+    expect(chosen.map((r) => (r as HTMLInputElement).value)).not.toContain('public')
+    expect(screen.getByRole('button', { name: '꾹 눌러서 만들기' })).toHaveProperty(
+      'disabled',
+      true,
+    )
+  })
+
+  it('비공개로 만들면 비공개로 남는다', async () => {
+    const user = userEvent.setup()
+    await fillForm(user, 'BP', '비공개')
+    await hold(750)
+
+    expect(await screen.findByText('만들었어요', {}, { timeout: 5000 })).toBeTruthy()
+    const created = await endpoints.pointTypes()
+    expect(created.find((type) => type.symbol === 'BP')).toMatchObject({ visibility: 'private' })
+  })
+
+  it('만든 뒤에는 바꿀 수 없다고 미리 말한다', async () => {
+    const user = userEvent.setup()
+    renderApp(<App />)
+    await user.click(await screen.findByRole('button', { name: '포인트 만들기' }))
+    expect(await screen.findByText('만든 뒤에는 바꿀 수 없어요')).toBeTruthy()
   })
 })

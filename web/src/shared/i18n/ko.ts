@@ -54,6 +54,13 @@ export const ko = {
     symbol: '기호',
     symbolHint: '좁은 자리에서 이름 대신 쓰는 표식이에요. 영문 두세 글자',
     accent: '색',
+    /** 기본값을 두지 않는다. 바꿀 수 없는 값에 기본값을 두면 고른 적 없는 상태가 남는다 */
+    visibility: '누가 쓸 수 있나요?',
+    visibilityPublic: '공개',
+    visibilityPublicNote: '누구나 받고 보낼 수 있어요',
+    visibilityPrivate: '비공개',
+    visibilityPrivateNote: '초대받은 사람끼리만 주고받아요',
+    visibilityFixed: '만든 뒤에는 바꿀 수 없어요',
     cap: '발행 상한',
     capHint: '{{amount}}까지 발행할 수 있어요',
     preview: '이렇게 보여요',
@@ -80,7 +87,8 @@ export const ko = {
     /** 상한은 「여기까지만 희석된다」는 약속이다 — 여정 9 */
     holdersRaised: '{{amount}}까지 늘어날 수 있게 돼요',
     holdersLowered: '{{amount}}까지만 늘어나요',
-    irreversible: '바꾼 뒤에는 취소할 수 없어요',
+    /** 「취소」라는 말을 쓰지 않는다. 낮추는 것은 다시 바꾸는 것이지 취소가 아니다 — 여정 9 */
+    irreversible: '낮춰도 이미 발행된 것은 돌아오지 않아요',
     hold: '꾹 눌러서 바꾸기',
     /** 바뀐 값은 같은 페이지의 표에 나온다. 화면을 못 보는 사람에게는 그것이 닿지 않는다 */
     changed: '상한을 바꿨어요',
