@@ -1,6 +1,7 @@
 package io.github.miinhho.point.wallet
 
 import io.github.miinhho.point.api.DomainFailureException
+import io.github.miinhho.point.api.FailureCode
 import io.github.miinhho.point.domain.pointtype.PointAccent
 import io.github.miinhho.point.domain.pointtype.PointType
 import io.github.miinhho.point.domain.pointtype.PointTypeRepository
@@ -21,7 +22,7 @@ class PointTypeCreateService(
 ) {
     @Transactional(readOnly = true)
     fun findByIdempotencyKey(key: String, viewerId: Long): PointTypeResponse? =
-        pointTypeRepository.findByIdempotencyKey(key)?.toResponse(viewerId, pointTypeRepository.sharedNames())
+        pointTypeRepository.findByIssuerIdAndIdempotencyKey(viewerId, key)?.toResponse(viewerId, pointTypeRepository.sharedNames())
 
     /** 발행자 자격을 심사하지 않는다 — 누구나 만들고 상한도 자기가 정한다 (docs/JOURNEY.md 여정 9). */
     @Transactional
@@ -35,7 +36,7 @@ class PointTypeCreateService(
             !SYMBOL.matches(symbol) ||
             accent == null || PointAccent.entries.none { it.name == accent } ||
             issueCap == null || issueCap <= 0
-        if (malformed) throw DomainFailureException("SERVER", HttpStatus.BAD_REQUEST, "요청 형식 오류")
+        if (malformed) throw DomainFailureException(FailureCode.MALFORMED_REQUEST, "요청 형식 오류")
 
         // 조회는 방어가 아니다 — 같은 기호가 동시에 오면 둘 다 비어 있다고 본다.
         // 진짜 방어는 symbol unique 제약이고, 위반 판정은 호출부가 한다.

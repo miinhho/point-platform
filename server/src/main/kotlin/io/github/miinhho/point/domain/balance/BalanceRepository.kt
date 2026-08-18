@@ -1,16 +1,25 @@
 package io.github.miinhho.point.domain.balance
 
-import jakarta.persistence.LockModeType
 import org.springframework.data.jpa.repository.JpaRepository
-import org.springframework.data.jpa.repository.Lock
+import org.springframework.data.jpa.repository.Modifying
 import org.springframework.data.jpa.repository.Query
 
 interface BalanceRepository : JpaRepository<Balance, BalanceId> {
     fun findByUserId(userId: Long): List<Balance>
 
-    // 이체·발행 커밋 중 잔액 행을 잠근다 — 동시 요청이 같은 잔액을 함께 읽어
-    // 함께 깎지 않게 한다. 행 생성은 BalanceInitializer 가 따로 맡는다.
-    @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query("select b from Balance b where b.id.userId = :userId and b.id.pointTypeId = :pointTypeId")
-    fun findForUpdate(userId: Long, pointTypeId: Long): Balance?
+    // 읽고 빼서 쓰지 않는다 — 두 요청이 같은 값을 읽으면 나중 것이 앞의 차감을 덮는다.
+    // 조건을 UPDATE 안에 넣고 영향 행 수로 판정한다. 0 이면 잔액이 모자랐다는 뜻이다.
+    @Modifying(flushAutomatically = true)
+    @Query(
+        "update Balance b set b.amount = b.amount - :amount " +
+            "where b.id.userId = :userId and b.id.pointTypeId = :pointTypeId and b.amount >= :amount",
+    )
+    fun debit(userId: Long, pointTypeId: Long, amount: Long): Int
+
+    @Modifying(flushAutomatically = true)
+    @Query(
+        "update Balance b set b.amount = b.amount + :amount " +
+            "where b.id.userId = :userId and b.id.pointTypeId = :pointTypeId",
+    )
+    fun credit(userId: Long, pointTypeId: Long, amount: Long): Int
 }

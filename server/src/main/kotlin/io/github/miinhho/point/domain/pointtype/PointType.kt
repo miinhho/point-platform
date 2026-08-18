@@ -47,7 +47,7 @@ class PointType(
 
     // 창설도 되돌릴 수 없다. 응답을 못 받은 사용자가 다시 눌러 같은 이름이 둘 생기면
     // 어느 것이 자기 것인지 알 방법이 없다. 시드로 만든 것은 키가 없다.
-    @Column(name = "idempotency_key", unique = true, length = 36, updatable = false)
+    @Column(name = "idempotency_key", length = 36, updatable = false)
     var idempotencyKey: String? = null,
 
     // 발행자가 정할 수 없는 사실 — 오래된 것은 흉내낼 수 없다 (docs/API.md 「흉내낼 수 없는 것」).

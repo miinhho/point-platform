@@ -22,7 +22,7 @@ import java.util.UUID
     indexes = [Index(name = "ix_cap_changes_point_type", columnList = "point_type_id,changed_at")],
 )
 class CapChange(
-    @Column(name = "idempotency_key", nullable = false, unique = true, length = 36, updatable = false)
+    @Column(name = "idempotency_key", nullable = false, length = 36, updatable = false)
     val idempotencyKey: String,
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)

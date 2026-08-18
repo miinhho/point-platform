@@ -1,6 +1,7 @@
 package io.github.miinhho.point.users
 
 import io.github.miinhho.point.api.DomainFailureException
+import io.github.miinhho.point.api.FailureCode
 import io.github.miinhho.point.api.UserResponse
 import io.github.miinhho.point.api.toResponse
 import org.springframework.http.HttpStatus
@@ -26,7 +27,7 @@ class UserController(private val userQueryService: UserQueryService) {
         @AuthenticationPrincipal userId: Long,
     ): List<UserResponse> {
         if (pointTypeId.isNullOrBlank()) {
-            throw DomainFailureException("POINT_TYPE_NOT_FOUND", HttpStatus.NOT_FOUND, "pointTypeId 없음")
+            throw DomainFailureException(FailureCode.POINT_TYPE_NOT_FOUND, "pointTypeId 없음")
         }
         return userQueryService.recent(pointTypeId, limit, userId)
     }

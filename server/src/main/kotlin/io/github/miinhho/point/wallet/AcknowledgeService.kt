@@ -1,6 +1,7 @@
 package io.github.miinhho.point.wallet
 
 import io.github.miinhho.point.api.DomainFailureException
+import io.github.miinhho.point.api.FailureCode
 import io.github.miinhho.point.domain.balance.BalanceId
 import io.github.miinhho.point.domain.balance.BalanceRepository
 import io.github.miinhho.point.domain.pointtype.PointTypeRepository
@@ -19,10 +20,10 @@ class AcknowledgeService(
     fun acknowledge(userId: Long, publicId: String) {
         val pointTypeId = runCatching { UUID.fromString(publicId) }.getOrNull()
             ?.let(pointTypeRepository::findIdByPublicId)
-            ?: throw DomainFailureException("POINT_TYPE_NOT_FOUND", HttpStatus.NOT_FOUND, "포인트 없음")
+            ?: throw DomainFailureException(FailureCode.POINT_TYPE_NOT_FOUND, "포인트 없음")
 
         val balance = balanceRepository.findById(BalanceId(userId, pointTypeId)).orElse(null)
-            ?: throw DomainFailureException("POINT_TYPE_NOT_FOUND", HttpStatus.NOT_FOUND, "갖고 있지 않음")
+            ?: throw DomainFailureException(FailureCode.POINT_TYPE_NOT_FOUND, "갖고 있지 않음")
         balance.acknowledged = true
         balanceRepository.save(balance)
     }

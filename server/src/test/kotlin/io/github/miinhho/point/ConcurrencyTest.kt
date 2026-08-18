@@ -154,6 +154,32 @@ class ConcurrencyTest {
         assertEquals(998_000, after.totalIssued)
     }
 
+    // 계약: docs/API.md — 키는 「내가 같은 요청을 두 번 보냈나」에 답한다.
+    // 전역 unique 면 남이 내 키를 선점하고, 선점당한 쪽은 무한 재시도에 빠진다.
+    @Test
+    fun `다른 사용자가 같은 키로 보내면 둘 다 각각 성공한다`() {
+        giveBalance(issuer, 100_000)
+        val third = userRepository.save(user("@taeyun", "박태윤"))
+        balanceRepository.save(Balance(user = third, pointType = pointType, amount = 100_000))
+        val key = UUID.randomUUID().toString()
+
+        val mine = postTransfer(
+            login("@minho").accessToken,
+            key,
+            TransferRequest(pointTypeId = publicPointTypeId(), toId = publicId(recipient), amount = BigDecimal(1_000)),
+        )
+        val theirs = postTransfer(
+            login("@taeyun").accessToken,
+            key,
+            TransferRequest(pointTypeId = publicPointTypeId(), toId = publicId(recipient), amount = BigDecimal(2_000)),
+        )
+
+        assertEquals(HttpStatus.CREATED, mine.statusCode)
+        assertEquals(HttpStatus.CREATED, theirs.statusCode, "남의 키에 걸려 500 이 나가면 안 된다")
+        assertEquals(2, transferRepository.count(), "각자 하나씩 생긴다")
+        assertEquals(3_000, balanceOf(recipient))
+    }
+
     // 계약: docs/API.md — 이체는 관여한 사람만 읽는다. by-key 는 남의 것이면 null 이다.
     @Test
     fun `관여하지 않은 사람은 이체를 id 로도 키로도 읽지 못한다`() {
@@ -185,15 +211,23 @@ class ConcurrencyTest {
         // 빈 본문이 아니라 리터럴 null 이어야 한다 — 빈 본문은 JSON 이 아니라 클라이언트 파싱이 깨진다.
         assertEquals("null", byKey.body?.trim(), "남의 것이면 JSON null 이어야 한다")
 
-        // 당사자는 둘 다 읽을 수 있어야 한다.
-        val mineHeaders = HttpHeaders().apply { setBearerAuth(login("@jisoo").accessToken) }
-        val mine = restTemplate.exchange(
-            "/api/transfers/by-key?idempotencyKey=$key",
+        // 받는 쪽은 id 로는 읽지만 키로는 못 읽는다 — 키는 보낸 쪽의 것이고 받는 쪽은 알 수 없다.
+        val recipientHeaders = HttpHeaders().apply { setBearerAuth(login("@jisoo").accessToken) }
+        val byIdAsRecipient = restTemplate.exchange(
+            "/api/transfers/$transferId",
             HttpMethod.GET,
-            HttpEntity<Void>(mineHeaders),
+            HttpEntity<Void>(recipientHeaders),
             String::class.java,
         )
-        assertEquals(transferId, transferIdOf(mine.body), "받은 쪽은 자기 이체를 키로 확인할 수 있어야 한다")
+        assertEquals(HttpStatus.OK, byIdAsRecipient.statusCode, "받은 쪽은 관여했으므로 id 로 읽는다")
+
+        val sender = restTemplate.exchange(
+            "/api/transfers/by-key?idempotencyKey=$key",
+            HttpMethod.GET,
+            HttpEntity<Void>(HttpHeaders().apply { setBearerAuth(login("@minho").accessToken) }),
+            String::class.java,
+        )
+        assertEquals(transferId, transferIdOf(sender.body), "보낸 쪽은 자기 키로 확인할 수 있어야 한다")
     }
 
     // 계약: docs/API.md — by-key 는 없을 때 404 가 아니라 null 이다. 여정 6 의 유일한 확인 수단이라
@@ -290,6 +324,38 @@ class ConcurrencyTest {
         assertTrue(responses.all { it.statusCode.is2xxSuccessful }, "전부 성공 응답이어야 한다: ${responses.map { it.statusCode }}")
         assertEquals(1, capChangeRepository.count(), "이력은 한 줄만 남아야 한다")
         assertEquals(2_000_000, pointTypeRepository.findById(pointType.id!!).orElseThrow().issueCap)
+    }
+
+    // 계약: docs/API.md — 쓰기는 멱등성 키를 상태 검사보다 먼저 본다.
+    // 응답이 유실돼 다시 누르면 상태가 이미 바뀌어 있고, 상태를 먼저 보면
+    // 이미 일어난 일을 안 일어났다고 답하게 된다.
+    @Test
+    fun `상한 변경을 같은 키로 다시 보내면 그 사이 상태가 바뀌었어도 그때의 결과를 준다`() {
+        val token = login("@minho").accessToken
+        val key = UUID.randomUUID().toString()
+
+        val first = patchCap(token, key, BigDecimal(2_000_000))
+        assertEquals(HttpStatus.OK, first.statusCode)
+
+        // 응답이 유실됐다고 치고 같은 키로 다시. 이제 상한은 이미 200만이라
+        // 「지금과 같은 값」 검사를 먼저 하면 400 이 된다.
+        val replay = patchCap(token, key, BigDecimal(2_000_000))
+        assertEquals(HttpStatus.OK, replay.statusCode, "이미 성공한 요청을 400 으로 되돌리면 안 된다")
+        assertEquals(1, capChangeRepository.count(), "이력은 한 줄이다")
+    }
+
+    @Test
+    fun `창설을 같은 키로 다시 보내면 자기가 만든 기호에 SYMBOL_TAKEN 이 나지 않는다`() {
+        val token = login("@minho").accessToken
+        val key = UUID.randomUUID().toString()
+        val body = CreatePointTypeRequest("동네빵집", "BK", "orange", BigDecimal(1_000_000))
+
+        val first = postPointType(token, key, body)
+        assertEquals(HttpStatus.CREATED, first.statusCode)
+
+        val replay = postPointType(token, key, body)
+        assertEquals(HttpStatus.OK, replay.statusCode, "자기가 방금 만든 것에 SYMBOL_TAKEN 이 나면 안 된다")
+        assertEquals(publicIdOf(first.body), publicIdOf(replay.body))
     }
 
     @Test

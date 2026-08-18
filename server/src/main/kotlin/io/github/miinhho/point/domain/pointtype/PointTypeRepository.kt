@@ -8,7 +8,7 @@ import java.util.UUID
 
 interface PointTypeRepository : JpaRepository<PointType, Long> {
     fun findByPublicId(publicId: UUID): PointType?
-    fun findByIdempotencyKey(idempotencyKey: String): PointType?
+    fun findByIssuerIdAndIdempotencyKey(issuerId: Long, idempotencyKey: String): PointType?
 
     // 겹치는 이름을 한 번에 모은다 — 지갑에 든 포인트마다 세면 N+1 이 된다.
     // 모수는 원장 전체다 (docs/API.md).

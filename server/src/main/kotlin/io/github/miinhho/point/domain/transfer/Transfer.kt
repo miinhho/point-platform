@@ -29,8 +29,13 @@ import java.util.UUID
     ],
 )
 class Transfer(
-    @Column(name = "idempotency_key", nullable = false, unique = true, length = 36)
+    @Column(name = "idempotency_key", nullable = false, length = 36)
     val idempotencyKey: String,
+
+    // 멱등성 키의 임자. 이체면 보낸 쪽, 발행이면 발행자다 — 발행에는 from 이 없다.
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "requester_id", nullable = false)
+    val requester: User,
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 10)
@@ -67,6 +72,6 @@ class Transfer(
     @Column(name = "created_at", nullable = false, updatable = false)
     val createdAt: Instant = confirmedAt
 
-    override fun equals(other: Any?) = other is Transfer && idempotencyKey == other.idempotencyKey
-    override fun hashCode() = idempotencyKey.hashCode()
+    override fun equals(other: Any?) = other is Transfer && publicId == other.publicId
+    override fun hashCode() = publicId.hashCode()
 }

@@ -43,6 +43,6 @@ class SecurityConfig(private val jwtService: JwtService) {
     private fun unauthenticatedEntryPoint() = AuthenticationEntryPoint { _, response, _ ->
         response.status = HttpStatus.UNAUTHORIZED.value()
         response.contentType = MediaType.APPLICATION_JSON_VALUE
-        response.writer.write("""{"code":"UNAUTHENTICATED"}""")
+        response.writer.write("""{"code":"UNAUTHENTICATED","outcome":"none"}""")
     }
 }

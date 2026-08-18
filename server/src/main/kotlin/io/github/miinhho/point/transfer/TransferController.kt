@@ -1,6 +1,7 @@
 package io.github.miinhho.point.transfer
 
 import io.github.miinhho.point.api.DomainFailureException
+import io.github.miinhho.point.api.FailureCode
 import io.github.miinhho.point.domain.pointtype.PointTypeRepository
 import io.github.miinhho.point.domain.transfer.TransferRepository
 import org.springframework.dao.DataIntegrityViolationException
@@ -54,7 +55,7 @@ class TransferController(
         @AuthenticationPrincipal userId: Long,
     ): ResponseEntity<JsonNode> {
         val key = idempotencyKey?.takeIf { it.isNotBlank() }
-            ?: throw DomainFailureException("SERVER", HttpStatus.BAD_REQUEST, "idempotencyKey 없음")
+            ?: throw DomainFailureException(FailureCode.MALFORMED_REQUEST, "idempotencyKey 없음")
         // 남의 것이면 null 이다 — 없을 때와 같다. 「추측하기 어렵다」는 접근 제어가 아니다.
         val found = transferService.findByIdempotencyKey(key, userId)
         // 본문에 리터럴 null 을 싣는다. 그냥 null 을 반환하면 Spring 이 본문을 아예 쓰지 않아
@@ -70,7 +71,7 @@ class TransferController(
         val publicId = runCatching { UUID.fromString(id) }.getOrNull()
         val transfer = publicId?.let(transferRepository::findByPublicId)
             ?.takeIf { it.from?.id == userId || it.to.id == userId }
-            ?: throw DomainFailureException("SERVER", HttpStatus.NOT_FOUND, "없음")
+            ?: throw DomainFailureException(FailureCode.TRANSFER_NOT_FOUND, "없음")
         return transfer.toResponse()
     }
 
@@ -96,7 +97,7 @@ class TransferController(
         selfOnly: Boolean,
     ): ResponseEntity<TransferResponse> {
         val key = idempotencyKey?.takeIf { it.isNotBlank() }
-            ?: throw DomainFailureException("SERVER", HttpStatus.BAD_REQUEST, "Idempotency-Key 없음")
+            ?: throw DomainFailureException(FailureCode.MALFORMED_REQUEST, "Idempotency-Key 없음")
 
         // 이미 있으면 새로 만들지 않는다. 다만 이 조회는 최적화일 뿐 방어가 아니다 —
         // 동시에 온 둘은 여기서 둘 다 없다고 본다. 진짜 방어는 아래 unique 위반 처리다.
@@ -111,7 +112,7 @@ class TransferController(
             (!selfOnly && toId.isNullOrBlank()) ||
             amount == null || amount <= 0 || amount > MAX_SAFE_INTEGER ||
             (selfOnly && body.toId != null)
-        if (malformed) throw DomainFailureException("SERVER", HttpStatus.BAD_REQUEST, "요청 형식 오류")
+        if (malformed) throw DomainFailureException(FailureCode.MALFORMED_REQUEST, "요청 형식 오류")
 
         val transfer = try {
             if (selfOnly) {

@@ -16,5 +16,6 @@ import org.springframework.transaction.annotation.Transactional
 @Service
 class CapChangeLookup(private val capChangeRepository: CapChangeRepository) {
     @Transactional(propagation = Propagation.REQUIRES_NEW, readOnly = true)
-    fun freshFindByIdempotencyKey(key: String): CapChange? = capChangeRepository.findByIdempotencyKey(key)
+    fun freshFindByIdempotencyKey(actorId: Long, key: String): CapChange? =
+        capChangeRepository.findByByIdAndIdempotencyKey(actorId, key)
 }

@@ -1,6 +1,7 @@
 package io.github.miinhho.point.wallet
 
 import io.github.miinhho.point.api.DomainFailureException
+import io.github.miinhho.point.api.FailureCode
 import io.github.miinhho.point.api.UserResponse
 import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.http.HttpStatus
@@ -41,7 +42,7 @@ class WalletController(
         @AuthenticationPrincipal userId: Long,
     ): ResponseEntity<PointTypeResponse> {
         val key = idempotencyKey?.takeIf { it.isNotBlank() }
-            ?: throw DomainFailureException("SERVER", HttpStatus.BAD_REQUEST, "Idempotency-Key 없음")
+            ?: throw DomainFailureException(FailureCode.MALFORMED_REQUEST, "Idempotency-Key 없음")
 
         // 이 조회는 최적화일 뿐 방어가 아니다. 동시에 온 둘은 여기서 둘 다 없다고 본다.
         pointTypeCreateService.findByIdempotencyKey(key, userId)?.let { return ResponseEntity.ok(it) }
@@ -53,7 +54,7 @@ class WalletController(
             // 없으면 기호가 겹친 것이다 — 그때는 기존 것을 돌려주지 않는다.
             // 남이 만든 포인트를 내 것이라고 답하는 셈이 되기 때문이다.
             pointTypeCreateService.findByIdempotencyKey(key, userId)?.let { return ResponseEntity.ok(it) }
-            throw DomainFailureException("SYMBOL_TAKEN", HttpStatus.CONFLICT, "이미 쓰이는 기호")
+            throw DomainFailureException(FailureCode.SYMBOL_TAKEN, "이미 쓰이는 기호")
         }
     }
 
@@ -67,7 +68,7 @@ class WalletController(
         @AuthenticationPrincipal userId: Long,
     ): PointTypeResponse {
         val key = idempotencyKey?.takeIf { it.isNotBlank() }
-            ?: throw DomainFailureException("SERVER", HttpStatus.BAD_REQUEST, "Idempotency-Key 없음")
+            ?: throw DomainFailureException(FailureCode.MALFORMED_REQUEST, "Idempotency-Key 없음")
 
         capChangeService.findByIdempotencyKey(key, userId)?.let { return it }
         return try {

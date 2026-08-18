@@ -5,7 +5,7 @@ import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Query
 
 interface CapChangeRepository : JpaRepository<CapChange, Long> {
-    fun findByIdempotencyKey(idempotencyKey: String): CapChange?
+    fun findByByIdAndIdempotencyKey(byId: Long, idempotencyKey: String): CapChange?
 
     // 그 포인트가 자기 지갑에 있는 사람과 발행자가 본다 — 발행자만 아는 변경은 약속이 아니다.
     // 지갑 판정은 호출부가 pointTypeIds 로 넘긴다.
