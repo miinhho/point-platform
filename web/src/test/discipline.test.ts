@@ -62,8 +62,9 @@ describe('화면 규율', () => {
   })
 
   it('색은 시맨틱 토큰이나 colorPalette 로만 쓴다', () => {
-    // `bg="blue.500"` 처럼 팔레트를 직접 부르는 것을 막는다.
-    const raw = /(?:bg|color|borderColor)="(?:red|orange|yellow|green|teal|blue|purple|pink|gray)\./
+    // `bg="blue.500"` 처럼 **수치 스케일**을 직접 부르는 것만 막는다.
+    // `red.fg` 같은 시맨틱 슬롯(fg·solid·subtle·muted·contrast·emphasized)은 정상이다.
+    const raw = /(?:bg|color|borderColor)="[a-z]+\.\d{2,3}"/
     const offenders = FILES.flatMap((path) =>
       code(path)
         .split('\n')

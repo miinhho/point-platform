@@ -63,6 +63,30 @@ Idempotency-Key: 3a729bd1-8d12-4837-8082-97942afa0ed2
 돌려준다. 다른 것은 `fromId` 가 `null` 이고(무에서 만든다) `totalIssued` 가 늘어난다는 점뿐이다.
 클라이언트가 두 흐름을 하나의 상태 기계로 다룰 수 있는 이유다.
 
+### 인증
+
+모든 읽기·쓰기가 토큰을 통과한다. 화면마다 확인하면 한 곳이 빠지고, 빠진 곳이 남의
+잔액을 보여준다.
+
+```
+Authorization: Bearer <token>
+```
+
+| 메서드 | 경로 | 설명 |
+|---|---|---|
+| `POST` | `/api/auth/login` | `{ handle, password }` → `{ token, user }` |
+| `POST` | `/api/auth/logout` | 토큰 무효화. `204` |
+
+토큰이 없거나 죽었으면 `401` + `{ "code": "UNAUTHENTICATED" }`,
+자격증명이 틀리면 `401` + `{ "code": "BAD_CREDENTIALS" }` 다.
+**어느 핸들이 존재하는지 알려주지 않는다** — 두 경우의 화면 문구가 같다.
+
+클라이언트는 토큰을 **메모리에만** 둔다. `localStorage` 에 두면 XSS 한 번에 새고,
+이 앱은 되돌릴 수 없는 송금을 다룬다. 새로고침하면 다시 로그인하는 것이 그 대가다.
+
+실서버는 Access + Refresh 하이브리드로 간다 (`server/`). 그때 `POST /api/auth/refresh`
+가 늘고 이 문서가 함께 바뀐다.
+
 ## 엔드포인트
 
 | 메서드 | 경로 | 응답 | 설명 |

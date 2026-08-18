@@ -1,11 +1,15 @@
 // @vitest-environment happy-dom
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it } from 'vitest'
 import { screen, waitFor } from '@testing-library/react'
 import { userEvent } from '@testing-library/user-event'
 import { endpoints } from '@/api/endpoints'
 import { newIdempotencyKey } from '@/api/http'
-import { renderApp } from '@/test/render'
+import { renderApp, signInAs } from '@/test/render'
 import App from '@/app/App'
+
+beforeEach(async () => {
+  await signInAs()
+})
 
 /** 확인 방법: docs/JOURNEY.md 여정 8 */
 async function settle() {

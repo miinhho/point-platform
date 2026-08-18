@@ -1,5 +1,10 @@
 import { Box } from '@chakra-ui/react'
 import { useAtomValue, useSetAtom } from 'jotai'
+import { useEffect } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { meQuery, queryKeys } from '@/api/queries'
+import { setUnauthenticatedHandler } from '@/api/http'
+import { SignIn } from '@/features/auth'
 import { History } from '@/features/history'
 import { HistoryDetail } from '@/features/history'
 import { Issuer } from '@/features/issuer'
@@ -27,6 +32,8 @@ import { useAppBack } from './useAppBack'
 const FLOW: ReadonlySet<string> = new Set(['pickRecipient', 'enterAmount', 'confirm', 'result', 'failure'])
 
 export default function App() {
+  const session = useQuery(meQuery())
+  const client = useQueryClient()
   const nav = useAtomValue(navAtom)
   const screen = useAtomValue(currentScreenAtom)
   const draft = useAtomValue(draftAtom)
@@ -35,6 +42,19 @@ export default function App() {
   const startTransfer = useSetAtom(startTransferAtom)
   const { submit, check, busy } = useSubmit()
   const back = useAppBack(busy)
+
+  // 토큰이 죽으면 세션을 비운다. 여기서 재조회하거나 캐시를 지우면 그 요청이
+  // 다시 401 을 받아 끝없이 돈다.
+  useEffect(
+    () => setUnauthenticatedHandler(() => client.setQueryData(queryKeys.me, null)),
+    [client],
+  )
+
+  // 첫 판정 전에는 아무것도 그리지 않는다. 로그인 화면을 깜빡이게 두지 않는다.
+  if (session.isPending) return null
+  // 재조회가 실패해도 useQuery 는 이전 데이터를 유지한다. 세션은 그러면 안 된다 —
+  // 증명하지 못하는 동안 남의 잔액이 화면에 남는다.
+  if (session.isError || !session.data) return <SignIn />
 
   const inFlow = screen !== null && FLOW.has(screen.name)
 

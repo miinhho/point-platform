@@ -38,6 +38,11 @@ export function handleFailure(code: FailureCode, kind: TransferKind): FailureHan
     case 'NETWORK':
     case 'SERVER':
       return { outcomeUnknown: true, retryable: true, editable: true, repickable: false, aboutSupply }
+
+    // 화면이 로그인으로 보낸다. 실패 화면에 오지 않는다.
+    case 'BAD_CREDENTIALS':
+    case 'UNAUTHENTICATED':
+      return { outcomeUnknown: false, retryable: false, editable: false, repickable: false, aboutSupply }
   }
 }
 

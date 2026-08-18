@@ -2,7 +2,9 @@ import { Box, Button, Text } from '@chakra-ui/react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { endpoints } from '@/api/endpoints'
 import { walletQuery } from '@/api/queries'
+import { useSession } from '@/features/auth'
 import { useColorMode, type ColorModePreference } from '@/app/color-mode'
 import { resetLedger } from '@/mocks/ledger'
 import { resetSim, setSim } from '@/mocks/sim'
@@ -27,6 +29,7 @@ export function Settings() {
   const { t } = useTranslation()
   const { preference, setPreference } = useColorMode()
   const { data } = useQuery(walletQuery())
+  const { signOut } = useSession()
 
   const modeLabel = {
     system: t('settings.colorModeSystem'),
@@ -47,6 +50,18 @@ export function Settings() {
             <Text textStyle="name">{data?.user.name ?? ''}</Text>
             <Text textStyle="handle">{data?.user.handle ?? ''}</Text>
           </Box>
+          <Button
+            size="xs"
+            variant="outline"
+            marginTop="3"
+            onClick={() => {
+              // 서버 토큰을 버리고 캐시를 지운다. 남기면 다음 사람이 내 잔액을 본다.
+              void endpoints.logout().catch(() => undefined)
+              signOut()
+            }}
+          >
+            {t('auth.logout')}
+          </Button>
         </Section>
 
         <Section label={t('settings.colorMode')}>

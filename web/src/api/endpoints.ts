@@ -29,7 +29,22 @@ export interface HistoryQuery {
   limit?: number
 }
 
+export interface Credentials {
+  handle: string
+  password: string
+}
+
+export interface Session {
+  token: string
+  user: User
+}
+
 export const endpoints = {
+  login: (credentials: Credentials) =>
+    request<Session>('/auth/login', { method: 'POST', body: credentials }),
+
+  logout: () => request<void>('/auth/logout', { method: 'POST' }),
+
   me: (options?: RequestOptions) => request<User>('/me', options),
 
   /** 내가 가진 포인트별 잔액 전부 */

@@ -55,6 +55,10 @@ export type FailureCode =
   | 'NOT_ISSUER'
   | 'RECIPIENT_NOT_FOUND'
   | 'POINT_TYPE_NOT_FOUND'
+  /** 핸들이나 암호가 틀렸다 */
+  | 'BAD_CREDENTIALS'
+  /** 토큰이 없거나 만료됐다. 화면은 로그인으로 보낸다 */
+  | 'UNAUTHENTICATED'
   /** 결과를 알 수 없다. NETWORK·SERVER 만 여기 해당한다. */
   | 'NETWORK'
   | 'SERVER'

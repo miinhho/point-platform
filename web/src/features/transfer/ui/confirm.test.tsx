@@ -1,11 +1,15 @@
 // @vitest-environment happy-dom
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it } from 'vitest'
 import { screen, waitFor } from '@testing-library/react'
 import { userEvent } from '@testing-library/user-event'
-import { balanceOf, ME } from '@/mocks/ledger'
+import { balanceOf, SEED_ISSUER as ME } from '@/mocks/ledger'
 import { setSim } from '@/mocks/sim'
-import { renderApp } from '@/test/render'
+import { renderApp, signInAs } from '@/test/render'
 import App from '@/app/App'
+
+beforeEach(async () => {
+  await signInAs()
+})
 
 /** 확인 방법: docs/JOURNEY.md 여정 5·6 */
 async function settle() {
@@ -22,6 +26,8 @@ async function atConfirm(amount = '30000') {
   await user.click(await screen.findByRole('button', { name: /@jisoo/ }))
   await screen.findByText(/만큼 보낼 수 있어요/)
   for (const d of amount) await user.click(screen.getByRole('button', { name: d }))
+  // 키 입력이 하나라도 빠지면 뒤의 단정이 엉뚱한 숫자를 기다린다.
+  await screen.findByText(Number(amount).toLocaleString('ko-KR'))
   await user.click(screen.getByRole('button', { name: '보내기 확인' }))
   await screen.findByText('이렇게 보낼까요?')
   await settle()

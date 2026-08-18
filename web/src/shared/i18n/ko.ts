@@ -8,6 +8,18 @@ export const ko = {
     ok: '확인',
   },
 
+  auth: {
+    title: '포인트',
+    subtitle: '핸들과 암호로 들어가요',
+    handle: '핸들',
+    handlePlaceholder: '@minho',
+    password: '암호',
+    submit: '들어가기',
+    /** Mock 전용. 실서버에는 없어요 */
+    hint: 'Mock 이라 암호는 모두 point 예요',
+    logout: '로그아웃',
+  },
+
   tab: {
     home: '홈',
     history: '내역',
@@ -152,6 +164,16 @@ export const ko = {
     },
     POINT_TYPE_NOT_FOUND: {
       title: '이 포인트를 찾을 수 없어요',
+      whereTransfer: '아무것도 나가지 않았어요',
+      whereIssue: '발행되지 않았어요',
+    },
+    BAD_CREDENTIALS: {
+      title: '핸들이나 암호가 맞지 않아요',
+      whereTransfer: '아무것도 나가지 않았어요',
+      whereIssue: '발행되지 않았어요',
+    },
+    UNAUTHENTICATED: {
+      title: '다시 로그인해야 해요',
       whereTransfer: '아무것도 나가지 않았어요',
       whereIssue: '발행되지 않았어요',
     },

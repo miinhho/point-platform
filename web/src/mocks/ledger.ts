@@ -9,7 +9,8 @@ import type {
 } from '@/domain/types'
 
 // 인메모리 원장. 잔액은 (pointTypeId, userId) 단위다.
-export const ME: UserId = 'u_minho'
+/** 시드에서 발행 권한을 가진 사용자. 테스트가 기준점으로 쓴다 */
+export const SEED_ISSUER: UserId = 'u_minho'
 
 export class LedgerError extends Error {
   readonly code: LedgerErrorCode
@@ -30,7 +31,7 @@ export type LedgerErrorCode =
 
 function seedUsers(): User[] {
   return [
-    { id: ME, name: '장민호', handle: '@minho' },
+    { id: SEED_ISSUER, name: '장민호', handle: '@minho' },
     { id: 'u_jisoo', name: '김지수', handle: '@jisoo' },
     { id: 'u_taeyun', name: '박태윤', handle: '@taeyun' },
     { id: 'u_seoyeon', name: '이서연', handle: '@seoyeon' },
@@ -72,7 +73,7 @@ function seedPointTypes(): SeedPoint[] {
       id: 'pt_gm',
       name: '금머니',
       symbol: 'GM',
-      issuerId: ME,
+      issuerId: SEED_ISSUER,
       issuerName: '장민호',
       accent: 'purple',
       totalIssued: 1_200_000,
@@ -99,15 +100,15 @@ const balanceKey = (pointTypeId: PointTypeId, userId: UserId): BalanceKey =>
 
 function seedBalances(): Map<BalanceKey, Points> {
   return new Map<BalanceKey, Points>([
-    [balanceKey('pt_on', ME), 3_240_000],
+    [balanceKey('pt_on', SEED_ISSUER), 3_240_000],
     [balanceKey('pt_on', 'u_jisoo'), 812_000],
     [balanceKey('pt_on', 'u_taeyun'), 1_450_000],
     [balanceKey('pt_on', 'u_junho'), 27_800],
-    [balanceKey('pt_sol', ME), 87_500],
+    [balanceKey('pt_sol', SEED_ISSUER), 87_500],
     [balanceKey('pt_sol', 'u_seoyeon'), 240_000],
-    [balanceKey('pt_gm', ME), 620_000],
+    [balanceKey('pt_gm', SEED_ISSUER), 620_000],
     [balanceKey('pt_gm', 'u_jisu'), 45_000],
-    [balanceKey('pt_on2', ME), 12_000],
+    [balanceKey('pt_on2', SEED_ISSUER), 12_000],
   ])
 }
 
@@ -150,8 +151,8 @@ export function resetLedger(): void {
   state = initialState()
 }
 
-export function me(): User {
-  return state.users.get(ME)!
+export function userById(userId: UserId): User | undefined {
+  return state.users.get(userId)
 }
 
 export function allUsers(): User[] {
@@ -191,8 +192,8 @@ export function viewOf(pointType: SeedPoint, userId: UserId): PointType {
 }
 
 /** 결과에 동명이인을 함께 담는다. 겹침은 결과의 성질이 아니라 원장의 성질이다. */
-export function searchUsers(query: string | null): User[] {
-  const others = allUsers().filter((user) => user.id !== ME)
+export function searchUsers(query: string | null, meId: UserId): User[] {
+  const others = allUsers().filter((user) => user.id !== meId)
   if (!query?.trim()) return others
 
   const needle = query.trim().toLowerCase()
@@ -219,9 +220,11 @@ export function findTransfer(id: TransferId): Transfer | undefined {
   return state.transfers.get(id)
 }
 
-export function history(pointTypeId: PointTypeId | null, limit: number): Transfer[] {
+/** 내가 관여한 것만. 남의 이체가 내 내역에 보이면 안 된다 */
+export function history(meId: UserId, pointTypeId: PointTypeId | null, limit: number): Transfer[] {
   return state.order
     .map((id) => state.transfers.get(id)!)
+    .filter((transfer) => transfer.fromId === meId || transfer.toId === meId)
     .filter((transfer) => !pointTypeId || transfer.pointTypeId === pointTypeId)
     .slice(0, limit)
 }
@@ -234,25 +237,25 @@ export interface CommitInput {
 }
 
 /** 검증과 반영이 한 순간에 일어난다. 중간 상태가 없다. */
-export function commitTransfer(input: CommitInput): Transfer {
+export function commitTransfer(meId: UserId, input: CommitInput): Transfer {
   const pointType = requirePointType(input.pointTypeId)
   const recipient = requireRecipient(input.toId)
 
-  if (input.amount > balanceOf(pointType.id, ME)) {
+  if (input.amount > balanceOf(pointType.id, meId)) {
     throw new LedgerError('INSUFFICIENT_BALANCE')
   }
 
-  move(pointType.id, ME, -input.amount)
+  move(pointType.id, meId, -input.amount)
   move(pointType.id, recipient.id, input.amount)
-  return record('transfer', pointType.id, ME, recipient.id, input)
+  return record('transfer', pointType.id, meId, recipient.id, input)
 }
 
 /** 발행한다. 무에서 만들고 총 유통량이 늘어난다. */
-export function commitIssue(input: CommitInput): Transfer {
+export function commitIssue(meId: UserId, input: CommitInput): Transfer {
   const pointType = requirePointType(input.pointTypeId)
   const recipient = requireRecipient(input.toId)
 
-  if (pointType.issuerId !== ME) throw new LedgerError('NOT_ISSUER')
+  if (pointType.issuerId !== meId) throw new LedgerError('NOT_ISSUER')
   if (pointType.totalIssued + input.amount > pointType.issueCap) {
     throw new LedgerError('CAP_EXCEEDED')
   }

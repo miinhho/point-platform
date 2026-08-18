@@ -22,6 +22,8 @@ export class ApiError extends Error {
 }
 
 const FAILURE_CODES = new Set<string>([
+  'BAD_CREDENTIALS',
+  'UNAUTHENTICATED',
   'INSUFFICIENT_BALANCE',
   'CAP_EXCEEDED',
   'NOT_ISSUER',
@@ -34,6 +36,25 @@ const FAILURE_CODES = new Set<string>([
 interface ErrorBody {
   code?: string
   message?: string
+}
+
+/**
+ * 세션 토큰.
+ *
+ * 메모리에만 둔다 — `localStorage` 에 두면 XSS 한 번에 새고, 이 앱은 되돌릴 수 없는
+ * 송금을 다룬다. 새로고침하면 다시 로그인하는 것이 그 대가다.
+ */
+let token: string | null = null
+
+export function setToken(next: string | null): void {
+  token = next
+}
+
+/** 401 을 받으면 화면이 로그인으로 가야 한다. 그 통로를 여기 둔다 */
+let onUnauthenticated: (() => void) | null = null
+
+export function setUnauthenticatedHandler(handler: () => void): void {
+  onUnauthenticated = handler
 }
 
 export interface RequestOptions {
@@ -59,6 +80,7 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
   const headers: Record<string, string> = { Accept: 'application/json' }
   if (body !== undefined) headers['Content-Type'] = 'application/json'
   if (idempotencyKey) headers['Idempotency-Key'] = idempotencyKey
+  if (token) headers.Authorization = `Bearer ${token}`
 
   let response: Response
   try {
@@ -86,6 +108,12 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
   // 서버가 준 코드를 우선하고, 없으면 상태 코드로 떨어진다.
   const code: FailureCode =
     parsed.code && FAILURE_CODES.has(parsed.code) ? (parsed.code as FailureCode) : 'SERVER'
+
+  // 토큰이 죽었으면 버린다. 화면은 세션 조회가 실패하는 것으로 알게 된다.
+  if (code === 'UNAUTHENTICATED') {
+    token = null
+    onUnauthenticated?.()
+  }
 
   throw new ApiError(code, parsed.message ?? '서버가 요청을 처리하지 못했습니다', response.status)
 }

@@ -1,7 +1,7 @@
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it } from 'vitest'
 import { endpoints } from './endpoints'
-import { ApiError, newIdempotencyKey } from './http'
-import { balanceOf, ME } from '@/mocks/ledger'
+import { ApiError, newIdempotencyKey, setToken } from './http'
+import { balanceOf, SEED_ISSUER as ME } from '@/mocks/ledger'
 import { setSim } from '@/mocks/sim'
 
 /**
@@ -11,6 +11,15 @@ import { setSim } from '@/mocks/sim'
  * 그것을 받으므로, 여기서 통과하는 것은 상태 코드와 헤더까지 포함한 계약이다.
  */
 const key = () => newIdempotencyKey()
+
+// 모든 읽기·쓰기가 토큰을 통과한다. 인증 없는 호출은 401 이다.
+const TOKEN = { value: '' }
+
+beforeEach(async () => {
+  const session = await endpoints.login({ handle: '@minho', password: 'point' })
+  TOKEN.value = session.token
+  setToken(session.token)
+})
 
 describe('조회', () => {
   it('내 정보', async () => {
@@ -116,7 +125,7 @@ describe('멱등성 — 이중 이체를 막는 것은 이 헤더뿐이다', () 
     await expect(
       fetch('http://localhost/api/transfers', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${TOKEN.value}` },
         body: JSON.stringify({ pointTypeId: 'pt_on', toId: 'u_jisoo', amount: 1 }),
       }).then((r) => r.status),
     ).resolves.toBe(400)
@@ -162,7 +171,11 @@ describe('발행', () => {
   it('대상을 실어 보내면 400 으로 거절한다', async () => {
     const response = await fetch('http://localhost/api/issues', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Idempotency-Key': key() },
+      headers: {
+        'Content-Type': 'application/json',
+        'Idempotency-Key': key(),
+        Authorization: `Bearer ${TOKEN.value}`,
+      },
       body: JSON.stringify({ pointTypeId: 'pt_gm', toId: 'u_jisu', amount: 1 }),
     })
     expect(response.status).toBe(400)

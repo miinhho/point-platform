@@ -11,5 +11,7 @@ export default defineConfig({
   },
   test: {
     setupFiles: ['./src/test/setup.ts'],
+    // 화면 테스트는 MSW 왕복과 스프링 전환을 함께 기다린다. RTL 대기(5초)보다 넉넉해야 한다.
+    testTimeout: 20_000,
   },
 })

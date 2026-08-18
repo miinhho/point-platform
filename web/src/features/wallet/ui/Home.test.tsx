@@ -1,10 +1,14 @@
 // @vitest-environment happy-dom
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it } from 'vitest'
 import { screen } from '@testing-library/react'
 import { http, HttpResponse } from 'msw'
 import { server } from '@/mocks/node'
-import { renderApp } from '@/test/render'
+import { renderApp, signInAs } from '@/test/render'
 import { Home } from './Home'
+
+beforeEach(async () => {
+  await signInAs()
+})
 
 /** 확인 방법: docs/JOURNEY.md 여정 1 */
 const SYMBOL = /^(ON|SL|GM|OP|ZZ)$/
