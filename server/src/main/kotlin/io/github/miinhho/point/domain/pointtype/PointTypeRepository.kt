@@ -8,6 +8,7 @@ import java.util.UUID
 
 interface PointTypeRepository : JpaRepository<PointType, Long> {
     fun findByPublicId(publicId: UUID): PointType?
+    fun findByIdempotencyKey(idempotencyKey: String): PointType?
 
     // 엔티티를 먼저 로드하지 않고 id 만 얻는다 — 이미 1차 캐시에 올라와 있으면
     // 아래 잠금 조회가 락은 잡되 낡은 값을 돌려줘서 상한 판정이 무의미해진다.

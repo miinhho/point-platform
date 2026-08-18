@@ -13,6 +13,7 @@ import io.github.miinhho.point.domain.transfer.TransferRepository
 import io.github.miinhho.point.domain.user.User
 import io.github.miinhho.point.domain.user.UserRepository
 import io.github.miinhho.point.transfer.TransferRequest
+import io.github.miinhho.point.wallet.CreatePointTypeRequest
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -190,6 +191,41 @@ class ConcurrencyTest {
         assertEquals(transferId, transferIdOf(mine.body), "받은 쪽은 자기 이체를 키로 확인할 수 있어야 한다")
     }
 
+    // 계약: docs/API.md 「엔드포인트」 + docs/JOURNEY.md 여정 9
+    @Test
+    fun `같은 멱등성 키로 동시에 창설해도 포인트는 하나만 생긴다`() {
+        val token = login("@minho").accessToken
+        val key = UUID.randomUUID().toString()
+        val before = pointTypeRepository.count()
+
+        val responses = inParallel(8) {
+            postPointType(token, key, CreatePointTypeRequest("동네빵집", "BK", "orange", BigDecimal(1_000_000)))
+        }
+
+        assertTrue(responses.all { it.statusCode.is2xxSuccessful }, "전부 성공 응답이어야 한다: ${responses.map { it.statusCode }}")
+        assertEquals(before + 1, pointTypeRepository.count(), "포인트는 정확히 하나만 생겨야 한다")
+        assertEquals(1, responses.mapNotNull { publicIdOf(it.body) }.toSet().size, "모두 같은 포인트를 돌려받아야 한다")
+    }
+
+    @Test
+    fun `같은 기호로 동시에 창설하면 하나만 성공하고 나머지는 409 SYMBOL_TAKEN`() {
+        val token = login("@minho").accessToken
+        val before = pointTypeRepository.count()
+
+        // 키가 서로 다르다 — 다른 사람이 만든 것을 내 것이라고 돌려주면 안 된다.
+        val responses = inParallel(6) {
+            postPointType(token, UUID.randomUUID().toString(), CreatePointTypeRequest("동네빵집", "bk", "orange", BigDecimal(1_000_000)))
+        }
+
+        assertEquals(1, responses.count { it.statusCode == HttpStatus.CREATED }, "기호가 같으니 하나만 성공해야 한다")
+        val losers = responses.filter { it.statusCode != HttpStatus.CREATED }
+        assertTrue(losers.all { it.statusCode.value() == 409 }, "진 쪽은 409 여야 한다: ${losers.map { it.statusCode }}")
+        assertTrue(losers.all { it.body?.contains("SYMBOL_TAKEN") == true }, "코드는 SYMBOL_TAKEN 이어야 한다")
+        assertEquals(before + 1, pointTypeRepository.count())
+        // 소문자로 보냈어도 정규화된 형태로 저장돼야 「전체에서 유일」이 성립한다.
+        assertNotNull(pointTypeRepository.findAll().firstOrNull { it.symbol == "BK" })
+    }
+
     @Test
     fun `refresh 회전이 겹치면 하나만 성공하고 진 쪽이 사슬을 죽이지 않는다`() {
         val session = login("@minho")
@@ -248,6 +284,16 @@ class ConcurrencyTest {
     }
 
     private fun transferIdOf(body: String?) = body?.let { Regex("\"id\":\"([^\"]+)\"").find(it)?.groupValues?.get(1) }
+
+    private fun publicIdOf(body: String?) = transferIdOf(body)
+
+    private fun postPointType(token: String, key: String, body: CreatePointTypeRequest): ResponseEntity<String> {
+        val headers = HttpHeaders().apply {
+            setBearerAuth(token)
+            set("Idempotency-Key", key)
+        }
+        return restTemplate.exchange("/api/point-types", HttpMethod.POST, HttpEntity(body, headers), String::class.java)
+    }
 
     /** 모든 요청이 같은 순간에 출발하게 맞춘다 — 어긋나면 동시성이 시험되지 않는다. */
     private fun <T : Any> inParallel(count: Int, call: () -> ResponseEntity<T>): List<ResponseEntity<T>> {
