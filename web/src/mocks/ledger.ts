@@ -133,6 +133,16 @@ function seedBalances(): Map<BalanceKey, Points> {
   ])
 }
 
+/**
+ * 이미 한 번이라도 보낸 (포인트, 사용자). 여기 없으면 아직 판단하지 않은 것이다 —
+ * 표시를 지우는 것은 실제로 그 포인트를 쓴 일뿐이다. 근거: docs/JOURNEY.md 여정 10
+ */
+function seedSpent(): Set<BalanceKey> {
+  // 받기만 하고 아직 써 보지 않은 포인트가 하나는 있어야 그 표시가 검증된다.
+  const fresh = balanceKey('pt_on2', SEED_ISSUER)
+  return new Set([...seedBalances().keys()].filter((key) => key !== fresh))
+}
+
 /** 포인트별로 다르다. */
 function seedRecent(): Map<PointTypeId, UserId[]> {
   return new Map<PointTypeId, UserId[]>([
@@ -146,6 +156,8 @@ interface State {
   users: Map<UserId, SeedUser>
   pointTypes: Map<PointTypeId, SeedPoint>
   balances: Map<BalanceKey, Points>
+  /** 「처음이에요」 표시가 꺼진 (포인트, 사용자). 발행은 쓰는 것이 아니라 넣지 않는다 */
+  spent: Set<BalanceKey>
   transfers: Map<TransferId, Transfer>
   /** `${요청자}:${멱등성 키}` → 이체 id. 남의 키로 남의 이체를 꺼낼 수 없다 */
   byKey: Map<string, TransferId>
@@ -163,6 +175,7 @@ function initialState(): State {
     users: new Map(seedUsers().map((user) => [user.id, user])),
     pointTypes: new Map(seedPointTypes().map((type) => [type.id, type])),
     balances: seedBalances(),
+    spent: seedSpent(),
     transfers: new Map(),
     byKey: new Map(),
     createdByKey: new Map(),
@@ -223,7 +236,12 @@ export function balancesOf(userId: UserId) {
     .map((pointType) => {
       const amount = balanceOf(pointType.id, userId)
       // 규칙을 서버가 계산해 실어 준다. 클라이언트가 같은 뺄셈을 다시 하지 않게.
-      return { pointType: viewOf(pointType, userId), amount, sendable: amount }
+      return {
+        pointType: viewOf(pointType, userId),
+        amount,
+        sendable: amount,
+        neverSpent: !state.spent.has(balanceKey(pointType.id, userId)),
+      }
     })
     .filter(({ pointType, amount }) => amount > 0 || pointType.canIssue)
 }
@@ -399,6 +417,8 @@ export function commitTransfer(meId: UserId, input: CommitInput): Transfer {
 
   move(pointType.id, meId, -input.amount)
   move(pointType.id, recipient.id, input.amount)
+  // 판단이 실제로 필요한 순간이 여기였다. 지나고 나면 판단은 끝난 것이다.
+  state.spent.add(balanceKey(pointType.id, meId))
   return record(meId, 'transfer', pointType.id, meId, recipient.id, input)
 }
 

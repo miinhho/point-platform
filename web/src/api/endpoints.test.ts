@@ -488,6 +488,64 @@ describe('이체는 관여한 사람만 읽는다', () => {
   })
 })
 
+describe('은행 페이지', () => {
+  it('흉내낼 수 없는 것을 함께 싣는다', async () => {
+    const bank = await endpoints.pointType('pt_on')
+    expect(bank).toMatchObject({
+      issuerHandle: '@onmart',
+      visibility: 'public',
+      totalIssued: 50_000_000,
+    })
+    expect(Number.isNaN(Date.parse(bank.createdAt))).toBe(false)
+  })
+
+  // 처음 만나는 순간에 판단하는 자리다. 안 가진 사람에게 닫으면 판단할 곳이 없다.
+  it('그 포인트를 갖지 않은 사람도 읽는다', async () => {
+    const wallet = await endpoints.wallet()
+    expect(wallet.balances.some((b) => b.pointType.id === 'pt_sol' && b.amount > 0)).toBe(true)
+
+    const bank = await endpoints.pointType('pt_sol')
+    // 보는 사람 기준의 판정은 그대로 온다.
+    expect(bank.canIssue).toBe(false)
+  })
+
+  it('없는 포인트는 404 다', async () => {
+    await expect(endpoints.pointType('pt_nope')).rejects.toMatchObject({
+      code: 'POINT_TYPE_NOT_FOUND',
+      status: 404,
+    })
+  })
+})
+
+/** 「봤어요」 버튼을 두지 않는다. 표시를 지우는 것은 실제로 쓴 일뿐이다 — 여정 10 */
+describe('아직 쓰지 않은 포인트', () => {
+  const heldOf = async (pointTypeId: string) =>
+    (await endpoints.wallet()).balances.find((b) => b.pointType.id === pointTypeId)
+
+  it('받기만 한 포인트는 neverSpent 다', async () => {
+    expect(await heldOf('pt_on2')).toMatchObject({ neverSpent: true })
+    expect(await heldOf('pt_on')).toMatchObject({ neverSpent: false })
+  })
+
+  it('한 번 보내면 꺼진다', async () => {
+    await endpoints.createTransfer(
+      { pointTypeId: 'pt_on2', toId: 'u_jisoo', amount: 1_000 },
+      key(),
+    )
+    expect(await heldOf('pt_on2')).toMatchObject({ neverSpent: false })
+  })
+
+  // 발행은 쓰는 것이 아니다. 자기 지갑으로 들어올 뿐이다.
+  it('발행으로는 꺼지지 않는다', async () => {
+    const created = await endpoints.createPointType(
+      { name: '빵집', symbol: 'BQ', accent: 'orange', issueCap: 1_000, visibility: 'public' },
+      key(),
+    )
+    await endpoints.createIssue({ pointTypeId: created.id, amount: 500 }, key())
+    expect(await heldOf(created.id)).toMatchObject({ neverSpent: true })
+  })
+})
+
 describe('내역', () => {
   it('최신순으로 주고 포인트로 걸러진다', async () => {
     const on = await endpoints.createTransfer(

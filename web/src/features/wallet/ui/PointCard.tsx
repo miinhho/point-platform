@@ -19,7 +19,7 @@ interface Props {
 /** 근거: docs/JOURNEY.md 여정 1 */
 export function PointCard({ balance, isMine, onOpen, onBank }: Props) {
   const { t } = useTranslation()
-  const { pointType, amount } = balance
+  const { pointType, amount, neverSpent } = balance
   const empty = amount === 0
   const openable = !empty && onOpen
   // 방금 만든 포인트가 정확히 잔액 0 이라 흐려졌다 — 다음 할 일이 가장 확실한 카드였다.
@@ -48,6 +48,13 @@ export function PointCard({ balance, isMine, onOpen, onBank }: Props) {
           <Text textStyle="caption">
             {t(isMine ? 'home.zeroBalanceIssuer' : 'home.zeroBalance')}
           </Text>
+        ) : null}
+        {/*
+          내가 만든 은행은 낯설지 않다. 서버는 썼는지만 답하고, 그것이 판단 재료인지는
+          화면이 정한다 — docs/JOURNEY.md 여정 10
+        */}
+        {!empty && !isMine && neverSpent ? (
+          <Text textStyle="caption">{t('home.neverSpent')}</Text>
         ) : null}
       </Box>
 

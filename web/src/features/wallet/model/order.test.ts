@@ -23,6 +23,7 @@ const balance = (id: string, name: string, amount: number): Balance => ({
   pointType: point(id, name),
   amount,
   sendable: amount,
+  neverSpent: false,
 })
 
 describe('orderBalances', () => {

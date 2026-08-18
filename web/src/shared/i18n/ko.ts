@@ -131,6 +131,8 @@ export const ko = {
     zeroBalance: '보낼 잔액이 없어요',
     /** 발행할 수 있는 사람에게는 다음 할 일이 기다리기가 아니라 발행이다 */
     zeroBalanceIssuer: '발행해서 채울 수 있어요',
+    /** 표시를 지우는 것은 실제로 그 포인트를 쓴 일뿐이다 — 여정 10 */
+    neverSpent: '아직 써 보지 않은 포인트예요',
     loadFailed: '지갑을 불러오지 못했어요',
   },
 
@@ -166,6 +168,9 @@ export const ko = {
     balanceAfter: '보낸 뒤 남는 잔액',
     /** 받는 사람이 이 포인트를 처음 받는다. 경고가 아니라 사실이다 */
     firstTime: '이 포인트를 처음 받아요',
+    /** 되돌릴 수 없는 것 직전이 마지막 방어선이다 — 여정 10 */
+    firstUse: '이 포인트를 처음 써요',
+    firstUseIssuer: '만든 사람',
     /** 발행은 색이 아니라 구조로 구분한다. 화면 위에 늘 붙어 있는 띠다 */
     issueBanner: '발행',
     supplyNow: '지금 총 유통량',

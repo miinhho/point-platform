@@ -182,3 +182,38 @@ describe('여정 6 — 결과를 모를 때 단정하지 않는다', () => {
     expect(balanceOf('pt_on', ME)).toBe(3_210_000)
   })
 })
+
+/*
+ * 공개 은행에는 관문이 없어 카드가 조용히 늘어난다. 진짜 위험이 실현되는 것은
+ * 그 포인트의 대가로 무언가를 줄 때이고, 그 직전이 마지막 방어선이다.
+ * 근거: docs/JOURNEY.md 여정 10
+ */
+describe('처음 쓰는 포인트', () => {
+  /** 온포인트(솔카페)만 받기만 하고 써 본 적이 없다 */
+  async function atFirstUse() {
+    const user = userEvent.setup()
+    renderApp(<App />)
+    await user.click(await screen.findByRole('button', { name: /온포인트.*12,000/ }))
+    await screen.findByText('누구에게 보낼까요?')
+    await user.click(await screen.findByRole('button', { name: /@jisoo/ }))
+    await screen.findByText(/만큼 보낼 수 있어요/)
+    for (const d of '1000') await user.click(screen.getByRole('button', { name: d }))
+    await user.click(screen.getByRole('button', { name: '보내기 확인' }))
+    await screen.findByText('이렇게 보낼까요?')
+    await settle()
+    return user
+  }
+
+  it('처음임을 말하고 흉내낼 수 없는 것을 함께 보여준다', async () => {
+    await atFirstUse()
+
+    expect(screen.getByText('이 포인트를 처음 써요')).toBeTruthy()
+    // 이름도 기호도 색도 흉내낼 수 있다. 핸들만 하나뿐이다.
+    expect(screen.getByText('@solcafe')).toBeTruthy()
+  })
+
+  it('이미 써 본 포인트에는 나오지 않는다', async () => {
+    await atConfirm()
+    expect(screen.queryByText('이 포인트를 처음 써요')).toBeNull()
+  })
+})

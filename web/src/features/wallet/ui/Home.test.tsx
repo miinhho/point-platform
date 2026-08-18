@@ -122,6 +122,36 @@ describe('홈', () => {
     expect(screen.getByText('온마트 발행')).toBeTruthy()
   })
 
+  /*
+   * 「봤어요」 버튼을 두지 않는다 — 눌러서 지우는 표시는 읽지 않고 눌린다.
+   * 표시가 남아 있는 것은 거짓이 아니라 아직 판단하지 않았다는 뜻이다. 여정 10
+   */
+  it('아직 써 보지 않은 포인트를 그렇게 말한다', async () => {
+    renderApp(<Home />)
+    await screen.findByText('금머니')
+
+    // 시드에서 온포인트(솔카페)만 받기만 하고 써 본 적이 없다.
+    expect(screen.getByText('아직 써 보지 않은 포인트예요')).toBeTruthy()
+    expect(screen.getAllByText('아직 써 보지 않은 포인트예요')).toHaveLength(1)
+  })
+
+  // 내가 만든 은행은 낯설지 않다. 판단할 것이 없는 자리에 표시를 남기면 소음이다.
+  it('내가 발행하는 포인트에는 붙지 않는다', async () => {
+    server.use(
+      walletOf([
+        {
+          pointType: { ...point('pt_new', '동네빵집', 'BK', '장민호', 'orange'), canIssue: true },
+          amount: 500,
+          neverSpent: true,
+        },
+      ]),
+    )
+    renderApp(<Home />)
+    await screen.findByText('동네빵집')
+
+    expect(screen.queryByText('아직 써 보지 않은 포인트예요')).toBeNull()
+  })
+
   // 판단할 것은 발행자에게만 있는 것이 아니다 — docs/JOURNEY.md 여정 10
   it('발행자가 아닌 포인트에도 은행 페이지 진입점이 붙는다', async () => {
     renderApp(<Home />)

@@ -43,8 +43,8 @@ export function Confirm({ onBack, onConfirm, busy }: Props) {
 
   const issuing = draft.kind === 'issue'
   const amount = amountOf(draft)
-  const balance =
-    wallet.data?.balances.find((b) => b.pointType.id === draft.pointType.id)?.amount ?? 0
+  const held = wallet.data?.balances.find((b) => b.pointType.id === draft.pointType.id)
+  const balance = held?.amount ?? 0
   // 상한 판정은 서버가 한다. 여기서는 보낸 뒤의 값을 보여주기만 한다.
   // 처음 받는 사람인가. 경고가 아니라 사실로 한 줄 적는다.
   const firstTime =
@@ -96,6 +96,9 @@ export function Confirm({ onBack, onConfirm, busy }: Props) {
                 </>
               )}
             </Box>
+
+            {/* 공개 은행에는 관문이 없다. 대가로 무언가를 주기 직전이 마지막 방어선이다 */}
+            {!issuing && held?.neverSpent ? <FirstUse pointType={draft.pointType} /> : null}
           </Card>
         </Gutter>
       </Body>
@@ -114,6 +117,23 @@ export function Confirm({ onBack, onConfirm, busy }: Props) {
         </Box>
       </Gutter>
     </Screen>
+  )
+}
+
+/**
+ * 이 포인트를 처음 쓴다. 판단의 근거는 핸들이다 — 이름도 기호도 색도 흉내낼 수
+ * 있고 핸들만 하나뿐이다. 근거: docs/JOURNEY.md 여정 10
+ */
+function FirstUse({ pointType }: { pointType: PointType }) {
+  const { t } = useTranslation()
+
+  return (
+    <Box marginTop="4" paddingTop="4" borderTopWidth="1px" borderColor="border">
+      <Text textStyle="support">{t('confirm.firstUse')}</Text>
+      <Box marginTop="2">
+        <Line label={t('confirm.firstUseIssuer')} value={pointType.issuerHandle} textStyle="mono" />
+      </Box>
+    </Box>
   )
 }
 
