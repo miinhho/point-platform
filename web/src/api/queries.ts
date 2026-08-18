@@ -16,6 +16,7 @@ export const queryKeys = {
   pointType: (pointTypeId: PointTypeId) => ['pointType', pointTypeId] as const,
   history: ['history'] as const,
   invites: ['invites'] as const,
+  members: (pointTypeId: PointTypeId) => ['members', pointTypeId] as const,
 }
 
 /**
@@ -55,6 +56,13 @@ export const pointTypeQuery = (pointTypeId: PointTypeId) =>
   queryOptions({
     queryKey: queryKeys.pointType(pointTypeId),
     queryFn: (): Promise<PointType> => endpoints.pointType(pointTypeId),
+  })
+
+/** 회원 목록. 회원만 읽는다 — 비공개 은행에만 있다 */
+export const membersQuery = (pointTypeId: PointTypeId) =>
+  queryOptions({
+    queryKey: queryKeys.members(pointTypeId),
+    queryFn: () => endpoints.members(pointTypeId),
   })
 
 /** 내가 받은 초대. 수락하면 사라지므로 「초대가 있다」가 곧 「아직 회원이 아니다」다 */

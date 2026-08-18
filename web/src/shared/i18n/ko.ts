@@ -137,6 +137,12 @@ export const ko = {
     inviteTitle: '누구를 초대할까요?',
     invited: '초대했어요',
     alreadyMember: '이미 회원이에요',
+    membersEntry: '회원 보기',
+    issuerBadge: '은행장',
+    remove: '내보내기',
+    leave: '나가기',
+    /** 「간 건 간 거다」 — 잔액을 지우거나 옮기지 않는다. 계약: docs/API.md */
+    leaveKeeps: '나가도 잔액은 그대로 남지만 쓸 수 없어요',
   },
 
   home: {

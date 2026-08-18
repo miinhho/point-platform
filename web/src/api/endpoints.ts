@@ -111,6 +111,18 @@ export const endpoints = {
   /** 내가 받은 초대. 거절도 취소도 없다 — docs/API.md 「회원 자격」 */
   invites: (options?: RequestOptions) => request<Invite[]>('/invites', options),
 
+  /** 회원 목록. 회원만 읽는다 */
+  members: (pointTypeId: PointTypeId, options?: RequestOptions) =>
+    request<User[]>(`/point-types/${pointTypeId}/members`, options),
+
+  /** 나간다. 잔액은 그대로 남고 쓸 수 없게 된다 — docs/API.md */
+  leaveBank: (pointTypeId: PointTypeId) =>
+    request<void>(`/point-types/${pointTypeId}/members/me`, { method: 'DELETE' }),
+
+  /** 내보낸다. 은행장만. 나가기와 같은 일을 하고 누가 정했느냐만 다르다 */
+  removeMember: (pointTypeId: PointTypeId, userId: UserId) =>
+    request<void>(`/point-types/${pointTypeId}/members/${userId}`, { method: 'DELETE' }),
+
   /** 초대. 은행장만. 같은 사람을 다시 초대하면 같은 초대가 온다 */
   createInvite: (pointTypeId: PointTypeId, toId: UserId, idempotencyKey: string) =>
     request<Invite>(`/point-types/${pointTypeId}/invites`, {

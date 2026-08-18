@@ -690,6 +690,88 @@ describe('초대와 수락', () => {
   })
 })
 
+/**
+ * 나가기와 내보내기는 같은 일을 하고 누가 정했느냐만 다르다. 둘 다 포인트를
+ * 회수하지 않는다 — 계약: docs/API.md 「회원 자격」
+ */
+describe('나가기와 내보내기', () => {
+  const asJisoo = async () => {
+    const session = await endpoints.login({ handle: '@jisoo', password: 'point' })
+    setTokens(session)
+  }
+
+  it('회원 목록은 회원만 읽는다', async () => {
+    expect((await endpoints.members('pt_cl')).map((u) => u.handle).sort()).toEqual([
+      '@jisoo',
+      '@minho',
+    ])
+
+    const session = await endpoints.login({ handle: '@jisu', password: 'point' })
+    setTokens(session)
+    await expect(endpoints.members('pt_cl')).rejects.toMatchObject({ status: 404 })
+  })
+
+  it('나가도 잔액은 그대로 남고 쓸 수 없게 된다', async () => {
+    await asJisoo()
+    expect(balanceOf('pt_cl', 'u_jisoo')).toBe(30_000)
+
+    await endpoints.leaveBank('pt_cl')
+
+    // 지우지도 옮기지도 않는다.
+    expect(balanceOf('pt_cl', 'u_jisoo')).toBe(30_000)
+    const held = (await endpoints.wallet()).balances.find((b) => b.pointType.id === 'pt_cl')
+    expect(held).toMatchObject({ amount: 30_000, sendable: 0 })
+    // 그 은행은 이제 닿지 않는다.
+    await expect(endpoints.pointType('pt_cl')).rejects.toMatchObject({ status: 404 })
+  })
+
+  it('내보내도 같은 일이 일어난다 — 누가 정했느냐만 다르다', async () => {
+    await endpoints.removeMember('pt_cl', 'u_jisoo')
+
+    expect(balanceOf('pt_cl', 'u_jisoo')).toBe(30_000)
+    await asJisoo()
+    const held = (await endpoints.wallet()).balances.find((b) => b.pointType.id === 'pt_cl')
+    expect(held).toMatchObject({ amount: 30_000, sendable: 0 })
+  })
+
+  it('다시 초대받으면 그대로 되살아난다', async () => {
+    await endpoints.removeMember('pt_cl', 'u_jisoo')
+    const invited = await endpoints.createInvite('pt_cl', 'u_jisoo', key())
+
+    await asJisoo()
+    await endpoints.acceptInvite(invited.id)
+    const held = (await endpoints.wallet()).balances.find((b) => b.pointType.id === 'pt_cl')
+    expect(held).toMatchObject({ amount: 30_000, sendable: 30_000 })
+  })
+
+  it('은행장은 나갈 수 없다', async () => {
+    await expect(endpoints.leaveBank('pt_cl')).rejects.toMatchObject({
+      code: 'ISSUER_CANNOT_LEAVE',
+      status: 409,
+    })
+  })
+
+  it('은행장을 내보낼 수도 없다', async () => {
+    await expect(endpoints.removeMember('pt_cl', ME)).rejects.toMatchObject({
+      code: 'ISSUER_CANNOT_LEAVE',
+      status: 409,
+    })
+  })
+
+  it('은행장이 아니면 남을 내보낼 수 없다', async () => {
+    await asJisoo()
+    await expect(endpoints.removeMember('pt_cl', ME)).rejects.toMatchObject({
+      code: 'NOT_ISSUER',
+      status: 403,
+    })
+  })
+
+  it('공개 은행에는 회원이 없으므로 나갈 것도 없다', async () => {
+    await expect(endpoints.leaveBank('pt_on')).rejects.toMatchObject({ status: 404 })
+    await expect(endpoints.members('pt_on')).rejects.toMatchObject({ status: 404 })
+  })
+})
+
 /** 「봤어요」 버튼을 두지 않는다. 표시를 지우는 것은 실제로 쓴 일뿐이다 — 여정 10 */
 describe('아직 쓰지 않은 포인트', () => {
   const heldOf = async (pointTypeId: string) =>

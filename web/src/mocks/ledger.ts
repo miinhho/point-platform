@@ -583,6 +583,35 @@ export function acceptInvite(meId: UserId, inviteId: string): PointType {
   return viewOf(requirePointType(invite.pointTypeId), meId)
 }
 
+/** 회원 목록. 회원만 읽는다 — 남의 모임 명부가 아니다 */
+export function membersOf(pointTypeId: PointTypeId, meId: UserId): User[] | undefined {
+  const pointType = state.pointTypes.get(pointTypeId)
+  if (!pointType || pointType.visibility === 'public' || !isMember(pointTypeId, meId)) {
+    return undefined
+  }
+  return [...(state.members.get(pointTypeId) ?? [])]
+    .map((id) => userById(id))
+    .filter((user): user is User => user !== undefined)
+}
+
+/**
+ * 나가기와 내보내기는 같은 일을 하고 누가 정했느냐만 다르다. 둘 다 **포인트를
+ * 회수하지 않는다** — 잔액은 그대로 남고 쓸 수 없다. 계약: docs/API.md
+ */
+export function removeMember(meId: UserId, pointTypeId: PointTypeId, targetId: UserId): void {
+  const pointType = state.pointTypes.get(pointTypeId)
+  // 닿지 않는 은행은 없는 은행이다.
+  if (!pointType || pointType.visibility === 'public' || !isMember(pointTypeId, meId)) {
+    throw new LedgerError('POINT_TYPE_NOT_FOUND')
+  }
+  // 남을 내보내는 것은 은행장만 한다. 나가는 것은 누구나 자기에 대해 한다.
+  if (targetId !== meId && pointType.issuerId !== meId) throw new LedgerError('NOT_ISSUER')
+  // 발행할 사람이 없는 은행이 되고, 상한도 품목도 관리할 수 없어진다.
+  if (targetId === pointType.issuerId) throw new LedgerError('ISSUER_CANNOT_LEAVE')
+
+  state.members.get(pointTypeId)?.delete(targetId)
+}
+
 export interface CommitInput {
   idempotencyKey: string
   pointTypeId: PointTypeId

@@ -280,6 +280,31 @@ export const handlers = [
 
   http.get('*/api/invites', authed((userId) => ledger.invitesFor(userId))),
 
+  http.get(
+    '*/api/point-types/:id/members',
+    authed((userId, request) => {
+      const [, pointTypeId] = new URL(request.url).pathname.match(/point-types\/([^/]+)\/members/)!
+      // 회원이 아니면 그 은행이 없는 것과 같다. 명부가 있다는 것도 알려 주지 않는다.
+      return ledger.membersOf(pointTypeId, userId) ?? fail('POINT_TYPE_NOT_FOUND')
+    }),
+  ),
+
+  http.delete('*/api/point-types/:id/members/:userId', async ({ request, params }) => {
+    const blocked = await gate()
+    if (blocked) return blocked
+    const auth = requireUser(request)
+    if (auth instanceof Response) return auth
+
+    const target = String(params.userId) === 'me' ? auth.userId : String(params.userId)
+    try {
+      ledger.removeMember(auth.userId, String(params.id), target)
+      return new HttpResponse(null, { status: 204 })
+    } catch (error) {
+      if (error instanceof ledger.LedgerError) return fail(error.code)
+      throw error
+    }
+  }),
+
   http.post('*/api/point-types/:id/invites', async ({ request, params }) => {
     const blocked = await gate()
     if (blocked) return blocked

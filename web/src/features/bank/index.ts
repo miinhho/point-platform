@@ -2,4 +2,5 @@
 export { Bank } from './ui/Bank'
 export { CreatePoint } from './ui/CreatePoint'
 export { Invite } from './ui/Invite'
+export { Members } from './ui/Members'
 export { PointCreated } from './ui/PointCreated'

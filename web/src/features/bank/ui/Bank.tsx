@@ -48,6 +48,20 @@ export function Bank({ pointTypeId, onBack }: { pointTypeId: PointTypeId; onBack
 
           {invite ? <Join inviteId={invite.id} pointTypeId={pointTypeId} /> : null}
 
+          {/* 회원 목록은 회원만 본다. 초대받았을 뿐이면 아직 명부를 볼 자리가 아니다 */}
+          {pointType.visibility === 'private' && !invite ? (
+            <Box marginTop="6">
+              <Button
+                size="lg"
+                width="full"
+                variant="outline"
+                onClick={() => go({ name: 'members', pointTypeId: pointType.id })}
+              >
+                {t('bank.membersEntry')}
+              </Button>
+            </Box>
+          ) : null}
+
           {balance ? (
             <Box marginTop="6" display="flex" flexDirection="column" gap="3">
               <Line
