@@ -40,15 +40,19 @@ export const Body = chakra('div', {
   },
 })
 
-/** 목록 한 줄. 두 번째 소비자가 생기면 recipe 로 올린다. */
-export const Row = chakra('div', {
-  base: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '3',
-    width: '100%',
-    textAlign: 'start',
-    paddingBlock: '3.5',
-    paddingInline: 'gutter',
-  },
+const rowBase = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: '3',
+  width: '100%',
+  textAlign: 'start',
+  paddingBlock: '3.5',
+  paddingInline: 'gutter',
+} as const
+
+export const Row = chakra('div', { base: rowBase })
+
+/** 누를 수 있는 줄. Chakra 다형 프롭이 `type` 을 받지 않아 따로 둔다. */
+export const RowButton = chakra('button', {
+  base: { ...rowBase, _active: { bg: 'bg.muted' } },
 })

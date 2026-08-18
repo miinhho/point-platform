@@ -1,0 +1,161 @@
+import { Box, Input, Text } from '@chakra-ui/react'
+import { useQuery } from '@tanstack/react-query'
+import { useAtomValue, useSetAtom } from 'jotai'
+import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
+import { recentQuery, usersQuery } from '@/api/queries'
+import { BackButton } from '@/shared/ui/BackButton'
+import { Body, Gutter, Header, RowButton, Screen, Title } from '@/shared/ui/Screen'
+import { draftAtom, pickRecipientAtom } from './atoms'
+import { buildRecipientList, buildSearchList, type RecipientEntry } from './recipientList'
+
+/** 근거: docs/JOURNEY.md 여정 3 */
+export function PickRecipient({ onBack }: { onBack: () => void }) {
+  const { t } = useTranslation()
+  const draft = useAtomValue(draftAtom)
+  const pick = useSetAtom(pickRecipientAtom)
+  // 검색어는 서버 상태가 아니고 다른 화면이 알 필요도 없다.
+  const [query, setQuery] = useState('')
+
+  const searching = query.trim().length > 0
+  const users = useQuery(usersQuery(query.trim()))
+  const recent = useQuery({ ...recentQuery(draft?.pointType.id ?? ''), enabled: !!draft })
+
+  const list = searching
+    ? buildSearchList(users.data ?? [])
+    : buildRecipientList(recent.data ?? [], users.data ?? [])
+  const total = list.recent.length + list.others.length
+
+  return (
+    <Screen>
+      <Header>
+        <BackButton onClick={onBack} />
+        <Title>{draft?.kind === 'issue' ? t('pick.titleIssue') : t('pick.titleTransfer')}</Title>
+        {draft ? (
+          <Text textStyle="caption" colorPalette={draft.pointType.accent} color="colorPalette.fg">
+            {draft.pointType.name}
+          </Text>
+        ) : null}
+      </Header>
+
+      {/* 자동 포커스를 두지 않는다 — 키보드가 목록의 3분의 2를 덮는다 (FIELD.md R2) */}
+      <Gutter>
+        <Input
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder={t('pick.searchPlaceholder')}
+          autoCapitalize="off"
+          autoCorrect="off"
+          spellCheck={false}
+          enterKeyHint="search"
+          size="lg"
+          borderRadius="l2"
+          bg="bg.panel"
+        />
+      </Gutter>
+
+      <Body marginTop="2">
+        {list.recent.length > 0 ? (
+          <Section label={t('pick.recentSection')}>
+            <Rows entries={list.recent} counts={list.countByName} onPick={pick} />
+          </Section>
+        ) : null}
+
+        {list.others.length > 0 ? (
+          <Section label={list.recent.length > 0 ? t('pick.allSection') : undefined}>
+            <Rows entries={list.others} counts={list.countByName} onPick={pick} />
+          </Section>
+        ) : null}
+
+        {!users.isPending && total === 0 ? (
+          <Gutter>
+            <Text textStyle="caption" paddingBlock="8" textAlign="center">
+              {searching ? t('pick.notFound', { query: query.trim() }) : t('pick.empty')}
+            </Text>
+          </Gutter>
+        ) : null}
+      </Body>
+    </Screen>
+  )
+}
+
+function Section({ label, children }: { label?: string; children: React.ReactNode }) {
+  return (
+    <>
+      {label ? (
+        <Gutter paddingTop="3" paddingBottom="1">
+          <Text textStyle="caption">{label}</Text>
+        </Gutter>
+      ) : null}
+      {children}
+    </>
+  )
+}
+
+interface RowsProps {
+  entries: RecipientEntry[]
+  counts: Map<string, number>
+  onPick: (user: RecipientEntry['user']) => void
+}
+
+function Rows({ entries, counts, onPick }: RowsProps) {
+  const { t } = useTranslation()
+
+  return (
+    <>
+      {entries.map((entry, index) => {
+        // 묶음의 첫 줄에만 붙인다. 화면 상단 배너로 띄우면 곧 배경이 된다.
+        const startsCluster = entry.ambiguous && entries[index - 1]?.user.name !== entry.user.name
+        return (
+          <Box key={entry.user.id}>
+            {startsCluster ? (
+              <Gutter paddingTop="3" paddingBottom="1">
+                <Text textStyle="verifyLabel">
+                  {t('pick.sameName', { count: counts.get(entry.user.name) ?? 0 })}
+                </Text>
+              </Gutter>
+            ) : null}
+            <RecipientRow entry={entry} onPick={onPick} />
+          </Box>
+        )
+      })}
+    </>
+  )
+}
+
+function RecipientRow({ entry, onPick }: { entry: RecipientEntry; onPick: RowsProps['onPick'] }) {
+  const { t } = useTranslation()
+  const { user, ambiguous, pulledUp } = entry
+
+  return (
+    <RowButton type="button" onClick={() => onPick(user)}>
+      <Box
+        aria-hidden
+        flexShrink={0}
+        boxSize="avatar"
+        borderRadius="full"
+        bg="bg.muted"
+        color="fg.muted"
+        display="grid"
+        placeItems="center"
+        textStyle="name"
+      >
+        {user.name.slice(0, 1)}
+      </Box>
+
+      <Box flex={1} minW={0}>
+        <Box display="flex" alignItems="baseline" gap="2">
+          <Text textStyle="name">{user.name}</Text>
+          {pulledUp ? <Text textStyle="caption">{t('pick.notSentBefore')}</Text> : null}
+        </Box>
+        {/* 겹칠 때만 크기·굵기·색을 함께 올린다. 색만으로 구분하지 않는다. */}
+        <Text
+          textStyle={ambiguous ? 'handleVerify' : 'handle'}
+          color={ambiguous ? 'verify.fg' : undefined}
+        >
+          {user.handle}
+        </Text>
+      </Box>
+    </RowButton>
+  )
+}

@@ -1,7 +1,9 @@
 import { Box, Text } from '@chakra-ui/react'
 import { useQuery } from '@tanstack/react-query'
+import { useSetAtom } from 'jotai'
 import { useTranslation } from 'react-i18next'
 import { walletQuery } from '@/api/queries'
+import { startTransferAtom } from '@/features/transfer/atoms'
 import { Body, Gutter, Header, Screen, Title } from '@/shared/ui/Screen'
 import { duplicatedNames, orderBalances } from './order'
 import { PointCard } from './PointCard'
@@ -10,6 +12,7 @@ import { PointCard } from './PointCard'
 export function Home() {
   const { t } = useTranslation()
   const { data, isPending, isError } = useQuery(walletQuery())
+  const startTransfer = useSetAtom(startTransferAtom)
 
   const balances = data ? orderBalances(data.balances) : []
   const ambiguous = duplicatedNames(balances)
@@ -32,6 +35,7 @@ export function Home() {
             ambiguous={ambiguous.has(balance.pointType.name)}
             issuerName={balance.pointType.issuerName}
             isMine={balance.pointType.issuerId === data?.user.id}
+            onOpen={() => startTransfer({ pointType: balance.pointType })}
           />
         ))}
       </Body>

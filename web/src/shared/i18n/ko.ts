@@ -4,6 +4,7 @@ export const ko = {
   common: {
     loading: '불러오는 중',
     retry: '다시 시도',
+    back: '뒤로',
   },
 
   home: {
@@ -15,6 +16,28 @@ export const ko = {
     issuedBy: '{{name}} 발행',
     zeroBalance: '보낼 잔액이 없어요',
     loadFailed: '지갑을 불러오지 못했어요',
+  },
+
+  pick: {
+    titleTransfer: '누구에게 보낼까요?',
+    titleIssue: '누구에게 발행할까요?',
+    searchPlaceholder: '이름 또는 핸들',
+    recentSection: '최근 보낸 사람',
+    allSection: '전체',
+    /** 이 화면의 존재 이유다 */
+    sameName: '같은 이름 {{count}}명 · 핸들로 구분해요',
+    /** 비교하라고 최근 묶음으로 끌어올린 줄 */
+    notSentBefore: '보낸 적 없음',
+    notFound: '"{{query}}"로 찾은 사람이 없어요',
+    empty: '보낼 수 있는 사람이 없어요',
+  },
+
+  amount: {
+    ceiling: '보낼 수 있어요',
+    over: '잔액을 넘었어요',
+    next: '보내기 확인',
+    clear: '전체삭제',
+    backspace: '한 자 지우기',
   },
 
   failure: {

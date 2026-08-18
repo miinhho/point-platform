@@ -22,9 +22,14 @@ function tsxFiles(dir: string): string[] {
 const FILES = SCREEN_DIRS.flatMap(tsxFiles)
 
 /** 주석과 i18n 키 정의를 뺀 본문 */
+/**
+ * 주석을 지운 본문. `discipline-allow` 가 붙은 줄은 다음 줄까지 함께 지운다 —
+ * 예외를 인정하되 그 자리에 이유를 적게 만든다.
+ */
 function code(path: string): string {
   return readFileSync(path, 'utf8')
     .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/^\s*\/\/ discipline-allow:.*\n.*$/gm, '')
     .replace(/^\s*\/\/.*$/gm, '')
 }
 

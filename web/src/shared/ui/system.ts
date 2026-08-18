@@ -11,6 +11,19 @@ const config = defineConfig({
       sizes: {
         /** 목록의 원형 표식 */
         avatar: { value: '42px' },
+        /** 누르는 것의 높이. 버튼·입력이 전부 이 하나를 쓴다 */
+        control: { value: '52px' },
+        /** 키패드 키 */
+        key: { value: '60px' },
+      },
+    },
+
+    semanticTokens: {
+      colors: {
+        /** 검증해야 하는 것. 색만으로 구분하지 않으므로 크기·굵기와 함께 쓴다. */
+        verify: {
+          fg: { value: { base: '{colors.orange.700}', _dark: '{colors.orange.300}' } },
+        },
       },
     },
 
@@ -29,6 +42,30 @@ const config = defineConfig({
           fontVariantNumeric: 'tabular-nums',
         },
       },
+      /** 금액. 크기는 `amountFit` 이 자릿수로 정한다 */
+      amount: {
+        value: {
+          fontWeight: 'bold',
+          lineHeight: '1.15',
+          letterSpacing: '-0.02em',
+          fontVariantNumeric: 'tabular-nums',
+        },
+      },
+      /** 검증하라는 안내. 색만이 아니라 굵기도 함께 올린다 */
+      verifyLabel: { value: { fontSize: 'xs', fontWeight: 'medium', color: 'verify.fg' } },
+      /** 섹션 라벨, 포인트 이름 */
+      label: { value: { fontSize: 'sm', fontWeight: 'medium' } },
+      /** 보조 설명, 한글 병기 */
+      support: { value: { fontSize: 'md', fontWeight: 'normal', color: 'fg.muted' } },
+      /** 핸들. 색을 여기서 정한다 — 화면마다 붙이면 한 화면에서만 흐려진다 */
+      handle: { value: { fontSize: 'sm', fontWeight: 'normal', color: 'fg.muted' } },
+      /** 이름이 겹칠 때의 핸들. 크기·굵기를 함께 올린다 */
+      handleVerify: { value: { fontSize: 'md', fontWeight: 'medium' } },
+      /** 키패드 숫자 */
+      key: { value: { fontSize: '2xl', fontWeight: 'medium', fontVariantNumeric: 'tabular-nums' } },
+      /** 키패드의 글자 키 */
+      keyGlyph: { value: { fontSize: 'sm', fontWeight: 'medium' } },
+      button: { value: { fontSize: 'md', fontWeight: 'medium' } },
       /** 기호 배지 */
       badge: { value: { fontSize: 'xs', fontWeight: 'bold', letterSpacing: '0.02em' } },
       /** 가장 작은 것. 이보다 작은 글자를 만들지 않는다 */
