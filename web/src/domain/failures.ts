@@ -56,12 +56,20 @@ export function handleFailure(code: FailureCode, kind: TransferKind): FailureHan
   }
 }
 
-/** 문자열 카탈로그의 키. 화면이 문구를 조립하지 않게 한다 */
-export function failureTitleKey(code: FailureCode): string {
+/**
+ * 문자열 카탈로그의 키.
+ *
+ * 화면이 문구를 조립하지 않게 한다. 조립하게 두면 문구 절반이 화면에 남고,
+ * 카탈로그로 모은 이유가 사라진다.
+ */
+export function failureTitleKey(code: FailureCode): `failure.${FailureCode}.title` {
   return `failure.${code}.title`
 }
 
-/** 돈의 위치를 말하는 문구의 키. 이체와 발행이 다르다 */
-export function failureWhereKey(code: FailureCode, kind: TransferKind): string {
-  return `failure.${code}.where.${kind}`
+/** 돈의 위치를 말하는 문구. 이체와 발행이 다르다 */
+export function failureWhereKey(
+  code: FailureCode,
+  kind: TransferKind,
+): `failure.${FailureCode}.whereTransfer` | `failure.${FailureCode}.whereIssue` {
+  return kind === 'issue' ? `failure.${code}.whereIssue` : `failure.${code}.whereTransfer`
 }

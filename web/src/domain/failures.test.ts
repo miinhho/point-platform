@@ -53,6 +53,7 @@ describe('문구 키', () => {
   })
 
   it('돈의 위치 문구는 이체와 발행이 갈린다', () => {
-    expect(failureWhereKey('NETWORK', 'transfer')).not.toBe(failureWhereKey('NETWORK', 'issue'))
+    expect(failureWhereKey('NETWORK', 'transfer')).toBe('failure.NETWORK.whereTransfer')
+    expect(failureWhereKey('NETWORK', 'issue')).toBe('failure.NETWORK.whereIssue')
   })
 })
