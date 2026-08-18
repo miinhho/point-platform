@@ -1,6 +1,6 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
-import { Provider } from '@/app/providers'
+import { Providers } from '@/app/providers'
 import App from '@/app/App'
 
 /**
@@ -27,9 +27,9 @@ async function startMockServer(): Promise<void> {
 void startMockServer().then(() => {
   createRoot(document.getElementById('root')!).render(
     <StrictMode>
-      <Provider>
+      <Providers>
         <App />
-      </Provider>
+      </Providers>
     </StrictMode>,
   )
 })
