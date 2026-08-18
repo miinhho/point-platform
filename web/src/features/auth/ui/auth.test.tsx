@@ -30,6 +30,17 @@ describe('로그인', () => {
     expect(await screen.findByText('3,240,000')).toBeTruthy()
   })
 
+  it('@ 를 빠뜨려도 들어간다 — 형식은 서버가 흡수한다', async () => {
+    await signInWith('minho', 'point')
+    expect(await screen.findByText('내 포인트')).toBeTruthy()
+  })
+
+  it('암호 관리자가 채울 수 있게 이름을 밝힌다', async () => {
+    renderApp(<App />)
+    expect(await screen.findByLabelText('핸들')).toHaveProperty('autocomplete', 'username')
+    expect(screen.getByLabelText('암호')).toHaveProperty('autocomplete', 'current-password')
+  })
+
   it('암호가 틀리면 그렇게 말하고 들어가지 않는다', async () => {
     await signInWith('@minho', 'wrong')
     expect(await screen.findByRole('alert')).toHaveProperty(

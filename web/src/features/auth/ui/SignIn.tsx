@@ -49,6 +49,8 @@ export function SignIn() {
                   value={handle}
                   onChange={(event) => setHandle(event.target.value)}
                   placeholder={t('auth.handlePlaceholder')}
+                  name="username"
+                  autoComplete="username"
                   autoCapitalize="off"
                   autoCorrect="off"
                   spellCheck={false}
@@ -62,6 +64,8 @@ export function SignIn() {
                   type="password"
                   value={password}
                   onChange={(event) => setPassword(event.target.value)}
+                  name="password"
+                  autoComplete="current-password"
                   size="lg"
                 />
               </Field.Root>

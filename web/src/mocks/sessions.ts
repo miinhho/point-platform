@@ -22,9 +22,18 @@ const retired = new Map<string, string>()
 const burned = new Set<string>()
 let counter = 0
 
+/**
+ * 핸들 표기 흔들림을 서버가 흡수한다. `@` 를 빠뜨렸는지 사용자는 알 수 없고,
+ * 알려 주면 어느 핸들이 존재하는지 새어 나간다.
+ */
+function normalize(handle: string): string {
+  return `@${handle.trim().replace(/^@+/, '').toLowerCase()}`
+}
+
 export function authenticate(handle: string, password: string, users: User[]): User | null {
   if (password !== PASSWORD) return null
-  return users.find((user) => user.handle === handle) ?? null
+  const wanted = normalize(handle)
+  return users.find((user) => normalize(user.handle) === wanted) ?? null
 }
 
 export interface IssuedTokens {
