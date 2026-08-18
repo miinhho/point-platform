@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { ko } from './ko'
-import type { FailureCode } from '@/api/contract'
+import { FAILURE_CODES, type FailureCode } from '@/api/contract'
 
 /**
  * 문구 규칙.
@@ -23,15 +23,12 @@ function flatten(value: unknown, prefix = ''): Entry[] {
 
 const ALL = flatten(ko)
 
-const FAILURE_CODES: FailureCode[] = [
-  'INSUFFICIENT_BALANCE',
-  'CAP_EXCEEDED',
-  'NOT_ISSUER',
-  'RECIPIENT_NOT_FOUND',
-  'POINT_TYPE_NOT_FOUND',
-  'NETWORK',
-  'SERVER',
-]
+/**
+ * 실패 화면(여정 6)에 도달하는 코드만 「돈이 어디 있는가」를 말한다.
+ * 인증 실패는 로그인 화면으로 가고, 기호 겹침은 만들기 화면 안에서 그 자리에 뜬다.
+ */
+const NOT_ON_FAILURE_SCREEN: FailureCode[] = ['BAD_CREDENTIALS', 'UNAUTHENTICATED', 'SYMBOL_TAKEN']
+const ON_FAILURE_SCREEN = FAILURE_CODES.filter((code) => !NOT_ON_FAILURE_SCREEN.includes(code))
 
 describe('문체', () => {
   // 이 테스트가 없어서 "아직 아무것도 처리되지 않았다" 가 앱 전체에 퍼졌다.
@@ -74,12 +71,16 @@ describe('이체와 발행은 다른 말을 쓴다', () => {
 })
 
 describe('실패 문구', () => {
-  it('모든 실패 코드가 제목과 이체·발행 두 문구를 가진다', () => {
-    for (const code of FAILURE_CODES) {
+  // 코드를 늘리고 문구를 빠뜨리면 화면이 키를 그대로 뿌린다.
+  it('모든 실패 코드가 제목을 가진다', () => {
+    for (const code of FAILURE_CODES) expect(ko.failure[code].title, code).toBeTruthy()
+  })
+
+  it('실패 화면에 오는 코드는 이체·발행 두 문구를 가진다', () => {
+    for (const code of ON_FAILURE_SCREEN) {
       const entry = ko.failure[code]
-      expect(entry.title, code).toBeTruthy()
-      expect(entry.whereTransfer, code).toBeTruthy()
-      expect(entry.whereIssue, code).toBeTruthy()
+      expect('whereTransfer' in entry && entry.whereTransfer, code).toBeTruthy()
+      expect('whereIssue' in entry && entry.whereIssue, code).toBeTruthy()
     }
   })
 

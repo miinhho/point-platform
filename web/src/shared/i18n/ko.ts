@@ -40,6 +40,32 @@ export const ko = {
     me: '나',
   },
 
+  create: {
+    title: '포인트 만들기',
+    entry: '포인트 만들기',
+    name: '이름',
+    namePlaceholder: '동네빵집',
+    symbol: '기호',
+    symbolHint: '좁은 자리에서 이름 대신 쓰는 표식이에요. 영문 두세 글자',
+    accent: '색',
+    cap: '발행 상한',
+    capHint: '{{amount}}까지 발행할 수 있어요',
+    preview: '이렇게 보여요',
+    /** 만들기 전에 말한다 — docs/JOURNEY.md 여정 9 */
+    irreversible: '만든 뒤에는 지울 수 없어요',
+    hold: '꾹 눌러서 만들기',
+    made: '만들었어요',
+    madeWhere: '홈에서 볼 수 있어요. 아직 아무것도 발행하지 않았어요',
+    accents: {
+      blue: '파랑',
+      green: '초록',
+      purple: '보라',
+      orange: '주황',
+      pink: '분홍',
+      teal: '청록',
+    },
+  },
+
   settings: {
     title: '설정',
     account: '내 계정',
@@ -169,6 +195,12 @@ export const ko = {
       title: '이 포인트를 찾을 수 없어요',
       whereTransfer: '아무것도 나가지 않았어요',
       whereIssue: '발행되지 않았어요',
+    },
+    /** 만들기 화면 안에서 그 자리에 뜬다. where 는 키 구조를 맞추려고 둔다 */
+    SYMBOL_TAKEN: {
+      title: '이미 쓰는 기호예요',
+      whereTransfer: '만들어지지 않았어요',
+      whereIssue: '만들어지지 않았어요',
     },
     BAD_CREDENTIALS: {
       title: '핸들이나 암호가 맞지 않아요',

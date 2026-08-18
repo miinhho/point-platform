@@ -87,6 +87,7 @@ TanStack Query, 클라이언트가 진실인 것(플로우·선택된 포인트�
 ```bash
 npm test        # vitest. 앱과 같은 MSW 핸들러를 쓴다
 npm run lint    # oxlint
+npm run typecheck  # tsc -b. 맨 `tsc --noEmit` 은 루트 tsconfig(files:[])를 읽어 아무것도 검사하지 않는다
 npm run dev     # localhost:5173
 npm run dev:lan # 폰에서 접속 (vite --host)
 ```

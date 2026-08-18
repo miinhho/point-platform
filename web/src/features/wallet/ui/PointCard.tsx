@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { toGrouped } from '@/shared/format'
 import type { Balance } from '@/api/contract'
 import { Button } from '@chakra-ui/react'
+import { PointBadge } from '@/shared/ui/PointBadge'
 import { Row, RowButton } from '@/shared/ui/Screen'
 
 interface Props {
@@ -35,22 +36,7 @@ export function PointCard({ balance, ambiguous, issuerName, isMine, onOpen, onIs
       opacity={empty ? 0.55 : 1}
     >
       <Main type={openable ? 'button' : undefined} onClick={openable ? onOpen : undefined} flex={1} minW={0}>
-      {/* 색과 기호를 함께 준다. 회색조에서도 기호로 갈린다. */}
-      <Box
-        aria-hidden
-        flexShrink={0}
-        boxSize="avatar"
-        borderRadius="l2"
-        bg="colorPalette.subtle"
-        color="colorPalette.fg"
-        borderWidth="1px"
-        borderColor="colorPalette.muted"
-        display="grid"
-        placeItems="center"
-        textStyle="badge"
-      >
-        {pointType.symbol}
-      </Box>
+      <PointBadge symbol={pointType.symbol} />
 
       <Box flex={1} minW={0}>
         <Box display="flex" alignItems="baseline" gap="1.5">

@@ -53,6 +53,25 @@ function readKey(request: Request): string | null {
   return request.headers.get('Idempotency-Key')
 }
 
+/** 형식은 HTTP 경계가 본다. 통과하지 못하면 원장을 부르지 않는다 — 계약: docs/API.md */
+function readCommitBody(
+  body: TransferBody,
+  meId: string,
+  selfOnly: boolean,
+): Omit<ledger.CommitInput, 'idempotencyKey'> | null {
+  const toId = selfOnly ? meId : body.toId
+  if (!body.pointTypeId || !toId) return null
+  // 발행 요청에 대상이 실려 오면 계약 위반이다. 조용히 무시하지 않는다.
+  if (selfOnly && body.toId) return null
+  // 발행은 자기 지갑으로 들어가지만, 이체는 옮길 곳이 없다 — docs/JOURNEY.md 「버린 것」
+  if (!selfOnly && toId === meId) return null
+  // 타입은 컴파일 시점만 지킨다. HTTP 경계에는 타입이 없다 — 소수점 금액이 들어오면
+  // 잔액에 소수가 생기고, 한글 병기가 그것을 조용히 버려 두 표기가 다른 값을 말한다.
+  const { amount } = body
+  if (typeof amount !== 'number' || !Number.isSafeInteger(amount) || amount <= 0) return null
+  return { pointTypeId: body.pointTypeId, toId, amount }
+}
+
 async function commit(
   request: Request,
   apply: (meId: string, input: ledger.CommitInput) => ReturnType<typeof ledger.commitTransfer>,
@@ -72,31 +91,13 @@ async function commit(
   const existing = ledger.findByIdempotencyKey(key)
   if (existing) return HttpResponse.json(existing)
 
-  const body = (await request.json()) as TransferBody
-  const toId = selfOnly ? auth.userId : body.toId
-  const malformed =
-    !body.pointTypeId ||
-    !toId ||
-    // 타입은 컴파일 시점만 지킨다. HTTP 경계에는 타입이 없다 — 소수점 금액이 들어오면
-    // 잔액에 소수가 생기고, 한글 병기가 그것을 조용히 버려 두 표기가 다른 값을 말한다.
-    typeof body.amount !== 'number' ||
-    !Number.isSafeInteger(body.amount) ||
-    body.amount <= 0 ||
-    // 발행 요청에 대상이 실려 오면 계약 위반이다. 조용히 무시하지 않는다.
-    (selfOnly && body.toId) ||
-    // 발행은 자기 지갑으로 들어가지만, 이체는 옮길 곳이 없다 — docs/JOURNEY.md 「버린 것」
-    (!selfOnly && toId === auth.userId)
-  if (malformed) {
+  const input = readCommitBody((await request.json()) as TransferBody, auth.userId, selfOnly)
+  if (!input) {
     return HttpResponse.json({ code: 'SERVER', message: '요청 형식 오류' }, { status: 400 })
   }
 
   try {
-    const transfer = apply(auth.userId, {
-      idempotencyKey: key,
-      pointTypeId: body.pointTypeId!,
-      toId: toId!,
-      amount: body.amount,
-    })
+    const transfer = apply(auth.userId, { ...input, idempotencyKey: key })
     // 서버는 만들었고 클라이언트는 못 받는다. 멱등성이 실제로 시험되는 유일한 경로다.
     if (drawResponseLoss()) return HttpResponse.error()
     return HttpResponse.json(transfer, { status: 201 })
