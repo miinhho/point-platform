@@ -6,6 +6,7 @@ import { walletQuery } from '@/api/queries'
 import { toGrouped } from '@/domain/points'
 import { startIssueAtom } from '@/features/transfer'
 import { BackButton } from '@/shared/ui/BackButton'
+import { Line } from '@/shared/ui/Line'
 import { Body, Gutter, Header, Screen, Title } from '@/shared/ui/Screen'
 
 /** 유통량은 발행자만 본다 — docs/JOURNEY.md 여정 8 */
@@ -34,7 +35,7 @@ export function Issuer({ onBack }: { onBack: () => void }) {
                 <Line
                   label={t('issuer.headroom')}
                   value={toGrouped(pointType.issuableHeadroom)}
-                  strong
+                  textStyle="lineStrong"
                 />
               </Box>
               <Box marginTop="4">
@@ -51,14 +52,5 @@ export function Issuer({ onBack }: { onBack: () => void }) {
         ))}
       </Body>
     </Screen>
-  )
-}
-
-function Line({ label, value, strong }: { label: string; value: string; strong?: boolean }) {
-  return (
-    <Box display="flex" alignItems="baseline" justifyContent="space-between" gap="3">
-      <Text textStyle="caption">{label}</Text>
-      <Text textStyle={strong ? 'lineStrong' : 'line'}>{value}</Text>
-    </Box>
   )
 }

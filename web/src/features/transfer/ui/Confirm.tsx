@@ -8,6 +8,7 @@ import { toGrouped } from '@/domain/points'
 import { BackButton } from '@/shared/ui/BackButton'
 import { IssueBanner } from '@/shared/ui/IssueBanner'
 import { HoldButton } from '@/shared/ui/HoldButton'
+import { Line } from '@/shared/ui/Line'
 import { Body, Gutter, Header, Screen, Title } from '@/shared/ui/Screen'
 import { Amount } from './Amount'
 import { draftAtom } from '../model/atoms'
@@ -89,7 +90,7 @@ export function Confirm({ onBack, onConfirm, busy }: Props) {
                   <Line
                     label={t('confirm.balanceAfter')}
                     value={toGrouped(balance - amount)}
-                    strong
+                    textStyle="lineStrong"
                   />
                   {firstTime ? <Text textStyle="caption">{t('confirm.firstTime')}</Text> : null}
                 </>
@@ -125,21 +126,12 @@ function Supply({ pointType, amount }: { pointType: PointType; amount: number })
   return (
     <>
       <Line label={t('confirm.supplyNow')} value={toGrouped(pointType.totalIssued)} />
-      <Line label={t('confirm.supplyAfter')} value={toGrouped(after)} strong />
+      <Line label={t('confirm.supplyAfter')} value={toGrouped(after)} textStyle="lineStrong" />
       <Line
         label={t('confirm.supplyChange')}
         value={rate === null ? t('confirm.supplyFirst') : `+${formatRate(rate)}`}
       />
       <Line label={t('confirm.cap')} value={toGrouped(pointType.issueCap)} />
     </>
-  )
-}
-
-function Line({ label, value, strong }: { label: string; value: string; strong?: boolean }) {
-  return (
-    <Box display="flex" alignItems="baseline" justifyContent="space-between" gap="3">
-      <Text textStyle="caption">{label}</Text>
-      <Text textStyle={strong ? 'lineStrong' : 'line'}>{value}</Text>
-    </Box>
   )
 }

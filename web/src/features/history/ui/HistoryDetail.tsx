@@ -7,6 +7,7 @@ import { usersQuery, walletQuery } from '@/api/queries'
 import { toGrouped } from '@/domain/points'
 import { BackButton } from '@/shared/ui/BackButton'
 import { IssueBanner } from '@/shared/ui/IssueBanner'
+import { Line } from '@/shared/ui/Line'
 import { Body, Gutter, Header, Screen, Title } from '@/shared/ui/Screen'
 import { formatTime } from '../model/time'
 
@@ -60,37 +61,22 @@ export function HistoryDetail({ transferId, onBack }: Props) {
           </Box>
 
           <Box marginTop="6" display="flex" flexDirection="column">
-            <Field
+            <Line
+              divided
               label={t('history.from')}
               value={issuing ? t('history.fromIssue') : t('history.me')}
             />
-            <Field label={t('history.at')} value={formatTime(transfer.confirmedAt)} />
+            <Line divided label={t('history.at')} value={formatTime(transfer.confirmedAt)} />
             {/* 두 번 보내지지 않았다를 사용자가 확인할 수 있는 유일한 근거다 */}
-            <Field label={t('history.requestKey')} value={transfer.idempotencyKey} mono />
+            <Line
+              divided
+              label={t('history.requestKey')}
+              value={transfer.idempotencyKey}
+              textStyle="mono"
+            />
           </Box>
         </Gutter>
       </Body>
     </Screen>
-  )
-}
-
-function Field({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
-  return (
-    <Box
-      display="flex"
-      alignItems="baseline"
-      justifyContent="space-between"
-      gap="4"
-      paddingBlock="2.5"
-      borderBottomWidth="1px"
-      borderColor="border"
-    >
-      <Text textStyle="caption" flexShrink={0}>
-        {label}
-      </Text>
-      <Text textStyle={mono ? 'mono' : 'line'} textAlign="end">
-        {value}
-      </Text>
-    </Box>
   )
 }
