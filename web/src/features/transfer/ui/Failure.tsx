@@ -1,26 +1,28 @@
 import { Box, Button, Text } from '@chakra-ui/react'
-import { useAtomValue } from 'jotai'
+import { useAtomValue, useSetAtom } from 'jotai'
 import { useTranslation } from 'react-i18next'
 import { failureTitleKey, failureWhereKey } from '@/shared/i18n/keys'
 import { toGrouped } from '@/shared/format'
 import { IssueBanner } from '@/shared/ui/IssueBanner'
 import { Body, Gutter, Header, Screen, Title } from '@/shared/ui/Screen'
-import { draftAtom, failureAtom } from '../model/atoms'
+import {
+  draftAtom,
+  editAmountAtom,
+  endFlowAtom,
+  failureAtom,
+  repickAtom,
+} from '../model/atoms'
 import { handleFailure } from '../model/failure'
 import { amountOf } from '../model/draft'
 
-interface Props {
-  onCheck: () => void
-  onEditAmount: () => void
-  onRepick: () => void
-  onHome: () => void
-}
-
 /** 근거: docs/JOURNEY.md 여정 6 — 가장 중요한 것은 돈이 어디 있는가다 */
-export function Failure({ onCheck, onEditAmount, onRepick, onHome }: Props) {
+export function Failure({ onCheck }: { onCheck: () => void }) {
   const { t } = useTranslation()
   const draft = useAtomValue(draftAtom)
   const failure = useAtomValue(failureAtom)
+  const onEditAmount = useSetAtom(editAmountAtom)
+  const onRepick = useSetAtom(repickAtom)
+  const onHome = useSetAtom(endFlowAtom)
 
   if (!draft?.to || !failure) return null
 

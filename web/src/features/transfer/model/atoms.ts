@@ -68,6 +68,19 @@ export const succeedAtom = atom(null, (_get, set, transfer: Transfer) => {
   set(goAtom, { name: 'result', transfer })
 })
 
+/**
+ * 받는 사람을 다시 고른다. 초안이 없으면 고를 대상 자체가 없으므로 플로우를 끝낸다.
+ * 셸이 초안을 들여다보고 분기하면 이체를 아는 곳이 둘이 된다.
+ */
+export const repickAtom = atom(null, (get, set) => {
+  const draft = get(draftAtom)
+  if (!draft) {
+    set(endFlowAtom)
+    return
+  }
+  set(startTransferAtom, { pointType: draft.pointType, kind: draft.kind })
+})
+
 /** 금액을 고치러 돌아간다. 키가 버려지는 것은 `draft` 가 정한다 */
 export const editAmountAtom = atom(null, (get, set) => {
   set(failureAtom, null)

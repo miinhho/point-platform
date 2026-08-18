@@ -1,6 +1,6 @@
 import { Box, Button, Text } from '@chakra-ui/react'
 import { useQuery } from '@tanstack/react-query'
-import { useAtomValue } from 'jotai'
+import { useAtomValue, useSetAtom } from 'jotai'
 import { useTranslation } from 'react-i18next'
 import { walletQuery } from '@/api/queries'
 import { toGrouped } from '@/shared/format'
@@ -8,16 +8,12 @@ import type { Transfer } from '@/api/contract'
 import { IssueBanner } from '@/shared/ui/IssueBanner'
 import { Body, Gutter, Screen } from '@/shared/ui/Screen'
 import { SentMark } from '@/shared/ui/SentMark'
-import { draftAtom } from '../model/atoms'
-
-interface Props {
-  transfer: Transfer
-  onHome: () => void
-}
+import { draftAtom, endFlowAtom } from '../model/atoms'
 
 /** 근거: docs/JOURNEY.md 여정 6 — 서버가 확정을 알려준 뒤에만 완료라고 쓴다 */
-export function Result({ transfer, onHome }: Props) {
+export function Result({ transfer }: { transfer: Transfer }) {
   const { t } = useTranslation()
+  const onHome = useSetAtom(endFlowAtom)
   const draft = useAtomValue(draftAtom)
   const wallet = useQuery(walletQuery())
 

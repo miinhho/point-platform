@@ -4,12 +4,6 @@ export { EnterAmount } from './ui/EnterAmount'
 export { Failure } from './ui/Failure'
 export { PickRecipient } from './ui/PickRecipient'
 export { Result } from './ui/Result'
-export {
-  draftAtom,
-  editAmountAtom,
-  endFlowAtom,
-  startIssueAtom,
-  startTransferAtom,
-} from './model/atoms'
+export { endFlowAtom, startIssueAtom, startTransferAtom } from './model/atoms'
 export type { Draft } from './model/draft'
 export { useSubmit } from './model/useSubmit'
