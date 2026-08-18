@@ -113,6 +113,7 @@ Authorization: Bearer <token>
 | `GET` | `/api/recent?pointTypeId=&limit=` | `User[]` | 그 포인트로 최근에 보낸 사람 |
 | `POST` | `/api/transfers` | `Transfer` `201` | 이체. `Idempotency-Key` 필수 |
 | `POST` | `/api/issues` | `Transfer` `201` | 발행. 발행자만. **대상 없음** |
+| `POST` | `/api/point-types` | `PointType` `201` | 포인트 창설. `Idempotency-Key` 필수 |
 | `GET` | `/api/transfers/:id` | `Transfer` | 단건. **404 는 일어나지 않았다는 뜻** |
 | `GET` | `/api/transfers/by-key?idempotencyKey=` | `Transfer \| null` | 결과를 모를 때의 확인 |
 | `GET` | `/api/transfers?pointTypeId=&limit=` | `Transfer[]` | 내역, 최신순 |
@@ -139,6 +140,31 @@ Authorization: Bearer <token>
 
 **`toId` 가 요청자 자신이면 `400` 이다** (이체만. 발행은 원래 자기 지갑으로 들어간다).
 근거: `docs/JOURNEY.md` 「버린 것」. `GET /api/users` 도 요청자를 결과에서 뺀다.
+
+포인트 창설 본문:
+
+```json
+{ "name": "동네빵집", "symbol": "BK", "accent": "orange", "issueCap": 1000000 }
+```
+
+**누구나 만들 수 있고 상한도 자기가 정한다** (`docs/JOURNEY.md` 여정 9). 서버는 발행자
+자격을 심사하지 않는다. 대신 다음을 지킨다.
+
+| 필드 | 제약 | 어긴 응답 |
+|---|---|---|
+| `name` | 공백 제외 1~12자 | `400` |
+| `symbol` | 영문 대문자 2~3자, **전체에서 유일** | `400` / 겹치면 `409 SYMBOL_TAKEN` |
+| `accent` | `PointAccent` 여섯 중 하나 | `400` |
+| `issueCap` | 안전 범위의 양의 정수 | `400` |
+
+만든 사람이 발행자다 — 본문에 `issuerId` 를 받지 않는다. 응답의 `totalIssued` 는 0,
+`canIssue` 는 참이다. **지우는 엔드포인트는 없다.** 누군가 한 번이라도 받은 포인트를
+지우는 것은 남의 지갑을 지우는 일이고, "아직 아무도 안 가졌으면 지울 수 있다" 로 두면
+지울 수 없게 되는 순간을 사용자가 예측하지 못한다.
+
+기호가 유일한 이유는 화면에 있다. 이름은 겹쳐도 발행자로 가르지만, 기호는 좁은 자리에서
+이름 대신 쓰는 표식이라 겹치는 순간 표식이 아니게 된다. **겹침 판정은 서버만 한다** —
+클라이언트가 목록을 받아 확인하면 그 사이에 만들어진 것을 놓친다.
 
 `GET /api/transfers/by-key` 는 없을 때 `404` 가 아니라 `null` 을 준다.
 "안 일어났다" 는 오류가 아니라 정상적인 답이다. 응답을 받지 못한 클라이언트는
@@ -178,6 +204,7 @@ Authorization: Bearer <token>
 | `NOT_ISSUER` | 403 | 그 포인트의 발행자가 아님 | 없음 (막다른 화면) |
 | `RECIPIENT_NOT_FOUND` | 404 | 대상 없음 | 대상 다시 고르기 |
 | `POINT_TYPE_NOT_FOUND` | 404 | 포인트 없음 | 없음 |
+| `SYMBOL_TAKEN` | 409 | 그 기호를 이미 쓰는 포인트가 있음 | 기호 고치기 |
 | `SERVER` | 5xx | 서버 오류 | **재시도** (같은 키) |
 | `NETWORK` | — | 요청이 서버에 닿지 못함 | **확인하기** → 재시도 |
 
@@ -215,6 +242,10 @@ Authorization: Bearer <token>
 **refresh 회전이 겹치면 하나만 성공한다.** 클라이언트는 갱신을 한 번에 하나만 돌리지만
 그것은 예의이지 보장이 아니다. 탭이 둘이면 동시에 온다. 회전을 원자적으로 처리하고,
 진 쪽에는 재사용 탐지를 발동시키지 않는다 — 정상 사용자의 세션이 통째로 죽는다.
+
+**기호도 unique 제약이 진짜 방어선이다.** 같은 기호로 두 창설이 동시에 오면 조회는
+둘 다 비어 있다고 답한다. 위반이 나면 `409 SYMBOL_TAKEN` 이다 — 여기서는 멱등성 키와
+달리 기존 것을 돌려주지 않는다. 남이 만든 포인트를 내 것이라고 답하는 셈이 된다.
 
 **핸들은 정규화된 형태에 unique 를 건다.** 조회만 정규화하면 `@Minho` 와 `@minho`
 두 행이 동시에 존재할 수 있고, 그러면 어느 쪽이 로그인되는지가 행 순서에 달린다.
