@@ -3,6 +3,7 @@ import { useAtomValue } from 'jotai'
 import { useTranslation } from 'react-i18next'
 import { failureTitleKey, failureWhereKey, handleFailure } from '@/domain/failures'
 import { toGrouped } from '@/domain/points'
+import { IssueBanner } from '@/shared/ui/IssueBanner'
 import { Body, Gutter, Header, Screen, Title } from '@/shared/ui/Screen'
 import { draftAtom, failureAtom } from './atoms'
 import { amountOf } from './draft'
@@ -42,6 +43,7 @@ export function Failure({ onCheck, onEditAmount, onRepick, onHome }: Props) {
 
   return (
     <Screen>
+      {draft.kind === 'issue' ? <IssueBanner /> : null}
       <Header>
         <Title>{t('failure.heading')}</Title>
       </Header>

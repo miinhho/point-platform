@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { endpoints } from '@/api/endpoints'
 import { walletQuery } from '@/api/queries'
 import { toGrouped } from '@/domain/points'
+import { IssueBanner } from '@/shared/ui/IssueBanner'
 import { Body, Gutter, Screen } from '@/shared/ui/Screen'
 
 const Done = chakra('button', {
@@ -39,6 +40,7 @@ export function Result({ transferId, onHome }: Props) {
 
   return (
     <Screen>
+      {transfer.kind === 'issue' ? <IssueBanner /> : null}
       <Body>
         <Gutter paddingTop="10">
           {/* 화면을 못 보는 사용자에게도 상태 변화를 알린다. */}
@@ -61,8 +63,13 @@ export function Result({ transferId, onHome }: Props) {
             alignItems="baseline"
             gap="3"
           >
-            <Text textStyle="caption">{t('result.remaining')}</Text>
-            <Text textStyle="lineStrong">{toGrouped(balance)}</Text>
+            {/* 발행은 잔액이 아니라 유통량을 말한다 */}
+            <Text textStyle="caption">
+              {transfer.kind === 'issue' ? t('result.supply') : t('result.remaining')}
+            </Text>
+            <Text textStyle="lineStrong">
+              {toGrouped(transfer.kind === 'issue' ? (point?.totalIssued ?? 0) : balance)}
+            </Text>
           </Box>
         </Gutter>
       </Body>

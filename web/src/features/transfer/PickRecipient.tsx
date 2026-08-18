@@ -30,7 +30,7 @@ export function PickRecipient({ onBack }: { onBack: () => void }) {
     <Screen>
       <Header>
         <BackButton onClick={onBack} />
-        <Title>{draft?.kind === 'issue' ? t('pick.titleIssue') : t('pick.titleTransfer')}</Title>
+        <Title>{t('pick.titleTransfer')}</Title>
         {draft ? (
           <Text textStyle="caption" colorPalette={draft.pointType.accent} color="colorPalette.fg">
             {draft.pointType.name}

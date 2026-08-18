@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useSetAtom } from 'jotai'
 import { useTranslation } from 'react-i18next'
 import { walletQuery } from '@/api/queries'
-import { startTransferAtom } from '@/features/transfer/atoms'
+import { startIssueAtom, startTransferAtom } from '@/features/transfer/atoms'
 import { Body, Gutter, Header, Screen, Title } from '@/shared/ui/Screen'
 import { duplicatedNames, orderBalances } from './order'
 import { PointCard } from './PointCard'
@@ -13,6 +13,7 @@ export function Home() {
   const { t } = useTranslation()
   const { data, isPending, isError } = useQuery(walletQuery())
   const startTransfer = useSetAtom(startTransferAtom)
+  const startIssue = useSetAtom(startIssueAtom)
 
   const balances = data ? orderBalances(data.balances) : []
   const ambiguous = duplicatedNames(balances)
@@ -36,6 +37,11 @@ export function Home() {
             issuerName={balance.pointType.issuerName}
             isMine={balance.pointType.issuerId === data?.user.id}
             onOpen={() => startTransfer({ pointType: balance.pointType })}
+            onIssue={
+              data && balance.pointType.issuerId === data.user.id
+                ? () => startIssue({ pointType: balance.pointType, me: data.user })
+                : undefined
+            }
           />
         ))}
       </Body>

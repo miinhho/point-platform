@@ -69,9 +69,11 @@ describe('홈', () => {
     expect(screen.queryByText('장민호 발행')).toBeNull()
   })
 
-  it('내가 발행하는 포인트에 표시가 붙는다', async () => {
+  // 여정 8 — 발행자 화면의 진입점은 그 포인트 카드의 배지다.
+  it('내가 발행하는 포인트에만 발행 진입점이 붙는다', async () => {
     renderApp(<Home />)
-    expect(await screen.findByText('내가 발행')).toBeTruthy()
+    const entries = await screen.findAllByRole('button', { name: '발행하기' })
+    expect(entries).toHaveLength(1)
   })
 
   it('색을 빼도 기호로 구별된다 — 카드마다 다른 기호가 있다', async () => {

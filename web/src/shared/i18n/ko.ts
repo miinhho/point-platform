@@ -10,6 +10,7 @@ export const ko = {
 
   home: {
     title: '내 포인트',
+    issue: '발행하기',
     empty: '아직 받은 포인트가 없어요',
     /** 발행 권한이 있는 포인트에만 붙는다 */
     issuerBadge: '내가 발행',
@@ -21,7 +22,6 @@ export const ko = {
 
   pick: {
     titleTransfer: '누구에게 보낼까요?',
-    titleIssue: '누구에게 발행할까요?',
     searchPlaceholder: '이름 또는 핸들',
     recentSection: '최근 보낸 사람',
     allSection: '전체',
@@ -35,8 +35,11 @@ export const ko = {
 
   amount: {
     ceiling: '보낼 수 있어요',
+    ceilingIssue: '발행할 수 있어요',
     over: '잔액을 넘었어요',
+    overIssue: '발행 여력을 넘었어요',
     next: '보내기 확인',
+    nextIssue: '발행 확인',
     clear: '전체삭제',
     backspace: '한 자 지우기',
   },
@@ -46,18 +49,25 @@ export const ko = {
     titleIssue: '이렇게 발행할까요?',
     holdTransfer: '꾹 눌러서 보내기',
     holdIssue: '꾹 눌러서 발행',
-    sending: '보내는 중',
     to: '받는 사람',
     balanceNow: '지금 잔액',
     balanceAfter: '보낸 뒤 남는 잔액',
     /** 받는 사람이 이 포인트를 처음 받는다. 경고가 아니라 사실이다 */
     firstTime: '이 포인트를 처음 받아요',
+    /** 발행은 색이 아니라 구조로 구분한다. 화면 위에 늘 붙어 있는 띠다 */
+    issueBanner: '발행',
+    supplyNow: '지금 총 유통량',
+    supplyAfter: '발행 뒤 총 유통량',
+    supplyChange: '유통량 변화',
+    supplyFirst: '첫 발행',
+    cap: '발행 상한',
   },
 
   result: {
     titleTransfer: '보냈어요',
     titleIssue: '발행했어요',
     remaining: '남은 잔액',
+    supply: '총 유통량',
     /** 상태 변화를 소리로도 알린다 */
     announceTransfer: '보냈어요. 남은 잔액 {{balance}}',
   },

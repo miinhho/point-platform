@@ -28,6 +28,7 @@ const config = defineConfig({
         /** 검증해야 하는 것. 색만으로 구분하지 않으므로 크기·굵기와 함께 쓴다. */
         verify: {
           fg: { value: { base: '{colors.orange.700}', _dark: '{colors.orange.300}' } },
+          subtle: { value: { base: '{colors.orange.50}', _dark: '{colors.orange.950}' } },
         },
       },
     },

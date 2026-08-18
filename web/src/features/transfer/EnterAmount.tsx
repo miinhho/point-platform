@@ -5,8 +5,10 @@ import { useTranslation } from 'react-i18next'
 import { walletQuery } from '@/api/queries'
 import { toGrouped } from '@/domain/points'
 import { BackButton } from '@/shared/ui/BackButton'
+import { IssueBanner } from '@/shared/ui/IssueBanner'
 import { Body, Gutter, Header, Screen, Title } from '@/shared/ui/Screen'
 import { Amount } from './Amount'
+import { ceilingOf } from './ceiling'
 import { Keypad } from './Keypad'
 import {
   backspaceAtom,
@@ -43,21 +45,24 @@ export function EnterAmount({ onBack }: { onBack: () => void }) {
 
   if (!draft?.to) return null
 
-  const ceiling =
-    wallet.data?.balances.find((b) => b.pointType.id === draft.pointType.id)?.amount ?? 0
+  const issuing = draft.kind === 'issue'
+  const ceiling = ceilingOf(draft, wallet.data?.balances)
   const amount = amountOf(draft)
   const over = amount > ceiling
   const ready = isReady(draft, ceiling)
 
   return (
     <Screen>
+      {issuing ? <IssueBanner /> : null}
       <Header>
         <BackButton onClick={onBack} />
         <Title>
-          {draft.to.name}
-          <Text as="span" textStyle="handle" marginInlineStart="2">
-            {draft.to.handle}
-          </Text>
+          {issuing ? draft.pointType.name : draft.to.name}
+          {issuing ? null : (
+            <Text as="span" textStyle="handle" marginInlineStart="2">
+              {draft.to.handle}
+            </Text>
+          )}
         </Title>
       </Header>
 
@@ -65,7 +70,14 @@ export function EnterAmount({ onBack }: { onBack: () => void }) {
         <Gutter paddingTop="6">
           <Amount pointType={draft.pointType} amount={amount} over={over} />
           <Text textStyle="support" color={over ? 'red.fg' : undefined} marginTop="5">
-            {over ? t('amount.over') : t('amount.ceiling')} {toGrouped(ceiling)}
+            {over
+              ? issuing
+                ? t('amount.overIssue')
+                : t('amount.over')
+              : issuing
+                ? t('amount.ceilingIssue')
+                : t('amount.ceiling')}{' '}
+            {toGrouped(ceiling)}
           </Text>
         </Gutter>
       </Body>
@@ -79,7 +91,7 @@ export function EnterAmount({ onBack }: { onBack: () => void }) {
           onClick={() => next()}
           colorPalette={draft.pointType.accent}
         >
-          {t('amount.next')}
+          {issuing ? t('amount.nextIssue') : t('amount.next')}
         </Next>
       </Gutter>
     </Screen>

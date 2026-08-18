@@ -34,6 +34,13 @@ export const startTransferAtom = atom(null, (_get, set, input: StartInput) => {
   set(goAtom, input.to ? { name: 'enterAmount' } : { name: 'pickRecipient' })
 })
 
+/** 발행. 대상은 나 자신이므로 대상 선택이 없다 — docs/JOURNEY.md 여정 7 */
+export const startIssueAtom = atom(null, (_get, set, input: { pointType: PointType; me: User }) => {
+  set(draftAtom, withRecipient(startDraft(input.pointType, 'issue'), input.me))
+  set(failureAtom, null)
+  set(goAtom, { name: 'enterAmount' })
+})
+
 export const pickRecipientAtom = atom(null, (get, set, to: User) => {
   const draft = get(draftAtom)
   if (!draft) return

@@ -2,11 +2,27 @@ import { Box, Text } from '@chakra-ui/react'
 import { useTranslation } from 'react-i18next'
 import { toGrouped } from '@/domain/points'
 import type { Balance } from '@/domain/types'
+import { chakra } from '@chakra-ui/react'
 import { Row, RowButton } from '@/shared/ui/Screen'
+
+const IssueEntry = chakra('button', {
+  base: {
+    flexShrink: 0,
+    paddingInline: '2',
+    paddingBlock: '0.5',
+    borderRadius: 'full',
+    textStyle: 'verifyLabel',
+    borderWidth: '1px',
+    borderColor: 'verify.fg',
+    _active: { bg: 'verify.subtle' },
+  },
+})
 
 interface Props {
   /** 잔액 0 이면 주지 않는다. 들어가면 첫 글자부터 잠긴 금액 화면이 된다 */
   onOpen?: () => void
+  /** 발행 권한이 있을 때만. 여정 8 — 카드의 발행자 배지가 진입점이다 */
+  onIssue?: () => void
   balance: Balance
   /** 이름이 겹치는 포인트다. 발행자를 부제로 붙인다 */
   ambiguous: boolean
@@ -15,7 +31,7 @@ interface Props {
 }
 
 /** 근거: docs/JOURNEY.md 여정 1 */
-export function PointCard({ balance, ambiguous, issuerName, isMine, onOpen }: Props) {
+export function PointCard({ balance, ambiguous, issuerName, isMine, onOpen, onIssue }: Props) {
   const { t } = useTranslation()
   const { pointType, amount } = balance
   const empty = amount === 0
@@ -48,10 +64,17 @@ export function PointCard({ balance, ambiguous, issuerName, isMine, onOpen }: Pr
       <Box flex={1} minW={0}>
         <Box display="flex" alignItems="baseline" gap="1.5">
           <Text textStyle="name">{pointType.name}</Text>
-          {isMine ? (
-            <Text textStyle="caption" color="colorPalette.fg" flexShrink={0}>
-              {t('home.issuerBadge')}
-            </Text>
+          {isMine && onIssue ? (
+            <IssueEntry
+              type="button"
+              onClick={(event) => {
+                // 카드는 보내기로 간다. 배지만 발행으로 갈라진다.
+                event.stopPropagation()
+                onIssue()
+              }}
+            >
+              {t('home.issue')}
+            </IssueEntry>
           ) : null}
         </Box>
         {ambiguous ? (
