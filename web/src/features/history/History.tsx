@@ -8,6 +8,7 @@ import { toGrouped } from '@/domain/points'
 import { goAtom } from '@/app/atoms'
 import { Body, Gutter, Header, RowButton, Screen, Title } from '@/shared/ui/Screen'
 import type { Transfer } from '@/domain/types'
+import { formatTime } from './time'
 
 /** 근거: docs/JOURNEY.md 여정 8 */
 export function History() {
@@ -64,10 +65,4 @@ export function History() {
       </Body>
     </Screen>
   )
-}
-
-export function formatTime(iso: string): string {
-  const date = new Date(iso)
-  const pad = (n: number) => String(n).padStart(2, '0')
-  return `${date.getMonth() + 1}.${date.getDate()} ${pad(date.getHours())}:${pad(date.getMinutes())}`
 }

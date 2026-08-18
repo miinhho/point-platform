@@ -26,5 +26,5 @@
     "noFallthroughCasesInSwitch": true
   },
   "include": ["src"],
-  "exclude": ["src/test/discipline.test.ts"]
+  "exclude": ["src/test/discipline.test.ts", "src/test/journey.test.ts"]
 }
