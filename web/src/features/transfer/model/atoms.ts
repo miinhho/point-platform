@@ -2,7 +2,7 @@ import { atom } from 'jotai'
 import { newIdempotencyKey } from '@/api/http'
 import { goAtom, leaveFlowAtom, navAtom } from '@/app/atoms'
 import { popTo } from '@/app/navigation'
-import type { Failure, PointType, Transfer, TransferKind, User } from '@/domain/types'
+import type { Failure, PointType, Transfer, TransferKind, User } from '@/api/contract'
 import { seal, startDraft, withRecipient, type Draft } from './draft'
 
 // 초안과 내비게이션을 여기서 묶는다. 쓰기 아톰 하나가 곧 사용자 행동 하나다.

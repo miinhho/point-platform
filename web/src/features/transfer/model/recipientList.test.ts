@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { buildRecipientList, buildSearchList } from './recipientList'
-import type { User } from '@/domain/types'
+import type { User } from '@/api/contract'
 
 const member = (id: string, name: string, handle: string): User => ({ id, name, handle })
 

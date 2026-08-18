@@ -1,4 +1,4 @@
-import type { Balance } from '@/domain/types'
+import type { Balance } from '@/api/contract'
 
 /** 근거: docs/JOURNEY.md 여정 1 */
 export function orderBalances(balances: Balance[]): Balance[] {

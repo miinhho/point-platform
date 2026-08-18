@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { toGrouped } from '@/domain/points'
+import { toGrouped } from '@/shared/format'
 import { amountFontSize } from './amountFit'
 
 describe('amountFontSize', () => {

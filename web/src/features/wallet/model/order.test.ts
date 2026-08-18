@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { duplicatedNames, orderBalances } from './order'
-import type { Balance, PointAccent, PointType } from '@/domain/types'
+import type { Balance, PointAccent, PointType } from '@/api/contract'
 
 const point = (id: string, name: string, accent: PointAccent = 'blue'): PointType => ({
   id,

@@ -1,4 +1,4 @@
-import type { FailureCode } from '@/domain/types'
+import type { FailureCode } from '@/api/contract'
 
 // 실패를 넣을 수 없으면 정직함을 시험할 수 없다. 실서버에는 대응물이 없다.
 export interface SimConfig {

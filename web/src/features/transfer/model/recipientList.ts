@@ -1,4 +1,4 @@
-import type { User } from '@/domain/types'
+import type { User } from '@/api/contract'
 
 // 근거: docs/JOURNEY.md 여정 3. 최근 묶음과 동명이인 인접이 부딪히는 자리다.
 export interface RecipientEntry {

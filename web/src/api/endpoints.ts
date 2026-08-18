@@ -8,7 +8,7 @@ import type {
   User,
   UserId,
   Wallet,
-} from '@/domain/types'
+} from '@/api/contract'
 
 // 화면은 이 함수들을 직접 부르지 않고 api/queries.ts 를 거친다.
 export interface CreateTransferInput {

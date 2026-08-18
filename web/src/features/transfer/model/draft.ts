@@ -1,5 +1,5 @@
-import { parseInput } from '@/domain/points'
-import type { PointType, Points, TransferKind, User } from '@/domain/types'
+import { parseInput } from '@/shared/format'
+import type { PointType, Points, TransferKind, User } from '@/api/contract'
 
 /** 키패드 입력 자릿수 상한. 한글 병기가 성립하는 범위 안이다 */
 const MAX_AMOUNT_DIGITS = 13

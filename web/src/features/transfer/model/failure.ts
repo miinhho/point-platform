@@ -1,4 +1,4 @@
-import type { FailureCode, TransferKind } from '@/domain/types'
+import type { FailureCode, TransferKind } from '@/api/contract'
 
 // 실패에서 사용자가 무엇을 할 수 있는가 — docs/JOURNEY.md 여정 6
 export interface FailureHandling {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { abbreviate, label, parseInput, toGrouped } from './points'
+import { abbreviate, label, parseInput, toGrouped } from './format'
 
 describe('toGrouped', () => {
   it('세 자리마다 쉼표', () => {

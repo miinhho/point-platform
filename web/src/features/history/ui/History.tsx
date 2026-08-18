@@ -4,10 +4,10 @@ import { useSetAtom } from 'jotai'
 import { motion } from 'motion/react'
 import { useTranslation } from 'react-i18next'
 import { historyQuery, usersQuery, walletQuery } from '@/api/queries'
-import { toGrouped } from '@/domain/points'
+import { toGrouped } from '@/shared/format'
 import { goAtom } from '@/app/atoms'
 import { Body, Gutter, Header, RowButton, Screen, Title } from '@/shared/ui/Screen'
-import type { Transfer } from '@/domain/types'
+import type { Transfer } from '@/api/contract'
 import { formatTime } from '../model/time'
 
 /** 근거: docs/JOURNEY.md 여정 8 */

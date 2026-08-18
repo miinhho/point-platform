@@ -3,7 +3,7 @@ import { useSetAtom, useAtomValue } from 'jotai'
 import { ApiError } from '@/api/http'
 import { endpoints } from '@/api/endpoints'
 import { useSubmitTransfer } from '@/api/queries'
-import type { Failure } from '@/domain/types'
+import type { Failure } from '@/api/contract'
 import { draftAtom, failAtom, succeedAtom } from './atoms'
 import { amountOf } from './draft'
 

@@ -33,7 +33,7 @@ describe('삭제된 개념이 되살아나지 않는다', () => {
   })
 
   it('Transfer 에 status 필드가 없다', () => {
-    expect(read('src/domain/types.ts')).not.toMatch(/status:\s*TransferStatus/)
+    expect(read('src/api/contract.ts')).not.toMatch(/status:\s*TransferStatus/)
   })
 })
 

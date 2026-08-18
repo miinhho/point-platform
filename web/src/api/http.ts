@@ -1,4 +1,4 @@
-import type { FailureCode } from '@/domain/types'
+import type { FailureCode } from '@/api/contract'
 
 // 계약: docs/API.md
 

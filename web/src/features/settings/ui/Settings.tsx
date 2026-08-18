@@ -8,7 +8,7 @@ import { useColorMode, type ColorModePreference } from '@/app/color-mode'
 import { resetLedger } from '@/mocks/ledger'
 import { resetSim, setSim } from '@/mocks/sim'
 import { Body, Gutter, Header, Screen, Title } from '@/shared/ui/Screen'
-import type { FailureCode } from '@/domain/types'
+import type { FailureCode } from '@/api/contract'
 
 function Chip({
   selected,

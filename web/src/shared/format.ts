@@ -3,7 +3,7 @@
 // 자릿수 오타(150만 → 1500만)는 숫자만 보면 놓친다. 그것을 잡는 것이 이 파일의
 // 존재 이유이고, 잡지 못하는 표기는 넣지 않는다.
 
-import type { Points } from './types'
+import type { Points } from '@/api/contract'
 
 /** 1500000 → "1,500,000" */
 export function toGrouped(amount: Points): string {

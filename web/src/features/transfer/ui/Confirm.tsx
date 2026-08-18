@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useAtomValue } from 'jotai'
 import { useTranslation } from 'react-i18next'
 import { recentQuery, walletQuery } from '@/api/queries'
-import { toGrouped } from '@/domain/points'
+import { toGrouped } from '@/shared/format'
 import { BackButton } from '@/shared/ui/BackButton'
 import { IssueBanner } from '@/shared/ui/IssueBanner'
 import { HoldButton } from '@/shared/ui/HoldButton'
@@ -13,7 +13,7 @@ import { Amount } from './Amount'
 import { draftAtom } from '../model/atoms'
 import { amountOf } from '../model/draft'
 import { formatRate, inflationRate } from '../model/inflation'
-import type { PointType } from '@/domain/types'
+import type { PointType } from '@/api/contract'
 
 const Card = chakra('div', {
   base: {

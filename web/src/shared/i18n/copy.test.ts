@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { ko } from './ko'
-import type { FailureCode } from '@/domain/types'
+import type { FailureCode } from '@/api/contract'
 
 /**
  * 문구 규칙.

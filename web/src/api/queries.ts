@@ -4,7 +4,7 @@ import {
   useQueryClient,
   type UseMutationResult,
 } from '@tanstack/react-query'
-import type { PointTypeId, Transfer, TransferKind, User } from '@/domain/types'
+import type { PointTypeId, Transfer, TransferKind, User } from '@/api/contract'
 import { endpoints, type CreateTransferInput } from './endpoints'
 
 export const queryKeys = {

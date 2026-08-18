@@ -1,4 +1,4 @@
-import type { Transfer, TransferId } from '@/domain/types'
+import type { Transfer, TransferId } from '@/api/contract'
 
 // 근거: docs/JOURNEY.md · 탭 하나에 스택 하나
 export type TabName = 'home' | 'history' | 'settings'

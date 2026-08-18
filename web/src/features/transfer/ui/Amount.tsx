@@ -1,6 +1,6 @@
 import { Box, Text } from '@chakra-ui/react'
-import { label } from '@/domain/points'
-import type { PointType, Points } from '@/domain/types'
+import { label } from '@/shared/format'
+import type { PointType, Points } from '@/api/contract'
 import { amountFontSize } from '@/shared/ui/amountFit'
 
 interface Props {

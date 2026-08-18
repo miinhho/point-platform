@@ -1,7 +1,7 @@
 import { Box, Text } from '@chakra-ui/react'
 import { useTranslation } from 'react-i18next'
-import { toGrouped } from '@/domain/points'
-import type { Balance } from '@/domain/types'
+import { toGrouped } from '@/shared/format'
+import type { Balance } from '@/api/contract'
 import { Button } from '@chakra-ui/react'
 import { Row, RowButton } from '@/shared/ui/Screen'
 

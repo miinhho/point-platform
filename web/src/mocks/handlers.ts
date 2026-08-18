@@ -1,5 +1,5 @@
 import { delay, http, HttpResponse } from 'msw'
-import type { FailureCode } from '@/domain/types'
+import type { FailureCode } from '@/api/contract'
 import * as ledger from './ledger'
 import { authenticate, burnFamily, issueTokens, rotate, userIdFromHeader } from './sessions'
 import { drawFailure, drawResponseLoss, simulatedLatency } from './sim'
