@@ -41,6 +41,12 @@ describe('조회', () => {
     expect(found.map((u) => u.handle).sort()).toEqual(['@jisoo', '@jisu'])
   })
 
+  // 결과 안에서만 겹침을 세면 여기서 동명이인 방어가 꺼진다.
+  it('핸들로 검색해 한 명만 맞아도 동명이인을 함께 준다', async () => {
+    const found = await endpoints.users('@jisu')
+    expect(found.map((u) => u.handle).sort()).toEqual(['@jisoo', '@jisu'])
+  })
+
   // 포인트별 최근 대상이 이 계약의 핵심 중 하나다.
   it('최근 대상은 포인트마다 다르다', async () => {
     const on = await endpoints.recent('pt_on')
@@ -131,31 +137,53 @@ describe('거절', () => {
 })
 
 describe('발행', () => {
-  it('무에서 만들고 총 유통량이 늘어난다. 내 잔액은 그대로다', async () => {
+  it('무에서 만들어 내 지갑으로 들어오고 총 유통량이 늘어난다', async () => {
     const before = balanceOf('pt_gm', ME)
-    const issued = await endpoints.createIssue(
-      { pointTypeId: 'pt_gm', toId: 'u_jisu', amount: 100_000 },
-      key(),
-    )
+    const issued = await endpoints.createIssue({ pointTypeId: 'pt_gm', amount: 100_000 }, key())
     expect(issued.fromId).toBeNull()
     expect(issued.kind).toBe('issue')
-    expect(balanceOf('pt_gm', ME)).toBe(before)
-    expect(balanceOf('pt_gm', 'u_jisu')).toBe(145_000)
+    expect(issued.toId).toBe(ME)
+    expect(balanceOf('pt_gm', ME)).toBe(before + 100_000)
 
     const types = await endpoints.pointTypes()
     expect(types.find((t) => t.id === 'pt_gm')?.totalIssued).toBe(1_300_000)
   })
 
+  // 대상을 실어 보내면 계약 위반이다. 조용히 무시하면 발행과 이체가 섞인다.
+  it('대상을 실어 보내면 400 으로 거절한다', async () => {
+    const response = await fetch('http://localhost/api/issues', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Idempotency-Key': key() },
+      body: JSON.stringify({ pointTypeId: 'pt_gm', toId: 'u_jisu', amount: 1 }),
+    })
+    expect(response.status).toBe(400)
+  })
+
   it('상한을 넘으면 422', async () => {
     await expect(
-      endpoints.createIssue({ pointTypeId: 'pt_gm', toId: 'u_jisu', amount: 99_000_000 }, key()),
+      endpoints.createIssue({ pointTypeId: 'pt_gm', amount: 99_000_000 }, key()),
     ).rejects.toMatchObject({ code: 'CAP_EXCEEDED' })
   })
 
   it('내 포인트가 아니면 403 — 권한은 화면이 아니라 서버가 막는다', async () => {
     await expect(
-      endpoints.createIssue({ pointTypeId: 'pt_on', toId: 'u_jisu', amount: 1 }, key()),
+      endpoints.createIssue({ pointTypeId: 'pt_on', amount: 1 }, key()),
     ).rejects.toMatchObject({ code: 'NOT_ISSUER', status: 403 })
+  })
+})
+
+describe('멱등성 키로 조회', () => {
+  it('일어나지 않았으면 null 이다 — 404 가 아니다', async () => {
+    await expect(endpoints.transferByKey('k_never')).resolves.toBeNull()
+  })
+
+  it('일어났으면 그 이체를 준다. 응답을 못 받은 클라이언트의 유일한 확인 수단이다', async () => {
+    const k = key()
+    const created = await endpoints.createTransfer(
+      { pointTypeId: 'pt_on', toId: 'u_jisoo', amount: 30_000 },
+      k,
+    )
+    await expect(endpoints.transferByKey(k)).resolves.toMatchObject({ id: created.id })
   })
 })
 

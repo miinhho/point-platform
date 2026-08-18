@@ -73,18 +73,36 @@ Idempotency-Key: 3a729bd1-8d12-4837-8082-97942afa0ed2
 | `GET` | `/api/users?q=` | `User[]` | 검색. 질의 없으면 전체 |
 | `GET` | `/api/recent?pointTypeId=&limit=` | `User[]` | 그 포인트로 최근에 보낸 사람 |
 | `POST` | `/api/transfers` | `Transfer` `201` | 이체. `Idempotency-Key` 필수 |
-| `POST` | `/api/issues` | `Transfer` `201` | 발행. 발행자만 |
+| `POST` | `/api/issues` | `Transfer` `201` | 발행. 발행자만. **대상 없음** |
 | `GET` | `/api/transfers/:id` | `Transfer` | 단건. **404 는 일어나지 않았다는 뜻** |
+| `GET` | `/api/transfers/by-key?idempotencyKey=` | `Transfer \| null` | 결과를 모를 때의 확인 |
 | `GET` | `/api/transfers?pointTypeId=&limit=` | `Transfer[]` | 내역, 최신순 |
 
-쓰기 본문:
+이체 본문:
 
 ```json
 { "pointTypeId": "pt_on", "toId": "u_jisoo", "amount": 30000 }
 ```
 
+발행 본문 — **`toId` 를 받지 않는다.** 발행은 자기 지갑으로만 들어간다
+(`docs/JOURNEY.md` 여정 7). 대상이 실려 오면 `400` 이다. 조용히 무시하면 발행과
+이체가 같은 흐름에서 섞이고, 발행자는 잘못 고른 것을 알 방법이 없다.
+
+```json
+{ "pointTypeId": "pt_gm", "amount": 100000 }
+```
+
+`GET /api/transfers/by-key` 는 없을 때 `404` 가 아니라 `null` 을 준다.
+"안 일어났다" 는 오류가 아니라 정상적인 답이다. 응답을 받지 못한 클라이언트는
+이체 id 를 모르므로 id 로는 물을 수 없고, 이것이 유일한 확인 수단이다.
+
 `GET /api/wallet` 은 잔액이 0인 포인트도 **내가 발행자라면** 포함한다. 가졌던 것과
 가진 적 없는 것은 다르고, 그 판단은 화면이 한다.
+
+`GET /api/users?q=` 는 **결과에 동명이인을 무조건 함께 담는다.** 핸들로 검색해
+한 명만 맞더라도 같은 이름을 가진 사람을 함께 준다 — 겹친다는 사실은 검색 결과의
+성질이 아니라 원장의 성질이고, 클라이언트가 결과 안에서만 세면 `@jisu` 로 검색한
+순간 동명이인 방어가 꺼진다.
 
 ## 실패
 
@@ -101,7 +119,7 @@ Idempotency-Key: 3a729bd1-8d12-4837-8082-97942afa0ed2
 | `RECIPIENT_NOT_FOUND` | 404 | 대상 없음 | 대상 다시 고르기 |
 | `POINT_TYPE_NOT_FOUND` | 404 | 포인트 없음 | 없음 |
 | `SERVER` | 5xx | 서버 오류 | **재시도** (같은 키) |
-| `NETWORK` | — | 요청이 서버에 닿지 못함 | **재시도** (같은 키) |
+| `NETWORK` | — | 요청이 서버에 닿지 못함 | **확인하기** → 재시도 |
 
 `NETWORK` 와 `SERVER` 만 **결과를 알 수 없는 실패**다. 서버가 요청을 처리했는지 알 수
 없으므로 화면은 "실패했습니다"라고 단정하지 않는다. 멱등성 키가 있으므로 재시도가 안전하고,

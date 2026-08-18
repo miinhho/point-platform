@@ -40,6 +40,8 @@ function readKey(request: Request): string | null {
 async function commit(
   request: Request,
   apply: (input: ledger.CommitInput) => ReturnType<typeof ledger.commitTransfer>,
+  /** 발행은 대상을 받지 않는다. 자기 지갑으로만 들어간다 */
+  selfOnly = false,
 ) {
   const blocked = await gate()
   if (blocked) return blocked
@@ -52,16 +54,20 @@ async function commit(
   if (existing) return HttpResponse.json(existing)
 
   const body = (await request.json()) as TransferBody
-  if (!body.pointTypeId || !body.toId || !body.amount || body.amount <= 0) {
+  const toId = selfOnly ? ledger.ME : body.toId
+  // 발행 요청에 대상이 실려 오면 계약 위반이다. 조용히 무시하지 않는다.
+  const malformed =
+    !body.pointTypeId || !toId || !body.amount || body.amount <= 0 || (selfOnly && body.toId)
+  if (malformed) {
     return HttpResponse.json({ code: 'SERVER', message: '요청 형식 오류' }, { status: 400 })
   }
 
   try {
     const transfer = apply({
       idempotencyKey: key,
-      pointTypeId: body.pointTypeId,
-      toId: body.toId,
-      amount: body.amount,
+      pointTypeId: body.pointTypeId!,
+      toId: toId!,
+      amount: body.amount!,
     })
     return HttpResponse.json(transfer, { status: 201 })
   } catch (error) {
@@ -100,7 +106,16 @@ export const handlers = [
   }),
 
   http.post('*/api/transfers', ({ request }) => commit(request, ledger.commitTransfer)),
-  http.post('*/api/issues', ({ request }) => commit(request, ledger.commitIssue)),
+  http.post('*/api/issues', ({ request }) => commit(request, ledger.commitIssue, true)),
+
+  http.get('*/api/transfers/by-key', async ({ request }) => {
+    const blocked = await gate()
+    if (blocked) return blocked
+    const key = new URL(request.url).searchParams.get('idempotencyKey')
+    if (!key) return HttpResponse.json({ code: 'SERVER' }, { status: 400 })
+    // 없으면 404 가 아니라 null 이다. "안 일어났다" 는 정상적인 답이다.
+    return HttpResponse.json(ledger.findByIdempotencyKey(key) ?? null)
+  }),
 
   http.get('*/api/transfers/:id', async ({ params }) => {
     const blocked = await gate()

@@ -17,6 +17,12 @@ export interface CreateTransferInput {
   amount: Points
 }
 
+/** 발행은 자기 지갑으로만 한다 — docs/JOURNEY.md 여정 7 */
+export interface CreateIssueInput {
+  pointTypeId: PointTypeId
+  amount: Points
+}
+
 export interface HistoryQuery {
   /** 특정 포인트의 내역만 */
   pointTypeId?: PointTypeId
@@ -43,12 +49,18 @@ export const endpoints = {
     request<Transfer>('/transfers', { method: 'POST', body: input, idempotencyKey }),
 
   /** 발행. 해당 포인트의 발행자만 성공한다 */
-  createIssue: (input: CreateTransferInput, idempotencyKey: string) =>
+  createIssue: (input: CreateIssueInput, idempotencyKey: string) =>
     request<Transfer>('/issues', { method: 'POST', body: input, idempotencyKey }),
 
-  /** 결과를 알 수 없는 실패 뒤에 실제 상태를 확인할 때 */
   transfer: (id: TransferId, options?: RequestOptions) =>
     request<Transfer>(`/transfers/${id}`, options),
+
+  /**
+   * 결과를 알 수 없는 실패 뒤에 "정말 안 일어났나" 를 확인한다.
+   * 응답을 못 받은 클라이언트는 id 를 모르므로 키로 묻는다.
+   */
+  transferByKey: (idempotencyKey: string, options?: RequestOptions) =>
+    request<Transfer | null>('/transfers/by-key', { ...options, query: { idempotencyKey } }),
 
   history: (params: HistoryQuery = {}, options?: RequestOptions) =>
     request<Transfer[]>('/transfers', {

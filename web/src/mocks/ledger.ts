@@ -156,13 +156,17 @@ export function balancesOf(userId: UserId) {
     .filter(({ pointType, amount }) => amount > 0 || pointType.issuerId === userId)
 }
 
+/** 결과에 동명이인을 함께 담는다. 겹침은 결과의 성질이 아니라 원장의 성질이다. */
 export function searchUsers(query: string | null): User[] {
   const others = allUsers().filter((user) => user.id !== ME)
   if (!query?.trim()) return others
+
   const needle = query.trim().toLowerCase()
-  return others.filter(
+  const matched = others.filter(
     (user) => user.name.includes(needle) || user.handle.toLowerCase().includes(needle),
   )
+  const names = new Set(matched.map((user) => user.name))
+  return others.filter((user) => names.has(user.name))
 }
 
 export function recentFor(pointTypeId: PointTypeId, limit: number): User[] {
