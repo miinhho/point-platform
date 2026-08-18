@@ -50,6 +50,13 @@ TanStack Query, 클라이언트가 진실인 것(플로우·선택된 포인트�
 쓴다. TS 인터페이스를 계약이라 부르지 않는다. 멱등성 키는 헤더 `Idempotency-Key` 이고
 본문 필드가 아니다. 상세는 `docs/API.md`.
 
+**규칙 판정은 서버가 한다.** 잔액 상한·발행 여력·발행 권한을 클라이언트가 다시 계산하지
+않는다. 서버가 `canIssue`·`issuableHeadroom`·`sendable` 로 결과를 실어 주고 화면은 표시만
+한다. 같은 규칙이 두 곳에 있으면 곧 한쪽이 틀린다.
+
+**feature 안은 `ui/` 와 `model/` 로 나눈다.** 밖에서는 `features/<name>` 배럴만 본다 —
+내부 경로가 새면 나눈 의미가 없다.
+
 **디자인은 토큰 이름만 쓴다.** 화면에서 `fontSize`·`minHeight`·`bg` 를 직접 지정하지
 않는다. `shared/ui/system.ts` 의 토큰과 recipe 를 쓴다.
 

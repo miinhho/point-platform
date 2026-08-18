@@ -11,11 +11,14 @@ const point = (id: string, name: string, accent: PointAccent = 'blue'): PointTyp
   accent,
   totalIssued: 1_000,
   issueCap: 10_000,
+  canIssue: false,
+  issuableHeadroom: 9_000,
 })
 
 const balance = (id: string, name: string, amount: number): Balance => ({
   pointType: point(id, name),
   amount,
+  sendable: amount,
 })
 
 describe('orderBalances', () => {

@@ -10,8 +10,8 @@ import { IssueBanner } from '@/shared/ui/IssueBanner'
 import { HoldButton } from '@/shared/ui/HoldButton'
 import { Body, Gutter, Header, Screen, Title } from '@/shared/ui/Screen'
 import { Amount } from './Amount'
-import { draftAtom } from './atoms'
-import { amountOf } from './draft'
+import { draftAtom } from '../model/atoms'
+import { amountOf } from '../model/draft'
 import type { PointType } from '@/domain/types'
 
 const Card = chakra('div', {
@@ -44,6 +44,7 @@ export function Confirm({ onBack, onConfirm, busy }: Props) {
   const amount = amountOf(draft)
   const balance =
     wallet.data?.balances.find((b) => b.pointType.id === draft.pointType.id)?.amount ?? 0
+  // 상한 판정은 서버가 한다. 여기서는 보낸 뒤의 값을 보여주기만 한다.
   // 처음 받는 사람인가. 경고가 아니라 사실로 한 줄 적는다.
   const firstTime =
     !issuing && recent.data ? !recent.data.some((user) => user.id === draft.to?.id) : false

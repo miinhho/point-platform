@@ -89,7 +89,7 @@ export const handlers = [
     )
   }),
 
-  http.get('*/api/point-types', async () => (await gate()) ?? HttpResponse.json(ledger.allPointTypes())),
+  http.get('*/api/point-types', async () => (await gate()) ?? HttpResponse.json(ledger.pointTypesFor(ledger.ME))),
 
   http.get('*/api/users', async ({ request }) => {
     const blocked = await gate()

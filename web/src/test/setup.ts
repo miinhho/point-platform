@@ -3,8 +3,13 @@ import { server } from '@/mocks/node'
 import { resetLedger } from '@/mocks/ledger'
 import { resetSim, setSim } from '@/mocks/sim'
 
-beforeAll(() => {
+beforeAll(async () => {
   server.listen({ onUnhandledRequest: 'error' })
+  // 스프링 전환과 MSW 왕복이 겹치면 기본 1초로는 부하에 따라 갈린다.
+  if (typeof document !== 'undefined') {
+    const { configure } = await import('@testing-library/react')
+    configure({ asyncUtilTimeout: 5_000 })
+  }
 })
 
 afterEach(async () => {

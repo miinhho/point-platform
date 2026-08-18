@@ -2,9 +2,8 @@ import { describe, expect, it } from 'vitest'
 import { createStore } from 'jotai'
 import { currentScreenAtom, navAtom } from '@/app/atoms'
 import {
-  clearAmountAtom,
-  digitAtom,
   draftAtom,
+  editDraftAtom,
   editAmountAtom,
   endFlowAtom,
   failAtom,
@@ -14,7 +13,7 @@ import {
   startTransferAtom,
   toConfirmAtom,
 } from './atoms'
-import { amountOf } from './draft'
+import { amountOf, appendDigit, clearAmount } from './draft'
 import type { PointType, User } from '@/domain/types'
 
 const ON: PointType = {
@@ -26,13 +25,15 @@ const ON: PointType = {
   accent: 'blue',
   totalIssued: 50_000_000,
   issueCap: 100_000_000,
+  canIssue: false,
+  issuableHeadroom: 50_000_000,
 }
 const JISOO: User = { id: 'u_jisoo', name: '김지수', handle: '@jisoo' }
 
 const at = (store: ReturnType<typeof createStore>) => store.get(currentScreenAtom)?.name ?? 'root'
 
 function typeAmount(store: ReturnType<typeof createStore>, digits: string) {
-  for (const digit of digits) store.set(digitAtom, digit)
+  for (const digit of digits) store.set(editDraftAtom, (draft) => appendDigit(draft, digit))
 }
 
 describe('플로우', () => {
@@ -71,8 +72,8 @@ describe('플로우', () => {
 
   it('플로우 밖에서 키를 눌러도 아무 일도 없다', () => {
     const store = createStore()
-    store.set(digitAtom, '3')
-    store.set(clearAmountAtom)
+    store.set(editDraftAtom, (draft) => appendDigit(draft, '3'))
+    store.set(editDraftAtom, clearAmount)
     expect(store.get(draftAtom)).toBeNull()
   })
 })
@@ -114,7 +115,7 @@ describe('실패와 재시도', () => {
     const { store, key } = atFailure()
     store.set(editAmountAtom)
     expect(at(store)).toBe('enterAmount')
-    store.set(digitAtom, '0')
+    store.set(editDraftAtom, (draft) => appendDigit(draft, '0'))
     expect(store.get(draftAtom)?.idempotencyKey).toBeNull()
     expect(store.get(draftAtom)?.idempotencyKey).not.toBe(key)
     expect(amountOf(store.get(draftAtom)!)).toBe(300_000)

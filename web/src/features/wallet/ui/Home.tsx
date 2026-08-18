@@ -3,10 +3,10 @@ import { useQuery } from '@tanstack/react-query'
 import { useSetAtom } from 'jotai'
 import { useTranslation } from 'react-i18next'
 import { walletQuery } from '@/api/queries'
-import { startTransferAtom } from '@/features/transfer/atoms'
+import { startTransferAtom } from '@/features/transfer'
 import { goAtom } from '@/app/atoms'
 import { Body, Gutter, Header, Screen, Title } from '@/shared/ui/Screen'
-import { duplicatedNames, orderBalances } from './order'
+import { duplicatedNames, orderBalances } from '../model/order'
 import { PointCard } from './PointCard'
 
 /** 근거: docs/JOURNEY.md 여정 1 */
@@ -36,13 +36,9 @@ export function Home() {
             balance={balance}
             ambiguous={ambiguous.has(balance.pointType.name)}
             issuerName={balance.pointType.issuerName}
-            isMine={balance.pointType.issuerId === data?.user.id}
+            isMine={balance.pointType.canIssue}
             onOpen={() => startTransfer({ pointType: balance.pointType })}
-            onIssue={
-              data && balance.pointType.issuerId === data.user.id
-                ? () => go({ name: 'issuer' })
-                : undefined
-            }
+            onIssue={balance.pointType.canIssue ? () => go({ name: 'issuer' }) : undefined}
           />
         ))}
       </Body>

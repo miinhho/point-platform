@@ -5,8 +5,8 @@ import { failureTitleKey, failureWhereKey, handleFailure } from '@/domain/failur
 import { toGrouped } from '@/domain/points'
 import { IssueBanner } from '@/shared/ui/IssueBanner'
 import { Body, Gutter, Header, Screen, Title } from '@/shared/ui/Screen'
-import { draftAtom, failureAtom } from './atoms'
-import { amountOf } from './draft'
+import { draftAtom, failureAtom } from '../model/atoms'
+import { amountOf } from '../model/draft'
 
 interface Props {
   onCheck: () => void

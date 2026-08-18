@@ -6,8 +6,8 @@ import { useTranslation } from 'react-i18next'
 import { recentQuery, usersQuery } from '@/api/queries'
 import { BackButton } from '@/shared/ui/BackButton'
 import { Body, Gutter, Header, RowButton, Screen, Title } from '@/shared/ui/Screen'
-import { draftAtom, pickRecipientAtom } from './atoms'
-import { buildRecipientList, buildSearchList, type RecipientEntry } from './recipientList'
+import { draftAtom, pickRecipientAtom } from '../model/atoms'
+import { buildRecipientList, buildSearchList, type RecipientEntry } from '../model/recipientList'
 
 /** 근거: docs/JOURNEY.md 여정 3 */
 export function PickRecipient({ onBack }: { onBack: () => void }) {

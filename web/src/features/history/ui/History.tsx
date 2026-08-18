@@ -8,7 +8,7 @@ import { toGrouped } from '@/domain/points'
 import { goAtom } from '@/app/atoms'
 import { Body, Gutter, Header, RowButton, Screen, Title } from '@/shared/ui/Screen'
 import type { Transfer } from '@/domain/types'
-import { formatTime } from './time'
+import { formatTime } from '../model/time'
 
 /** 근거: docs/JOURNEY.md 여정 8 */
 export function History() {

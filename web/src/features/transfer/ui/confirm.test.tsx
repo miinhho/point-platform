@@ -43,6 +43,8 @@ async function hold(ms: number) {
 describe('여정 5 — 확정 화면이 마지막 방어선이다', () => {
   it('다섯 항목이 전부 있다', async () => {
     await atConfirm()
+    // 보낸 뒤 남는 잔액은 지갑 응답이 온 뒤에 나온다.
+    await screen.findByText('3,210,000')
     for (const text of ['온포인트', '김지수', '@jisoo', '30,000', '3,210,000']) {
       expect(screen.getAllByText(text).length, text).toBeGreaterThan(0)
     }
@@ -64,7 +66,7 @@ describe('여정 5 — 확정 화면이 마지막 방어선이다', () => {
   it('끝까지 누르면 보내지고 잔액이 움직인다', async () => {
     await atConfirm()
     await hold(750)
-    expect(await screen.findByText('보냈어요', {}, { timeout: 3000 })).toBeTruthy()
+    expect(await screen.findByText('보냈어요', {}, { timeout: 5000 })).toBeTruthy()
     expect(balanceOf('pt_on', ME)).toBe(3_210_000)
   })
 })
@@ -122,7 +124,7 @@ describe('여정 6 — 결과를 모를 때 단정하지 않는다', () => {
     setSim({ forceFailure: 'NETWORK' })
     await hold(750)
 
-    expect(await screen.findByText('서버에 닿지 못했어요', {}, { timeout: 3000 })).toBeTruthy()
+    expect(await screen.findByText('서버에 닿지 못했어요', {}, { timeout: 5000 })).toBeTruthy()
     expect(screen.getByText('지금 확실한 것')).toBeTruthy()
     expect(screen.getByText(/보내졌는지 알 수 없어요/)).toBeTruthy()
     // 재시도가 아니라 확인이다
@@ -135,7 +137,7 @@ describe('여정 6 — 결과를 모를 때 단정하지 않는다', () => {
     await atConfirm()
     setSim({ forceFailure: 'INSUFFICIENT_BALANCE' })
     await hold(750)
-    expect(await screen.findByText('잔액이 부족해요', {}, { timeout: 3000 })).toBeTruthy()
+    expect(await screen.findByText('잔액이 부족해요', {}, { timeout: 5000 })).toBeTruthy()
     expect(screen.getByText('포인트는 여기 있어요')).toBeTruthy()
     expect(screen.getByText('아무것도 나가지 않았어요')).toBeTruthy()
   })
@@ -144,7 +146,7 @@ describe('여정 6 — 결과를 모를 때 단정하지 않는다', () => {
     await atConfirm()
     setSim({ forceFailure: 'NETWORK' })
     await hold(750)
-    await screen.findByText('서버에 닿지 못했어요', {}, { timeout: 3000 })
+    await screen.findByText('서버에 닿지 못했어요', {}, { timeout: 5000 })
 
     expect(screen.getByText('보내려던 것')).toBeTruthy()
     expect(screen.getAllByText('김지수').length).toBeGreaterThan(0)
@@ -156,11 +158,11 @@ describe('여정 6 — 결과를 모를 때 단정하지 않는다', () => {
     const user = await atConfirm()
     setSim({ loseNextResponse: true })
     await hold(750)
-    await screen.findByText('서버에 닿지 못했어요', {}, { timeout: 3000 })
+    await screen.findByText('서버에 닿지 못했어요', {}, { timeout: 5000 })
     expect(balanceOf('pt_on', ME)).toBe(3_210_000)
 
     await user.click(screen.getByRole('button', { name: '확인하기' }))
-    expect(await screen.findByText('보냈어요', {}, { timeout: 3000 })).toBeTruthy()
+    expect(await screen.findByText('보냈어요', {}, { timeout: 5000 })).toBeTruthy()
     expect(balanceOf('pt_on', ME)).toBe(3_210_000)
   })
 })

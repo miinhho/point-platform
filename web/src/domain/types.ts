@@ -23,6 +23,10 @@ export interface PointType {
   issuerId: UserId
   /** 이름이 겹치는 포인트를 가르는 부제. 화면이 사용자 목록을 뒤지지 않게 서버가 준다. */
   issuerName: string
+  /** 내가 이 포인트를 발행할 수 있는가. 클라이언트가 판정하지 않는다. */
+  canIssue: boolean
+  /** 지금 더 발행할 수 있는 양. 상한 외의 규칙이 생기면 서버만 안다. */
+  issuableHeadroom: Points
   /** 발행자가 정한 색. 화면이 배정하면 순서가 바뀔 때 표식 노릇을 못 한다. */
   accent: PointAccent
   totalIssued: Points
@@ -34,6 +38,8 @@ export type PointAccent = 'blue' | 'green' | 'purple' | 'orange' | 'pink' | 'tea
 export interface Balance {
   pointType: PointType
   amount: Points
+  /** 지금 보낼 수 있는 양. 보류금이 생기면 `amount` 와 달라진다. */
+  sendable: Points
 }
 
 export interface Wallet {

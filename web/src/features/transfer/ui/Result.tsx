@@ -8,7 +8,7 @@ import type { Transfer } from '@/domain/types'
 import { IssueBanner } from '@/shared/ui/IssueBanner'
 import { Body, Gutter, Screen } from '@/shared/ui/Screen'
 import { SentMark } from '@/shared/ui/SentMark'
-import { draftAtom } from './atoms'
+import { draftAtom } from '../model/atoms'
 
 interface Props {
   transfer: Transfer

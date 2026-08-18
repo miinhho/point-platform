@@ -3,15 +3,7 @@ import { newIdempotencyKey } from '@/api/http'
 import { goAtom, leaveFlowAtom, navAtom } from '@/app/atoms'
 import { popTo } from '@/app/navigation'
 import type { Failure, PointType, Transfer, TransferKind, User } from '@/domain/types'
-import {
-  appendDigit,
-  clearAmount,
-  removeDigit,
-  seal,
-  startDraft,
-  withRecipient,
-  type Draft,
-} from './draft'
+import { seal, startDraft, withRecipient, type Draft } from './draft'
 
 // 초안과 내비게이션을 여기서 묶는다. 쓰기 아톰 하나가 곧 사용자 행동 하나다.
 export const draftAtom = atom<Draft | null>(null)
@@ -48,19 +40,10 @@ export const pickRecipientAtom = atom(null, (get, set, to: User) => {
   set(goAtom, { name: 'enterAmount' })
 })
 
-export const digitAtom = atom(null, (get, set, digit: string) => {
+/** 초안을 통째로 갈아 끼운다. 어떻게 바뀌는지는 `draft.ts` 의 순수 함수가 정한다 */
+export const editDraftAtom = atom(null, (get, set, change: (draft: Draft) => Draft) => {
   const draft = get(draftAtom)
-  if (draft) set(draftAtom, appendDigit(draft, digit))
-})
-
-export const backspaceAtom = atom(null, (get, set) => {
-  const draft = get(draftAtom)
-  if (draft) set(draftAtom, removeDigit(draft))
-})
-
-export const clearAmountAtom = atom(null, (get, set) => {
-  const draft = get(draftAtom)
-  if (draft) set(draftAtom, clearAmount(draft))
+  if (draft) set(draftAtom, change(draft))
 })
 
 /** 확정 화면으로. 여기서 멱등성 키가 생긴다 */

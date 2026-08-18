@@ -44,7 +44,9 @@ function seedUsers(): User[] {
 }
 
 /** 하나는 내가 발행자, 둘은 보유자다. 그 조합이 실제 상태다. */
-function seedPointTypes(): PointType[] {
+type SeedPoint = Omit<PointType, 'canIssue' | 'issuableHeadroom'>
+
+function seedPointTypes(): SeedPoint[] {
   return [
     {
       id: 'pt_on',
@@ -120,7 +122,7 @@ function seedRecent(): Map<PointTypeId, UserId[]> {
 
 interface State {
   users: Map<UserId, User>
-  pointTypes: Map<PointTypeId, PointType>
+  pointTypes: Map<PointTypeId, SeedPoint>
   balances: Map<BalanceKey, Points>
   transfers: Map<TransferId, Transfer>
   /** 멱등성 키 → 이체 id */
@@ -156,8 +158,12 @@ export function allUsers(): User[] {
   return [...state.users.values()]
 }
 
-export function allPointTypes(): PointType[] {
+function seedPoints(): SeedPoint[] {
   return [...state.pointTypes.values()]
+}
+
+export function pointTypesFor(userId: UserId): PointType[] {
+  return seedPoints().map((pointType) => viewOf(pointType, userId))
 }
 
 export function balanceOf(pointTypeId: PointTypeId, userId: UserId): Points {
@@ -166,9 +172,22 @@ export function balanceOf(pointTypeId: PointTypeId, userId: UserId): Points {
 
 /** 잔액 0 도 발행자라면 포함한다. 걸러 내면 화면이 그 상태를 표현할 수 없다. */
 export function balancesOf(userId: UserId) {
-  return allPointTypes()
-    .map((pointType) => ({ pointType, amount: balanceOf(pointType.id, userId) }))
-    .filter(({ pointType, amount }) => amount > 0 || pointType.issuerId === userId)
+  return seedPoints()
+    .map((pointType) => {
+      const amount = balanceOf(pointType.id, userId)
+      // 규칙을 서버가 계산해 실어 준다. 클라이언트가 같은 뺄셈을 다시 하지 않게.
+      return { pointType: viewOf(pointType, userId), amount, sendable: amount }
+    })
+    .filter(({ pointType, amount }) => amount > 0 || pointType.canIssue)
+}
+
+/** 요청자 기준으로 본 포인트. 권한과 여력은 보는 사람에 따라 다르다. */
+export function viewOf(pointType: SeedPoint, userId: UserId): PointType {
+  return {
+    ...pointType,
+    canIssue: pointType.issuerId === userId,
+    issuableHeadroom: Math.max(0, pointType.issueCap - pointType.totalIssued),
+  }
 }
 
 /** 결과에 동명이인을 함께 담는다. 겹침은 결과의 성질이 아니라 원장의 성질이다. */
@@ -246,7 +265,7 @@ export function commitIssue(input: CommitInput): Transfer {
   return record('issue', pointType.id, null, recipient.id, input)
 }
 
-function requirePointType(pointTypeId: PointTypeId): PointType {
+function requirePointType(pointTypeId: PointTypeId): SeedPoint {
   const pointType = state.pointTypes.get(pointTypeId)
   if (!pointType) throw new LedgerError('POINT_TYPE_NOT_FOUND')
   return pointType

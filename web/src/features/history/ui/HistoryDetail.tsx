@@ -8,7 +8,7 @@ import { toGrouped } from '@/domain/points'
 import { BackButton } from '@/shared/ui/BackButton'
 import { IssueBanner } from '@/shared/ui/IssueBanner'
 import { Body, Gutter, Header, Screen, Title } from '@/shared/ui/Screen'
-import { formatTime } from './time'
+import { formatTime } from '../model/time'
 
 interface Props {
   transferId: string

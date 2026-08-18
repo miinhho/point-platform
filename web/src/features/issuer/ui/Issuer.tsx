@@ -4,7 +4,7 @@ import { useSetAtom } from 'jotai'
 import { useTranslation } from 'react-i18next'
 import { walletQuery } from '@/api/queries'
 import { toGrouped } from '@/domain/points'
-import { startIssueAtom } from '@/features/transfer/atoms'
+import { startIssueAtom } from '@/features/transfer'
 import { BackButton } from '@/shared/ui/BackButton'
 import { Body, Gutter, Header, Screen, Title } from '@/shared/ui/Screen'
 
@@ -14,7 +14,7 @@ export function Issuer({ onBack }: { onBack: () => void }) {
   const { data } = useQuery(walletQuery())
   const startIssue = useSetAtom(startIssueAtom)
 
-  const mine = data?.balances.filter((b) => b.pointType.issuerId === data.user.id) ?? []
+  const mine = data?.balances.filter((b) => b.pointType.canIssue) ?? []
 
   return (
     <Screen>
@@ -33,7 +33,7 @@ export function Issuer({ onBack }: { onBack: () => void }) {
                 <Line label={t('issuer.cap')} value={toGrouped(pointType.issueCap)} />
                 <Line
                   label={t('issuer.headroom')}
-                  value={toGrouped(pointType.issueCap - pointType.totalIssued)}
+                  value={toGrouped(pointType.issuableHeadroom)}
                   strong
                 />
               </Box>
