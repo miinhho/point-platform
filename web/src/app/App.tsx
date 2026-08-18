@@ -6,7 +6,7 @@ import { meQuery, queryKeys } from '@/api/queries'
 import { setUnauthenticatedHandler } from '@/api/http'
 import { SignIn } from '@/features/auth'
 import { History, HistoryDetail } from '@/features/history'
-import { Bank, CreatePoint, PointCreated } from '@/features/bank'
+import { Bank, CreatePoint, Invite, PointCreated } from '@/features/bank'
 import { Settings } from '@/features/settings'
 import {
   Confirm,
@@ -34,6 +34,7 @@ const FLOW: ReadonlySet<Screen['name']> = new Set([
   'failure',
   'createPoint',
   'pointCreated',
+  'invite',
 ])
 
 interface Actions {
@@ -71,6 +72,8 @@ function CurrentScreen({
       return <HistoryDetail transferId={screen.transferId} onBack={actions.back} />
     case 'bank':
       return <Bank pointTypeId={screen.pointTypeId} onBack={actions.back} />
+    case 'invite':
+      return <Invite pointTypeId={screen.pointTypeId} onBack={actions.back} />
     case 'createPoint':
       return (
         <CreatePoint

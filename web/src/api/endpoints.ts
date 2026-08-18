@@ -1,6 +1,7 @@
 import { request, type RequestOptions } from './http'
 import type {
   HistoryEntry,
+  Invite,
   PointAccent,
   PointType,
   PointTypeId,
@@ -106,6 +107,21 @@ export const endpoints = {
       body: { issueCap },
       idempotencyKey,
     }),
+
+  /** 내가 받은 초대. 거절도 취소도 없다 — docs/API.md 「회원 자격」 */
+  invites: (options?: RequestOptions) => request<Invite[]>('/invites', options),
+
+  /** 초대. 은행장만. 같은 사람을 다시 초대하면 같은 초대가 온다 */
+  createInvite: (pointTypeId: PointTypeId, toId: UserId, idempotencyKey: string) =>
+    request<Invite>(`/point-types/${pointTypeId}/invites`, {
+      method: 'POST',
+      body: { toId },
+      idempotencyKey,
+    }),
+
+  /** 수락하면 초대가 사라지고 회원이 된다 */
+  acceptInvite: (inviteId: string) =>
+    request<PointType>(`/invites/${inviteId}/accept`, { method: 'POST' }),
 
   transfer: (id: TransferId, options?: RequestOptions) =>
     request<Transfer>(`/transfers/${id}`, options),

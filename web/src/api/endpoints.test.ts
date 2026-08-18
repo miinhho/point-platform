@@ -600,6 +600,96 @@ describe('쓸 수 없는 잔액', () => {
   })
 })
 
+/**
+ * 초대는 상태를 최소로 갖는다 — 거절도, 은행장의 취소도 없다. 무시하면 그만이다.
+ * 계약: docs/API.md 「회원 자격」
+ */
+describe('초대와 수락', () => {
+  const asJisu = async () => {
+    const session = await endpoints.login({ handle: '@jisu', password: 'point' })
+    setTokens(session)
+  }
+  const asMe = async () => {
+    const session = await endpoints.login({ handle: '@minho', password: 'point' })
+    setTokens(session)
+  }
+
+  it('수락하면 회원이 되고 초대는 사라진다', async () => {
+    await endpoints.createInvite('pt_cl', 'u_jisu', key())
+
+    await asJisu()
+    const [invited] = await endpoints.invites()
+    expect(invited).toMatchObject({ byHandle: '@minho' })
+    expect(invited.pointType).toMatchObject({ id: 'pt_cl', name: '동아리회비' })
+
+    await endpoints.acceptInvite(invited.id)
+    expect(await endpoints.invites()).toEqual([])
+    // 이제 목록에도 담기고 받는 사람으로도 뜬다.
+    expect((await endpoints.pointTypes()).map((t) => t.id)).toContain('pt_cl')
+  })
+
+  // 초대를 열면 은행 페이지가 열린다. 거기가 판단하는 자리다.
+  it('수락 전에도 은행 페이지는 열린다', async () => {
+    await endpoints.createInvite('pt_cl', 'u_jisu', key())
+    await asJisu()
+    expect(await endpoints.pointType('pt_cl')).toMatchObject({ id: 'pt_cl' })
+  })
+
+  it('회원이 아니면 그 은행이 없는 것과 같다', async () => {
+    await asJisu()
+    await expect(endpoints.createInvite('pt_cl', 'u_taeyun', key())).rejects.toMatchObject({
+      code: 'POINT_TYPE_NOT_FOUND',
+      status: 404,
+    })
+  })
+
+  // 회원은 그 은행이 있다는 것을 이미 안다. 감출 것이 없으므로 403 이다.
+  it('은행장이 아닌 회원은 초대할 수 없다', async () => {
+    const session = await endpoints.login({ handle: '@jisoo', password: 'point' })
+    setTokens(session)
+    await expect(endpoints.createInvite('pt_cl', 'u_taeyun', key())).rejects.toMatchObject({
+      code: 'NOT_ISSUER',
+      status: 403,
+    })
+  })
+
+  it('공개 은행에는 초대가 없다', async () => {
+    await expect(endpoints.createInvite('pt_gm', 'u_jisu', key())).rejects.toMatchObject({
+      status: 404,
+    })
+  })
+
+  it('같은 사람을 다시 초대하면 같은 초대가 온다', async () => {
+    const first = await endpoints.createInvite('pt_cl', 'u_jisu', key())
+    const second = await endpoints.createInvite('pt_cl', 'u_jisu', key())
+    expect(second.id).toBe(first.id)
+
+    await asJisu()
+    expect(await endpoints.invites()).toHaveLength(1)
+  })
+
+  it('같은 키로 두 번 보내도 하나만 생긴다', async () => {
+    const k = key()
+    const first = await endpoints.createInvite('pt_cl', 'u_jisu', k)
+    expect((await endpoints.createInvite('pt_cl', 'u_jisu', k)).id).toBe(first.id)
+  })
+
+  // 남의 초대 id 로 물어도 없을 때와 같은 답이어야 한다.
+  it('남의 초대는 수락할 수 없다', async () => {
+    const invited = await endpoints.createInvite('pt_cl', 'u_jisu', key())
+    await expect(endpoints.acceptInvite(invited.id)).rejects.toMatchObject({ status: 404 })
+    await asMe()
+  })
+
+  it('이미 회원인 사람에게는 초대가 쌓이지 않는다', async () => {
+    // `@jisoo` 는 이미 `pt_cl` 의 회원이다.
+    await endpoints.createInvite('pt_cl', 'u_jisoo', key())
+    const session = await endpoints.login({ handle: '@jisoo', password: 'point' })
+    setTokens(session)
+    expect(await endpoints.invites()).toEqual([])
+  })
+})
+
 /** 「봤어요」 버튼을 두지 않는다. 표시를 지우는 것은 실제로 쓴 일뿐이다 — 여정 10 */
 describe('아직 쓰지 않은 포인트', () => {
   const heldOf = async (pointTypeId: string) =>

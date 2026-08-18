@@ -1,8 +1,10 @@
-import { Box, Button, Text } from '@chakra-ui/react'
-import { useQuery } from '@tanstack/react-query'
+import { Box, Button, Text, VisuallyHidden } from '@chakra-ui/react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSetAtom } from 'jotai'
 import { useTranslation } from 'react-i18next'
-import { pointTypeQuery, walletQuery } from '@/api/queries'
+import { endpoints } from '@/api/endpoints'
+import { invitesQuery, pointTypeQuery, queryKeys, walletQuery } from '@/api/queries'
+import { goAtom } from '@/app/atoms'
 import { toGrouped } from '@/shared/format'
 import { startIssueAtom, startTransferAtom } from '@/features/transfer'
 import { BackButton } from '@/shared/ui/BackButton'
@@ -24,6 +26,10 @@ export function Bank({ pointTypeId, onBack }: { pointTypeId: PointTypeId; onBack
   const wallet = useQuery(walletQuery())
   const startTransfer = useSetAtom(startTransferAtom)
   const startIssue = useSetAtom(startIssueAtom)
+  const go = useSetAtom(goAtom)
+  // 수락하면 초대가 사라진다. 그래서 「초대가 있다」가 곧 「아직 회원이 아니다」다.
+  const invites = useQuery(invitesQuery())
+  const invite = invites.data?.find((candidate) => candidate.pointType.id === pointTypeId)
 
   const balance = wallet.data?.balances.find((b) => b.pointType.id === pointTypeId)
 
@@ -39,6 +45,8 @@ export function Bank({ pointTypeId, onBack }: { pointTypeId: PointTypeId; onBack
       <Body>
         <Gutter paddingTop="4" paddingBottom="6" colorPalette={pointType.accent}>
           <Intro pointType={pointType} />
+
+          {invite ? <Join inviteId={invite.id} pointTypeId={pointTypeId} /> : null}
 
           {balance ? (
             <Box marginTop="6" display="flex" flexDirection="column" gap="3">
@@ -72,6 +80,16 @@ export function Bank({ pointTypeId, onBack }: { pointTypeId: PointTypeId; onBack
               >
                 {t('bank.issue')}
               </Button>
+              {pointType.visibility === 'private' ? (
+                <Button
+                  size="lg"
+                  width="full"
+                  variant="outline"
+                  onClick={() => go({ name: 'invite', pointTypeId: pointType.id })}
+                >
+                  {t('bank.invite')}
+                </Button>
+              ) : null}
               {/* 상한도 발행과 같은 무게다. 그래서 같은 자리에 둔다 — 여정 9 */}
               <Box marginTop="4">
                 <CapForm pointType={pointType} />
@@ -81,6 +99,39 @@ export function Bank({ pointTypeId, onBack }: { pointTypeId: PointTypeId; onBack
         </Gutter>
       </Body>
     </Screen>
+  )
+}
+
+/**
+ * 가입은 되돌릴 수 있다 — 나가면 된다. 되돌릴 수 없는 것은 그 안에서 주고받은
+ * 것이지 소속이 아니다. 그래서 꾹 누르게 만들지 않는다 — docs/JOURNEY.md 여정 10
+ */
+function Join({ inviteId, pointTypeId }: { inviteId: string; pointTypeId: PointTypeId }) {
+  const { t } = useTranslation()
+  const client = useQueryClient()
+
+  const join = useMutation({
+    mutationFn: () => endpoints.acceptInvite(inviteId),
+    retry: false,
+    onSuccess: () => {
+      void client.invalidateQueries({ queryKey: queryKeys.invites })
+      void client.invalidateQueries({ queryKey: queryKeys.pointType(pointTypeId) })
+      void client.invalidateQueries({ queryKey: queryKeys.wallet })
+    },
+  })
+
+  return (
+    <Box marginTop="6">
+      <VisuallyHidden aria-live="polite">{join.isSuccess ? t('bank.joined') : ''}</VisuallyHidden>
+      <Button
+        size="xl"
+        width="full"
+        disabled={join.isPending}
+        onClick={() => join.mutate()}
+      >
+        {t('bank.join')}
+      </Button>
+    </Box>
   )
 }
 

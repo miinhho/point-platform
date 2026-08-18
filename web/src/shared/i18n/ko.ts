@@ -129,10 +129,21 @@ export const ko = {
     issue: '발행하기',
     myBalance: '내 잔액',
     send: '보내기',
+    /** 가입은 되돌릴 수 있다. 무게를 아무 데나 두면 무게가 뜻을 잃는다 — 여정 10 */
+    join: '들어가기',
+    joined: '들어왔어요',
+    members: '회원',
+    invite: '초대하기',
+    inviteTitle: '누구를 초대할까요?',
+    invited: '초대했어요',
+    alreadyMember: '이미 회원이에요',
   },
 
   home: {
     title: '내 포인트',
+    /** 초대는 홈에서 열고 판단은 은행 페이지에서 한다 — 여정 10 */
+    invites: '받은 초대',
+    invitedBy: '{{handle}} 님의 초대예요',
     empty: '아직 받은 포인트가 없어요',
     /** 발행 권한이 있는 포인트에만 붙는다 */
     issuerBadge: '내가 발행',

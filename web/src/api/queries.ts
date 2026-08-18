@@ -15,6 +15,7 @@ export const queryKeys = {
   recent: (pointTypeId: PointTypeId) => ['recent', pointTypeId] as const,
   pointType: (pointTypeId: PointTypeId) => ['pointType', pointTypeId] as const,
   history: ['history'] as const,
+  invites: ['invites'] as const,
 }
 
 /**
@@ -55,6 +56,10 @@ export const pointTypeQuery = (pointTypeId: PointTypeId) =>
     queryKey: queryKeys.pointType(pointTypeId),
     queryFn: (): Promise<PointType> => endpoints.pointType(pointTypeId),
   })
+
+/** 내가 받은 초대. 수락하면 사라지므로 「초대가 있다」가 곧 「아직 회원이 아니다」다 */
+export const invitesQuery = () =>
+  queryOptions({ queryKey: queryKeys.invites, queryFn: () => endpoints.invites() })
 
 export const historyQuery = () =>
   queryOptions({ queryKey: queryKeys.history, queryFn: () => endpoints.history() })

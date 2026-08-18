@@ -1,6 +1,7 @@
 import type {
   CapChange,
   HistoryEntry,
+  Invite,
   PointAccent,
   PointVisibility,
   PointType,
@@ -212,6 +213,10 @@ interface State {
   capChanges: CapChange[]
   /** 비공개 은행의 회원. 은행장은 언제나 여기 있다 */
   members: Map<PointTypeId, Set<UserId>>
+  /** 받은 초대. 수락하면 사라진다 — 거절도 취소도 없다 */
+  invites: Map<string, SeedInvite>
+  /** `${요청자}:${멱등성 키}` → 초대 id */
+  invitedByKey: Map<string, string>
   recent: Map<PointTypeId, UserId[]>
 }
 
@@ -227,6 +232,8 @@ function initialState(): State {
     order: [],
     capChanges: [],
     members: seedMembers(),
+    invites: new Map(),
+    invitedByKey: new Map(),
     recent: seedRecent(),
   }
 }
@@ -279,11 +286,22 @@ export function findPointType(pointTypeId: PointTypeId, userId: UserId): PointTy
 
 /** 비공개 은행은 초대 없이 닿을 수 없다. 존재를 감추는 것이 비공개의 뜻이다 */
 function reachable(pointType: SeedPoint, userId: UserId): boolean {
-  return pointType.visibility === 'public' || isMember(pointType.id, userId)
+  return (
+    pointType.visibility === 'public' ||
+    isMember(pointType.id, userId) ||
+    isInvited(pointType.id, userId)
+  )
 }
 
 export function isMember(pointTypeId: PointTypeId, userId: UserId): boolean {
   return state.members.get(pointTypeId)?.has(userId) ?? false
+}
+
+/** 초대받은 사람도 은행 페이지를 본다 — 거기가 판단하는 자리다 (여정 10) */
+function isInvited(pointTypeId: PointTypeId, userId: UserId): boolean {
+  return [...state.invites.values()].some(
+    (invite) => invite.pointTypeId === pointTypeId && invite.toId === userId,
+  )
 }
 
 /**
@@ -480,6 +498,89 @@ export function changeCap(
     changedAt: new Date().toISOString(),
   })
   return viewOf(changed, meId)
+}
+
+interface SeedInvite {
+  id: string
+  pointTypeId: PointTypeId
+  toId: UserId
+  byId: UserId
+  createdAt: string
+}
+
+function inviteViewOf(invite: SeedInvite, meId: UserId): Invite {
+  return {
+    id: invite.id,
+    pointType: viewOf(state.pointTypes.get(invite.pointTypeId)!, meId),
+    byId: invite.byId,
+    byHandle: state.users.get(invite.byId)!.handle,
+    createdAt: invite.createdAt,
+  }
+}
+
+/** 내가 받은 초대. 남의 초대는 애초에 담기지 않는다 */
+export function invitesFor(userId: UserId): Invite[] {
+  return [...state.invites.values()]
+    .filter((invite) => invite.toId === userId)
+    .map((invite) => inviteViewOf(invite, userId))
+}
+
+/**
+ * 초대한다. 은행장만 하고, 이미 초대된 사람을 다시 초대하면 같은 초대를 돌려준다.
+ * 근거: docs/API.md 「회원 자격」
+ */
+export function invite(
+  meId: UserId,
+  pointTypeId: PointTypeId,
+  toId: UserId,
+  idempotencyKey: string,
+): Invite {
+  const replayed = state.invitedByKey.get(idempotencyScope(meId, idempotencyKey))
+  if (replayed) return inviteViewOf(state.invites.get(replayed)!, meId)
+
+  const pointType = requirePointType(pointTypeId)
+  // 공개 은행에는 회원이 없으므로 초대할 것도 없다. 닿지 않는 은행은 없는 은행이다 —
+  // 403 으로 답하면 회원이 아닌 사람에게 그 은행의 존재를 알려 준다.
+  if (pointType.visibility === 'public' || !reachable(pointType, meId)) {
+    throw new LedgerError('POINT_TYPE_NOT_FOUND')
+  }
+  if (pointType.issuerId !== meId) throw new LedgerError('NOT_ISSUER')
+  requireRecipient(toId)
+
+  const existing = [...state.invites.values()].find(
+    (candidate) => candidate.pointTypeId === pointTypeId && candidate.toId === toId,
+  )
+  if (existing) {
+    state.invitedByKey.set(idempotencyScope(meId, idempotencyKey), existing.id)
+    return inviteViewOf(existing, meId)
+  }
+
+  const created: SeedInvite = {
+    id: `iv_${state.invites.size + 1}_${idempotencyKey.slice(0, 8)}`,
+    pointTypeId,
+    toId,
+    byId: meId,
+    createdAt: new Date().toISOString(),
+  }
+  // 이미 회원이면 초대를 남기지 않는다. 수락할 것이 없는 줄이 초대함에 쌓인다.
+  if (isMember(pointTypeId, toId)) return inviteViewOf(created, meId)
+
+  state.invites.set(created.id, created)
+  state.invitedByKey.set(idempotencyScope(meId, idempotencyKey), created.id)
+  return inviteViewOf(created, meId)
+}
+
+/** 수락하면 초대가 사라지고 회원이 된다. 남의 초대는 없는 것과 같다 */
+export function acceptInvite(meId: UserId, inviteId: string): PointType {
+  const invite = state.invites.get(inviteId)
+  // 남의 초대 id 로 물어도 없을 때와 같은 답이어야 한다.
+  if (!invite || invite.toId !== meId) throw new LedgerError('POINT_TYPE_NOT_FOUND')
+
+  const members = state.members.get(invite.pointTypeId) ?? new Set<UserId>()
+  members.add(meId)
+  state.members.set(invite.pointTypeId, members)
+  state.invites.delete(inviteId)
+  return viewOf(requirePointType(invite.pointTypeId), meId)
 }
 
 export interface CommitInput {

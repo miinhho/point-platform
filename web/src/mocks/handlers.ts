@@ -278,6 +278,45 @@ export const handlers = [
     return HttpResponse.json(transfer)
   }),
 
+  http.get('*/api/invites', authed((userId) => ledger.invitesFor(userId))),
+
+  http.post('*/api/point-types/:id/invites', async ({ request, params }) => {
+    const blocked = await gate()
+    if (blocked) return blocked
+    const auth = requireUser(request)
+    if (auth instanceof Response) return auth
+
+    const key = readKey(request)
+    // 같은 키로 다시 오면 초대가 둘 생기면 안 된다.
+    if (!key) return malformed()
+
+    const { toId } = (await request.json()) as { toId?: unknown }
+    if (typeof toId !== 'string' || !toId) return malformed()
+
+    try {
+      const invited = ledger.invite(auth.userId, String(params.id), toId, key)
+      if (drawResponseLoss()) return HttpResponse.error()
+      return HttpResponse.json(invited, { status: 201 })
+    } catch (error) {
+      if (error instanceof ledger.LedgerError) return fail(error.code)
+      throw error
+    }
+  }),
+
+  http.post('*/api/invites/:id/accept', async ({ request, params }) => {
+    const blocked = await gate()
+    if (blocked) return blocked
+    const auth = requireUser(request)
+    if (auth instanceof Response) return auth
+
+    try {
+      return HttpResponse.json(ledger.acceptInvite(auth.userId, String(params.id)))
+    } catch (error) {
+      if (error instanceof ledger.LedgerError) return fail(error.code)
+      throw error
+    }
+  }),
+
   // 이체와 상한 변경을 서버가 섞어서 준다 — 계약: docs/API.md
   http.get(
     '*/api/history',
