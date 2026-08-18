@@ -129,6 +129,7 @@ access 만 둔다. 갱신은 브릿지로 셸에 요청한다. `HttpOnly` 가 �
 | `POST` | `/api/issues` | `Transfer` `201` | 발행. 발행자만. **대상 없음** |
 | `POST` | `/api/point-types` | `PointType` `201` | 포인트 창설. `Idempotency-Key` 필수 |
 | `PATCH` | `/api/point-types/:id/cap` | `PointType` | 상한 변경. 발행자만. `Idempotency-Key` 필수 |
+| `POST` | `/api/point-types/:id/acknowledge` | `204` | 처음 받은 포인트를 확인했다. 멱등 |
 | `GET` | `/api/transfers/:id` | `Transfer` | 단건. **404 는 일어나지 않았다는 뜻** |
 | `GET` | `/api/transfers/by-key?idempotencyKey=` | `Transfer \| null` | 결과를 모를 때의 확인 |
 | `GET` | `/api/history?pointTypeId=&limit=` | `HistoryEntry[]` | 내역, 최신순. 이체와 상한 변경이 섞인다 |
@@ -196,6 +197,29 @@ access 만 둔다. 갱신은 브릿지로 셸에 요청한다. `HttpOnly` 가 �
 **취소 엔드포인트는 없다.** 낮추는 것은 다시 `PATCH` 지만 그것은 취소가 아니다 — 올려 둔
 동안 발행된 것은 이미 남의 지갑에 있다.
 
+### 흉내낼 수 없는 것 (여정 10)
+
+누구나 포인트를 만들 수 있게 되면서 **발행자가 정하는 것은 전부 사칭 도구**가 됐다 —
+이름도 기호도 색도. 그래서 응답은 **발행자가 정할 수 없는 것**을 함께 싣는다.
+
+- `issuerHandle` — 핸들은 유일하다. `issuerName` 은 겹칠 수 있고 그것이 사칭의 통로다
+- `createdAt` — 어제 만든 것과 1년 된 것은 다르다
+- `totalIssued` — 여정 8 이 "보유자에게 유통량은 소음" 이라 한 것은 **이미 쓰는 포인트**의
+  이야기다. 처음 만나는 순간에는 아무도 안 가진 것과 널리 도는 것이 판단을 가른다
+- `nameIsShared` — 같은 이름이 원장에 또 있는가. 처음 만나는 순간이 이 값이 가장 중요한
+  자리다
+
+**서버는 진짜인지 가짜인지 판정하지 않는다.** 판정할 수 없다 — 동명이인을 가르지 못해
+나란히 놓고 사람이 고르게 한 것과 같다. 사실을 모아 주고 판단은 사람이 한다.
+
+`POST /api/point-types/:id/acknowledge` 는 그 판단이 끝났다는 표시다. 멱등이고, 이미
+확인한 것에 다시 보내도 `204` 다. 그 포인트를 갖고 있지 않으면 `404`. 발행자가 자기
+포인트에 보낼 일은 없다 — 만든 사람에게는 처음부터 참이다.
+
+확인을 자동으로 하지 않는 이유는 「항상 붙이면 배경이 된다」(여정 1)와 같다. "받았지만
+아직 이걸로 아무것도 안 했다" 로 판정하면 받기만 하는 사용자에게는 표시가 영원히 남고,
+영원히 남는 표시는 읽히지 않는다.
+
 ### 내역은 이체만이 아니다
 
 `GET /api/history` 는 두 종류를 시간순으로 섞어서 준다.
@@ -247,6 +271,9 @@ interface CapChange {
 | `PointType.canIssue` | 내가 이 포인트를 발행할 수 있는가 |
 | `PointType.issuableHeadroom` | 지금 더 발행할 수 있는 양 |
 | `PointType.nameIsShared` | **원장 전체에서** 이 이름을 쓰는 포인트가 둘 이상인가 |
+| `PointType.issuerHandle` | 발행자의 핸들. **유일하다** — `issuerName` 은 흉내낼 수 있다 |
+| `PointType.createdAt` | 만들어진 시각. 오래된 것은 흉내낼 수 없다 |
+| `Balance.acknowledged` | 이 포인트를 처음 받은 뒤 사용자가 확인했는가. 발행자는 항상 참 |
 | `Balance.sendable` | 지금 보낼 수 있는 양. 보류금이 생기면 `amount` 와 달라진다 |
 | `User.nameIsShared` | **원장 전체에서** 이 이름을 쓰는 사용자가 둘 이상인가 |
 
