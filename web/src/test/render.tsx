@@ -5,7 +5,7 @@ import { Provider as JotaiProvider, createStore } from 'jotai'
 import { I18nextProvider } from 'react-i18next'
 import { render, type RenderResult } from '@testing-library/react'
 import { endpoints } from '@/api/endpoints'
-import { setToken } from '@/api/http'
+import { setTokens } from '@/api/http'
 import { i18n } from '@/shared/i18n'
 import { system } from '@/shared/ui/system'
 
@@ -29,8 +29,8 @@ export function renderApp(ui: ReactNode): RenderResult {
  * 화면 테스트가 로그인 화면을 매번 지나지 않게 토큰만 미리 심는다.
  * 로그인 자체는 `features/auth` 테스트가 화면으로 확인한다.
  */
-export async function signInAs(handle = '@minho'): Promise<{ token: string; userId: string }> {
+export async function signInAs(handle = '@minho'): Promise<{ userId: string }> {
   const session = await endpoints.login({ handle, password: 'point' })
-  setToken(session.token)
-  return { token: session.token, userId: session.user.id }
+  setTokens(session)
+  return { userId: session.user.id }
 }

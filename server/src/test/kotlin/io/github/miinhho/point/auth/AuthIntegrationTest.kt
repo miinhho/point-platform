@@ -6,8 +6,9 @@ import io.github.miinhho.point.domain.user.UserRepository
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.boot.resttestclient.TestRestTemplate
+import org.springframework.boot.resttestclient.autoconfigure.AutoConfigureTestRestTemplate
 import org.springframework.boot.test.context.SpringBootTest
-import org.springframework.boot.test.web.client.TestRestTemplate
 import org.springframework.context.annotation.Import
 import org.springframework.http.HttpEntity
 import org.springframework.http.HttpHeaders
@@ -19,6 +20,7 @@ import kotlin.test.assertNotEquals
 import kotlin.test.assertNotNull
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@AutoConfigureTestRestTemplate
 @Import(TestcontainersConfiguration::class)
 class AuthIntegrationTest {
     @Autowired lateinit var restTemplate: TestRestTemplate
@@ -28,7 +30,7 @@ class AuthIntegrationTest {
     @BeforeEach
     fun seedUser() {
         userRepository.deleteAll()
-        userRepository.save(User(name = "김지수", handle = "@jisoo", passwordHash = passwordEncoder.encode("point")))
+        userRepository.save(User(name = "김지수", handle = "@jisoo", passwordHash = passwordEncoder.encode("point")!!))
     }
 
     @Test

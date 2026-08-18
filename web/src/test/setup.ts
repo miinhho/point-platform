@@ -3,7 +3,7 @@ import { server } from '@/mocks/node'
 import { resetLedger } from '@/mocks/ledger'
 import { resetSessions } from '@/mocks/sessions'
 import { resetSim, setSim } from '@/mocks/sim'
-import { setToken } from '@/api/http'
+import { setTokens } from '@/api/http'
 
 beforeAll(async () => {
   server.listen({ onUnhandledRequest: 'error' })
@@ -24,7 +24,7 @@ afterEach(async () => {
   server.resetHandlers()
   resetLedger()
   resetSessions()
-  setToken(null)
+  setTokens(null)
   resetSim()
   setSim({ latencyMs: 0, jitterMs: 0 })
 })

@@ -1,15 +1,15 @@
 import { useQueryClient } from '@tanstack/react-query'
-import { setToken } from '@/api/http'
+import { setTokens, takeRefreshToken } from '@/api/http'
 import { queryKeys } from '@/api/queries'
-import type { Session } from '@/api/endpoints'
+import { endpoints, type Session } from '@/api/endpoints'
 
 /** 토큰은 `api/http.ts` 가 메모리에 들고, 사용자는 서버에 묻는다. 두 곳에 두지 않는다. */
 export function useSession() {
   const client = useQueryClient()
 
   return {
-    signIn: (session: Session) => {
-      setToken(session.token)
+    signIn: ({ accessToken, refreshToken }: Session) => {
+      setTokens({ accessToken, refreshToken })
       void client.invalidateQueries()
     },
     /**
@@ -26,7 +26,9 @@ export function useSession() {
      * 남은 캐시는 화면에 닿지 않는다 — 셸이 세션 없이는 아무것도 그리지 않는다.
      */
     signOut: () => {
-      setToken(null)
+      // 서버가 refresh 사슬을 끊게 알린다. 응답을 기다리지는 않는다.
+      const refreshToken = takeRefreshToken()
+      if (refreshToken) void endpoints.logout(refreshToken).catch(() => undefined)
       client.setQueryData(queryKeys.me, null)
       client.removeQueries({ predicate: (query) => query.queryKey[0] !== 'me' })
     },

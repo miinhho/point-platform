@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest'
 import { screen, waitFor } from '@testing-library/react'
 import { userEvent } from '@testing-library/user-event'
-import { setToken } from '@/api/http'
+import { setTokens } from '@/api/http'
 import { renderApp, signInAs } from '@/test/render'
 import App from '@/app/App'
 
@@ -65,7 +65,7 @@ describe('토큰이 죽으면', () => {
 
     // 토큰이 죽은 뒤 어떤 요청이든 401 을 받으면 로그인으로 간다.
     // 세션 조회가 캐시돼 있으므로 다른 요청이 401 을 물어 와야 한다.
-    setToken('tok_dead')
+    setTokens({ accessToken: 'dead', refreshToken: 'dead' })
     await user.click(screen.getByRole('button', { name: '내역' }))
     await waitFor(() => expect(screen.queryByText('내 포인트')).toBeNull(), { timeout: 10_000 })
 

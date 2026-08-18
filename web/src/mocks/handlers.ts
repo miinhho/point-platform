@@ -1,7 +1,7 @@
 import { delay, http, HttpResponse } from 'msw'
 import type { FailureCode } from '@/domain/types'
 import * as ledger from './ledger'
-import { authenticate, issueToken, revoke, userIdFromHeader } from './sessions'
+import { authenticate, burnFamily, issueTokens, rotate, userIdFromHeader } from './sessions'
 import { drawFailure, drawResponseLoss, simulatedLatency } from './sim'
 
 // 계약: docs/API.md
@@ -115,11 +115,25 @@ export const handlers = [
     const { handle, password } = (await request.json()) as { handle?: string; password?: string }
     const user = authenticate(handle ?? '', password ?? '', ledger.allUsers())
     if (!user) return fail('BAD_CREDENTIALS')
-    return HttpResponse.json({ token: issueToken(user.id), user })
+    return HttpResponse.json({ ...issueTokens(user.id), user })
+  }),
+
+  http.post('*/api/auth/refresh', async ({ request }) => {
+    const blocked = await gate()
+    if (blocked) return blocked
+    const { refreshToken } = (await request.json()) as { refreshToken?: string }
+    const next = refreshToken ? rotate(refreshToken) : null
+    // 이미 회전된 것이 왔다는 것은 훔친 것일 수 있다. 사슬 전체를 끊는다.
+    if (!next) {
+      if (refreshToken) burnFamily(refreshToken)
+      return fail('UNAUTHENTICATED')
+    }
+    return HttpResponse.json(next)
   }),
 
   http.post('*/api/auth/logout', async ({ request }) => {
-    revoke(request.headers.get('Authorization'))
+    const { refreshToken } = (await request.json().catch(() => ({}))) as { refreshToken?: string }
+    if (refreshToken) burnFamily(refreshToken)
     return new HttpResponse(null, { status: 204 })
   }),
 

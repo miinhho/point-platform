@@ -34,8 +34,12 @@ export interface Credentials {
   password: string
 }
 
-export interface Session {
-  token: string
+export interface Tokens {
+  accessToken: string
+  refreshToken: string
+}
+
+export interface Session extends Tokens {
   user: User
 }
 
@@ -43,7 +47,11 @@ export const endpoints = {
   login: (credentials: Credentials) =>
     request<Session>('/auth/login', { method: 'POST', body: credentials }),
 
-  logout: () => request<void>('/auth/logout', { method: 'POST' }),
+  refresh: (refreshToken: string) =>
+    request<Tokens>('/auth/refresh', { method: 'POST', body: { refreshToken }, skipRefresh: true }),
+
+  logout: (refreshToken: string) =>
+    request<void>('/auth/logout', { method: 'POST', body: { refreshToken } }),
 
   me: (options?: RequestOptions) => request<User>('/me', options),
 

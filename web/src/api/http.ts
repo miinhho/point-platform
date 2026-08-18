@@ -39,15 +39,31 @@ interface ErrorBody {
 }
 
 /**
- * 세션 토큰.
+ * 토큰.
  *
- * 메모리에만 둔다 — `localStorage` 에 두면 XSS 한 번에 새고, 이 앱은 되돌릴 수 없는
- * 송금을 다룬다. 새로고침하면 다시 로그인하는 것이 그 대가다.
+ * 메모리에만 둔다 — `localStorage` 에 두면 XSS 한 번에 샌다. 새로고침하면 다시
+ * 로그인하는 것이 그 대가다.
  */
-let token: string | null = null
+interface Tokens {
+  accessToken: string
+  refreshToken: string
+}
 
-export function setToken(next: string | null): void {
-  token = next
+let tokens: Tokens | null = null
+
+export function setTokens(next: Tokens | null): void {
+  tokens = next
+}
+
+export function hasTokens(): boolean {
+  return tokens !== null
+}
+
+/** 나갈 때 서버에 무효화를 알리기 위해 한 번 꺼낸다. 꺼내면 클라이언트에는 남지 않는다. */
+export function takeRefreshToken(): string | null {
+  const value = tokens?.refreshToken ?? null
+  tokens = null
+  return value
 }
 
 /** 401 을 받으면 화면이 로그인으로 가야 한다. 그 통로를 여기 둔다 */
@@ -57,6 +73,35 @@ export function setUnauthenticatedHandler(handler: () => void): void {
   onUnauthenticated = handler
 }
 
+/**
+ * access 가 만료되면 refresh 로 한 번 갱신하고 원요청을 다시 보낸다.
+ *
+ * 갱신은 한 번에 하나만 돈다. 화면 여럿이 동시에 401 을 받으면 refresh 가 여러 번
+ * 나가고, 회전 때문에 뒤엣것들이 재사용으로 탐지돼 세션이 통째로 죽는다.
+ */
+let refreshing: Promise<boolean> | null = null
+
+async function refreshTokens(): Promise<boolean> {
+  if (!tokens) return false
+  refreshing ??= (async () => {
+    try {
+      const next = await request<Tokens>('/auth/refresh', {
+        method: 'POST',
+        body: { refreshToken: tokens!.refreshToken },
+        skipRefresh: true,
+      })
+      tokens = next
+      return true
+    } catch {
+      tokens = null
+      return false
+    } finally {
+      refreshing = null
+    }
+  })()
+  return refreshing
+}
+
 export interface RequestOptions {
   method?: 'GET' | 'POST'
   body?: unknown
@@ -64,6 +109,8 @@ export interface RequestOptions {
   idempotencyKey?: string
   query?: Record<string, string | number | undefined>
   signal?: AbortSignal
+  /** 갱신 요청 자체. 401 을 받아도 다시 갱신하지 않는다 */
+  skipRefresh?: boolean
 }
 
 function buildUrl(path: string, query?: RequestOptions['query']): string {
@@ -75,12 +122,12 @@ function buildUrl(path: string, query?: RequestOptions['query']): string {
 }
 
 export async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
-  const { method = 'GET', body, idempotencyKey, query, signal } = options
+  const { method = 'GET', body, idempotencyKey, query, signal, skipRefresh } = options
 
   const headers: Record<string, string> = { Accept: 'application/json' }
   if (body !== undefined) headers['Content-Type'] = 'application/json'
   if (idempotencyKey) headers['Idempotency-Key'] = idempotencyKey
-  if (token) headers.Authorization = `Bearer ${token}`
+  if (tokens) headers.Authorization = `Bearer ${tokens.accessToken}`
 
   let response: Response
   try {
@@ -109,9 +156,9 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
   const code: FailureCode =
     parsed.code && FAILURE_CODES.has(parsed.code) ? (parsed.code as FailureCode) : 'SERVER'
 
-  // 토큰이 죽었으면 버린다. 화면은 세션 조회가 실패하는 것으로 알게 된다.
-  if (code === 'UNAUTHENTICATED') {
-    token = null
+  if (code === 'UNAUTHENTICATED' && !skipRefresh) {
+    // 멱등성 키가 있으므로 원요청 재시도가 안전하다. 그 키를 헤더로 둔 값이 여기서 난다.
+    if (await refreshTokens()) return request<T>(path, options)
     onUnauthenticated?.()
   }
 

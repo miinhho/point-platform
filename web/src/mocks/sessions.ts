@@ -8,7 +8,18 @@ import type { User, UserId } from '@/domain/types'
  */
 const PASSWORD = 'point'
 
-const tokens = new Map<string, UserId>()
+const access = new Map<string, UserId>()
+/** refresh → { userId, family }. 회전하면 옛 것은 지운다 */
+const refresh = new Map<string, { userId: UserId; family: string }>()
+/**
+ * 회전으로 물러난 refresh → 사슬.
+ *
+ * 지우기만 하면 그 토큰이 다시 왔을 때 어느 사슬인지 알 수 없어서 재사용을
+ * 탐지할 수 없다. 훔친 토큰이 조용히 거절만 되고 진짜 사슬은 살아남는다.
+ */
+const retired = new Map<string, string>()
+/** 재사용이 탐지된 사슬. 그 사슬의 모든 refresh 가 죽는다 */
+const burned = new Set<string>()
 let counter = 0
 
 export function authenticate(handle: string, password: string, users: User[]): User | null {
@@ -16,25 +27,62 @@ export function authenticate(handle: string, password: string, users: User[]): U
   return users.find((user) => user.handle === handle) ?? null
 }
 
-export function issueToken(userId: UserId): string {
-  const token = `tok_${++counter}_${userId}`
-  tokens.set(token, userId)
-  return token
+export interface IssuedTokens {
+  accessToken: string
+  refreshToken: string
 }
 
-/** `Authorization: Bearer <token>` 에서 사용자를 찾는다. 없으면 null */
+export function issueTokens(userId: UserId, family = `fam_${++counter}`): IssuedTokens {
+  const accessToken = `acc_${++counter}_${userId}`
+  const refreshToken = `ref_${++counter}_${userId}`
+  access.set(accessToken, userId)
+  refresh.set(refreshToken, { userId, family })
+  return { accessToken, refreshToken }
+}
+
+/**
+ * 회전. 옛 refresh 는 즉시 죽는다.
+ *
+ * 이미 회전된 것이 다시 오면 훔친 것으로 보고 그 사슬 전체를 무효화한다 —
+ * 도둑과 주인 중 누가 먼저 왔는지 알 수 없으므로 둘 다 끊는 것이 안전하다.
+ */
+export function rotate(refreshToken: string): IssuedTokens | null {
+  const entry = refresh.get(refreshToken)
+  if (!entry) {
+    return null
+  }
+  if (burned.has(entry.family)) return null
+
+  refresh.delete(refreshToken)
+  retired.set(refreshToken, entry.family)
+  return issueTokens(entry.userId, entry.family)
+}
+
+export function burnFamily(refreshToken: string): void {
+  const family = refresh.get(refreshToken)?.family ?? retired.get(refreshToken)
+  if (!family) return
+  burned.add(family)
+  for (const [token, value] of refresh) {
+    if (value.family === family) refresh.delete(token)
+  }
+}
+
+/** `Authorization: Bearer <accessToken>` 에서 사용자를 찾는다. 없으면 null */
 export function userIdFromHeader(header: string | null): UserId | null {
   const token = header?.startsWith('Bearer ') ? header.slice(7) : null
-  return token ? (tokens.get(token) ?? null) : null
+  return token ? (access.get(token) ?? null) : null
 }
 
-export function revoke(header: string | null): void {
-  const token = header?.startsWith('Bearer ') ? header.slice(7) : null
-  if (token) tokens.delete(token)
+/** 테스트가 access 만 죽여 갱신 경로를 시험할 수 있게 한다 */
+export function expireAccessTokens(): void {
+  access.clear()
 }
 
 export function resetSessions(): void {
-  tokens.clear()
+  access.clear()
+  refresh.clear()
+  retired.clear()
+  burned.clear()
   counter = 0
 }
 

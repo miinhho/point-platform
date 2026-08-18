@@ -74,8 +74,21 @@ Authorization: Bearer <token>
 
 | 메서드 | 경로 | 설명 |
 |---|---|---|
-| `POST` | `/api/auth/login` | `{ handle, password }` → `{ token, user }` |
-| `POST` | `/api/auth/logout` | 토큰 무효화. `204` |
+| `POST` | `/api/auth/login` | `{ handle, password }` → `{ accessToken, refreshToken, user }` |
+| `POST` | `/api/auth/refresh` | `{ refreshToken }` → `{ accessToken, refreshToken }` |
+| `POST` | `/api/auth/logout` | `{ refreshToken }` → `204`. 그 사슬 전체 무효 |
+
+**Access + Refresh 하이브리드다.** access 는 짧고(15분) refresh 는 길다(14일).
+되돌릴 수 없는 송금을 다루므로 access 를 길게 두지 않는다.
+
+**refresh 는 회전한다.** 갱신하면 옛 refresh 는 즉시 죽는다. 이미 회전된 것이 다시
+오면 훔친 것일 수 있으므로 **그 사슬 전체를 무효화**한다 — 도둑과 주인 중 누가 먼저
+왔는지 알 수 없으니 둘 다 끊는 것이 안전하다.
+
+클라이언트는 `401` 을 받으면 **한 번 갱신하고 원요청을 다시 보낸다.** 멱등성 키가
+헤더에 있어서 이 재시도가 안전하다 — 키를 처음부터 헤더로 둔 값이 여기서 난다.
+갱신은 한 번에 하나만 돈다. 여럿이 동시에 갱신하면 회전 때문에 뒤엣것들이 재사용으로
+탐지돼 세션이 통째로 죽는다.
 
 토큰이 없거나 죽었으면 `401` + `{ "code": "UNAUTHENTICATED" }`,
 자격증명이 틀리면 `401` + `{ "code": "BAD_CREDENTIALS" }` 다.

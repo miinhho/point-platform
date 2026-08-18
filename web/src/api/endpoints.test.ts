@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { endpoints } from './endpoints'
-import { ApiError, newIdempotencyKey, setToken } from './http'
+import { ApiError, newIdempotencyKey, setTokens } from './http'
 import { balanceOf, SEED_ISSUER as ME } from '@/mocks/ledger'
+import { expireAccessTokens } from '@/mocks/sessions'
 import { setSim } from '@/mocks/sim'
 
 /**
@@ -17,8 +18,8 @@ const TOKEN = { value: '' }
 
 beforeEach(async () => {
   const session = await endpoints.login({ handle: '@minho', password: 'point' })
-  TOKEN.value = session.token
-  setToken(session.token)
+  TOKEN.value = session.accessToken
+  setTokens(session)
 })
 
 describe('조회', () => {
@@ -287,5 +288,54 @@ describe('내역', () => {
     await expect(endpoints.history({ pointTypeId: 'pt_on' })).resolves.toMatchObject([
       { id: on.id },
     ])
+  })
+})
+
+describe('토큰 갱신', () => {
+  it('access 가 만료되면 갱신하고 원요청을 다시 보낸다', async () => {
+    expireAccessTokens()
+    // 사용자는 만료를 알 필요가 없다. 요청이 그냥 성공한다.
+    await expect(endpoints.wallet()).resolves.toMatchObject({ user: { id: ME } })
+  })
+
+  // 멱등성 키가 헤더에 있어서 재시도가 안전하다. 그 설계가 여기서 값을 한다.
+  it('쓰기 도중 만료돼도 이체가 하나만 생긴다', async () => {
+    expireAccessTokens()
+    await endpoints.createTransfer({ pointTypeId: 'pt_on', toId: 'u_jisoo', amount: 30_000 }, key())
+    expect(balanceOf('pt_on', ME)).toBe(3_210_000)
+    await expect(endpoints.history()).resolves.toHaveLength(1)
+  })
+
+  it('refresh 도 죽었으면 401 이 그대로 올라온다', async () => {
+    setTokens({ accessToken: 'dead', refreshToken: 'dead' })
+    await expect(endpoints.wallet()).rejects.toMatchObject({ code: 'UNAUTHENTICATED' })
+  })
+
+  // 회전된 refresh 가 다시 오면 훔친 것일 수 있다. 사슬 전체를 끊는다.
+  it('이미 쓴 refresh 를 다시 쓰면 그 세션이 통째로 죽는다', async () => {
+    const session = await endpoints.login({ handle: '@minho', password: 'point' })
+    setTokens(session)
+
+    const rotated = await endpoints.refresh(session.refreshToken)
+    // 옛 refresh 재사용 → 사슬 무효화
+    await expect(endpoints.refresh(session.refreshToken)).rejects.toMatchObject({
+      code: 'UNAUTHENTICATED',
+    })
+    // 회전으로 받은 새 refresh 도 함께 죽는다
+    await expect(endpoints.refresh(rotated.refreshToken)).rejects.toMatchObject({
+      code: 'UNAUTHENTICATED',
+    })
+  })
+
+  it('동시에 여러 요청이 만료를 만나도 갱신은 한 번만 돈다', async () => {
+    expireAccessTokens()
+    const [wallet, users, types] = await Promise.all([
+      endpoints.wallet(),
+      endpoints.users(),
+      endpoints.pointTypes(),
+    ])
+    expect(wallet.user.id).toBe(ME)
+    expect(users.length).toBeGreaterThan(0)
+    expect(types.length).toBeGreaterThan(0)
   })
 })
