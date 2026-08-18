@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <!--
+      viewport-fit=cover 는 헌법 19조 — edge-to-edge 대응. API 35+ 에서 강제된다.
+      safe area inset 은 CSS 에서 env() 로 더한다.
+      user-scalable=no 는 WebView 안에서 확대 제스처를 막기 위한 것이다.
+      웹 페이지라면 접근성상 하지 말아야 하지만, 이 화면은 네이티브 앱의 일부로 동작한다.
+    -->
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
+    />
+    <meta name="color-scheme" content="light dark" />
+    <title>포인트</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
