@@ -4,6 +4,8 @@ import { ApiError, newIdempotencyKey, setTokens } from './http'
 import { balanceOf, SEED_ISSUER as ME } from '@/mocks/ledger'
 import { expireAccessTokens } from '@/mocks/sessions'
 import { setSim } from '@/mocks/sim'
+import { http, HttpResponse } from 'msw'
+import { server } from '@/mocks/node'
 
 /**
  * HTTP 계약 시나리오.
@@ -326,26 +328,56 @@ describe('멱등성 키로 조회', () => {
   })
 })
 
+describe('결과를 아는지는 서버가 답한다', () => {
+  // 계약: docs/API.md 「실패」. 코드에서 파생하면 코드를 늘릴 때마다 표를 함께
+  // 늘려야 하고, 빠뜨리면 확정된 실패를 「어디까지 갔는지 알 수 없어요」로 말한다.
+  it('잔액 부족은 아무것도 나가지 않았다고 단정할 수 있다', async () => {
+    await expect(
+      endpoints.createTransfer({ pointTypeId: 'pt_on', toId: 'u_jisoo', amount: 9_999_999 }, key()),
+    ).rejects.toMatchObject({ code: 'INSUFFICIENT_BALANCE', outcome: 'none', outcomeUnknown: false })
+  })
+
+  it('형식 오류는 제 코드를 갖고 결과도 확정이다', async () => {
+    await expect(endpoints.changeCap('pt_gm', 10_000_000, key())).rejects.toMatchObject({
+      code: 'MALFORMED_REQUEST',
+      status: 400,
+      outcome: 'none',
+    })
+  })
+
+  it('없는 이체는 제 코드를 갖는다 — 400 과 구별된다', async () => {
+    await expect(endpoints.transfer('t_nope')).rejects.toMatchObject({
+      code: 'TRANSFER_NOT_FOUND',
+      status: 404,
+      outcome: 'none',
+    })
+  })
+
+  it('서버가 말하지 않으면 단정하지 않는다', async () => {
+    server.use(
+      http.get('*/api/wallet', () => HttpResponse.json({ code: 'SERVER' }, { status: 500 })),
+    )
+    await expect(endpoints.wallet()).rejects.toMatchObject({ outcome: 'unknown' })
+  })
+})
+
 describe('결과를 알 수 없는 실패', () => {
   it('네트워크 실패는 전송 자체가 실패한다', async () => {
     setSim({ forceFailure: 'NETWORK' })
     const error = await endpoints.me().catch((e: unknown) => e)
-    expect(error).toMatchObject({ code: 'NETWORK', status: null, outcomeUnknown: true })
+    // 응답이 오지 않았다. 서버가 말할 수 없는 유일한 경우다.
+    expect(error).toMatchObject({ code: 'NETWORK', status: null, outcome: 'unknown' })
   })
 
   it('서버 오류도 결과를 알 수 없다', async () => {
     setSim({ forceFailure: 'SERVER' })
-    await expect(endpoints.me()).rejects.toMatchObject({ code: 'SERVER', outcomeUnknown: true })
+    await expect(endpoints.me()).rejects.toMatchObject({ code: 'SERVER', outcome: 'unknown' })
   })
 
   it('주입된 실패는 한 번만 쓰이고 소모된다', async () => {
     setSim({ forceFailure: 'NETWORK' })
     await expect(endpoints.me()).rejects.toBeInstanceOf(ApiError)
     await expect(endpoints.me()).resolves.toBeTruthy()
-  })
-
-  it('없는 이체를 조회하면 404 — 일어나지 않았다는 답이 된다', async () => {
-    await expect(endpoints.transfer('t_nope')).rejects.toMatchObject({ status: 404 })
   })
 
   it('결과를 모를 때 같은 키로 재시도하면 하나만 생긴다', async () => {

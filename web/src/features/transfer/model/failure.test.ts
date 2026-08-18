@@ -20,16 +20,18 @@ describe('handleFailure', () => {
     }
   })
 
-  it('결과를 알 수 없는 실패는 네트워크·서버뿐이다', () => {
-    const unknown = ALL.filter((code) => handleFailure(code, 'transfer').outcomeUnknown)
-    expect(unknown).toEqual(['NETWORK', 'SERVER'])
+  // 결과를 아는지는 이 함수가 답하지 않는다. 서버가 `outcome` 으로 답한다 —
+  // 코드에서 파생하면 코드를 늘릴 때마다 표를 함께 늘려야 하고, 빠뜨리면
+  // 확정된 실패를 「어디까지 갔는지 알 수 없어요」라고 말하게 된다.
+  it('결과를 아는지를 코드에서 파생하지 않는다', () => {
+    for (const code of ALL) {
+      expect(handleFailure(code, 'transfer')).not.toHaveProperty('outcomeUnknown')
+    }
   })
 
-  it('결과를 알 수 없을 때만 재시도를 권한다', () => {
-    for (const code of ALL) {
-      const handling = handleFailure(code, 'transfer')
-      expect(handling.retryable).toBe(handling.outcomeUnknown)
-    }
+  it('같은 키로 다시 보낼 수 있는 것은 네트워크·서버뿐이다', () => {
+    const retryable = ALL.filter((code) => handleFailure(code, 'transfer').retryable)
+    expect(retryable).toEqual(['NETWORK', 'SERVER'])
   })
 
   it('권한 실패만 막다른 화면이다 — 나머지는 다음 행동이 있다', () => {

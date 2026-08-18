@@ -28,6 +28,7 @@ export function Failure({ onCheck }: { onCheck: () => void }) {
   if (!draft?.to || !failure) return null
 
   const handling = handleFailure(failure.code, draft.kind)
+  const unknown = failure.outcome === 'unknown'
 
   return (
     <Screen>
@@ -48,11 +49,11 @@ export function Failure({ onCheck }: { onCheck: () => void }) {
             padding="4"
             borderRadius="l2"
             borderWidth="1px"
-            bg={handling.outcomeUnknown ? 'pending.subtle' : 'bg.panel'}
-            borderColor={handling.outcomeUnknown ? 'pending.fg' : 'border'}
+            bg={unknown ? 'pending.subtle' : 'bg.panel'}
+            borderColor={unknown ? 'pending.fg' : 'border'}
           >
             <Text textStyle="caption">
-              {handling.outcomeUnknown ? t('failure.unknownLabel') : t('failure.whereLabel')}
+              {unknown ? t('failure.unknownLabel') : t('failure.whereLabel')}
             </Text>
             <Text textStyle="body" marginTop="1">
               {t(failureWhereKey(failure.code, draft.kind))}

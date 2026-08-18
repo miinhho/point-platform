@@ -228,6 +228,17 @@ export const ko = {
       whereTransfer: '상한은 그대로예요',
       whereIssue: '상한은 그대로예요',
     },
+    /** 화면에서는 도달하지 않는다. 방어적으로 그리는 자리를 위해 둔다 */
+    MALFORMED_REQUEST: {
+      title: '요청을 보내지 못했어요',
+      whereTransfer: '아무것도 나가지 않았어요',
+      whereIssue: '발행되지 않았어요',
+    },
+    TRANSFER_NOT_FOUND: {
+      title: '그 내역을 찾을 수 없어요',
+      whereTransfer: '아무것도 나가지 않았어요',
+      whereIssue: '발행되지 않았어요',
+    },
     BAD_CREDENTIALS: {
       title: '핸들이나 암호가 맞지 않아요',
       whereTransfer: '아무것도 나가지 않았어요',

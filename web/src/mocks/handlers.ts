@@ -1,5 +1,5 @@
 import { delay, http, HttpResponse } from 'msw'
-import type { FailureCode, PointAccent } from '@/api/contract'
+import type { FailureCode, FailureOutcome, PointAccent } from '@/api/contract'
 import * as ledger from './ledger'
 import { authenticate, burnFamily, issueTokens, rotate, userIdFromHeader } from './sessions'
 import { drawFailure, drawResponseLoss, simulatedLatency } from './sim'
@@ -15,13 +15,21 @@ const STATUS: Record<FailureCode, number> = {
   POINT_TYPE_NOT_FOUND: 404,
   SYMBOL_TAKEN: 409,
   CAP_BELOW_ISSUED: 422,
+  MALFORMED_REQUEST: 400,
+  TRANSFER_NOT_FOUND: 404,
   NETWORK: 599,
   SERVER: 500,
 }
 
-function fail(code: FailureCode) {
-  return HttpResponse.json({ code }, { status: STATUS[code] })
+/**
+ * 결과를 아는지는 서버가 말한다 — 계약: docs/API.md. 원장이 던지는 실패는 전부
+ * 반영 전에 걸리므로 `none` 이다. `unknown` 은 시뮬레이션이 만들어 내는 것뿐이다.
+ */
+function fail(code: FailureCode, outcome: FailureOutcome = 'none') {
+  return HttpResponse.json({ code, outcome }, { status: STATUS[code] })
 }
+
+const malformed = () => fail('MALFORMED_REQUEST')
 
 /** `NETWORK` 는 응답이 아니라 전송 실패다. 그 차이가 "결과를 알 수 없다"를 만든다. */
 async function gate(): Promise<Response | null> {
@@ -29,7 +37,8 @@ async function gate(): Promise<Response | null> {
   const injected = drawFailure()
   if (!injected) return null
   if (injected === 'NETWORK') return HttpResponse.error()
-  return fail(injected)
+  // 주입된 서버 오류는 어디까지 갔는지 모르는 실패를 흉내내는 것이다.
+  return fail(injected, injected === 'SERVER' ? 'unknown' : 'none')
 }
 
 /**
@@ -87,15 +96,13 @@ async function commit(
 
   const key = readKey(request)
   // 키 없는 쓰기를 받아 주면 이중 이체가 조용히 가능해진다.
-  if (!key) return HttpResponse.json({ code: 'SERVER', message: 'Idempotency-Key 없음' }, { status: 400 })
+  if (!key) return malformed()
 
   const existing = ledger.findByIdempotencyKey(key, auth.userId)
   if (existing) return HttpResponse.json(existing)
 
   const input = readCommitBody((await request.json()) as TransferBody, auth.userId, selfOnly)
-  if (!input) {
-    return HttpResponse.json({ code: 'SERVER', message: '요청 형식 오류' }, { status: 400 })
-  }
+  if (!input) return malformed()
 
   try {
     const transfer = apply(auth.userId, { ...input, idempotencyKey: key })
@@ -161,14 +168,10 @@ export const handlers = [
 
     const key = readKey(request)
     // 창설도 되돌릴 수 없다. 응답을 못 받고 다시 눌러도 하나만 생겨야 한다.
-    if (!key) {
-      return HttpResponse.json({ code: 'SERVER', message: 'Idempotency-Key 없음' }, { status: 400 })
-    }
+    if (!key) return malformed()
 
     const input = readCreateBody((await request.json()) as CreatePointTypeBody)
-    if (!input) {
-      return HttpResponse.json({ code: 'SERVER', message: '요청 형식 오류' }, { status: 400 })
-    }
+    if (!input) return malformed()
 
     try {
       const created = ledger.createPointType(auth.userId, { ...input, idempotencyKey: key })
@@ -232,7 +235,7 @@ export const handlers = [
     '*/api/transfers/by-key',
     authed((userId, request) => {
       const key = new URL(request.url).searchParams.get('idempotencyKey')
-      if (!key) return HttpResponse.json({ code: 'SERVER' }, { status: 400 })
+      if (!key) return malformed()
       // 없으면 404 가 아니라 null 이다. "안 일어났다" 는 정상적인 답이다.
       // 남의 것도 null 이다 — 없을 때와 구별되면 그것이 곧 존재한다는 답이 된다.
       return ledger.findByIdempotencyKey(key, userId) ?? null
@@ -247,7 +250,7 @@ export const handlers = [
     const transfer = ledger.findTransfer(String(params.id), auth.userId)
     // 없다는 것은 일어나지 않았다는 뜻이다. 남의 것도 같은 답이다 —
     // 403 으로 가르면 그 id 가 존재한다는 것을 알려 주는 셈이다.
-    if (!transfer) return HttpResponse.json({ code: 'SERVER', message: '없음' }, { status: 404 })
+    if (!transfer) return fail('TRANSFER_NOT_FOUND')
     return HttpResponse.json(transfer)
   }),
 
@@ -268,22 +271,18 @@ export const handlers = [
 
     const key = readKey(request)
     // 이력에 남는 사건이다. 응답을 못 받고 다시 눌러도 두 줄이 생기면 안 된다.
-    if (!key) {
-      return HttpResponse.json({ code: 'SERVER', message: 'Idempotency-Key 없음' }, { status: 400 })
-    }
+    if (!key) return malformed()
 
     const { issueCap } = (await request.json()) as { issueCap?: unknown }
     if (typeof issueCap !== 'number' || !Number.isSafeInteger(issueCap) || issueCap <= 0) {
-      return HttpResponse.json({ code: 'SERVER', message: '요청 형식 오류' }, { status: 400 })
+      return malformed()
     }
 
     // 같은 값은 400 이다 — 아무것도 바꾸지 않는 줄을 이력에 남기지 않는다.
     // 다만 재시도보다 뒤에 본다. 응답을 못 받고 다시 누르면 상한은 이미 새 값이라,
     // 순서를 바꾸면 성공한 요청이 400 으로 돌아온다.
     const current = ledger.pointTypesFor(auth.userId).find((type) => type.id === String(params.id))
-    if (!ledger.findCapChangeByKey(key) && current?.issueCap === issueCap) {
-      return HttpResponse.json({ code: 'SERVER', message: '지금과 같은 상한' }, { status: 400 })
-    }
+    if (!ledger.findCapChangeByKey(key) && current?.issueCap === issueCap) return malformed()
 
     try {
       const changed = ledger.changeCap(auth.userId, String(params.id), issueCap, key)

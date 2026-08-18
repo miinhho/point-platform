@@ -8,8 +8,11 @@ import { draftAtom, failAtom, succeedAtom } from './atoms'
 import { amountOf } from './draft'
 
 function toFailure(error: unknown): Failure {
-  if (error instanceof ApiError) return { code: error.code, message: error.message }
-  return { code: 'SERVER', message: '' }
+  if (error instanceof ApiError) {
+    return { code: error.code, outcome: error.outcome, message: error.message }
+  }
+  // 클라이언트에서 터진 것은 서버가 무엇을 했는지 말해 주지 않는다. 단정하지 않는다.
+  return { code: 'SERVER', outcome: 'unknown', message: '' }
 }
 
 /** 확정과 확인. 근거: docs/JOURNEY.md 여정 5·6 */

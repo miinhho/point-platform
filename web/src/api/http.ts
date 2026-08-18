@@ -1,4 +1,4 @@
-import { FAILURE_CODES, type FailureCode } from '@/api/contract'
+import { FAILURE_CODES, type FailureCode, type FailureOutcome } from '@/api/contract'
 
 // 계약: docs/API.md
 
@@ -9,15 +9,20 @@ const BASE_URL = `${ORIGIN}/api`
 export class ApiError extends Error {
   readonly code: FailureCode
   readonly status: number | null
-  /** 서버가 요청을 처리했는지 알 수 없는가. 화면이 단정하지 않아야 하는 경우다. */
-  readonly outcomeUnknown: boolean
+  /** 서버가 답한 것. 응답이 오지 않았을 때만 클라이언트가 `unknown` 으로 친다 */
+  readonly outcome: FailureOutcome
 
-  constructor(code: FailureCode, message: string, status: number | null) {
+  constructor(code: FailureCode, message: string, status: number | null, outcome: FailureOutcome) {
     super(message)
     this.name = 'ApiError'
     this.code = code
     this.status = status
-    this.outcomeUnknown = code === 'NETWORK' || code === 'SERVER'
+    this.outcome = outcome
+  }
+
+  /** 화면이 단정하지 않아야 하는 경우다 */
+  get outcomeUnknown(): boolean {
+    return this.outcome === 'unknown'
   }
 }
 
@@ -25,6 +30,7 @@ const KNOWN_CODES = new Set<string>(FAILURE_CODES)
 
 interface ErrorBody {
   code?: string
+  outcome?: string
   message?: string
 }
 
@@ -130,7 +136,8 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
   } catch (error) {
     // 중단은 실패가 아니므로 그대로 흘린다.
     if (error instanceof DOMException && error.name === 'AbortError') throw error
-    throw new ApiError('NETWORK', '요청이 서버에 닿지 못했습니다', null)
+    // 응답이 오지 않았다. 서버가 말할 수 없는 유일한 경우라 여기서만 클라이언트가 정한다.
+    throw new ApiError('NETWORK', '요청이 서버에 닿지 못했습니다', null, 'unknown')
   }
 
   if (response.ok) {
@@ -146,13 +153,16 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
   const code: FailureCode =
     parsed.code && KNOWN_CODES.has(parsed.code) ? (parsed.code as FailureCode) : 'SERVER'
 
+  // 결과를 아는지는 서버가 답한다. 말하지 않았으면 단정하지 않는다.
+  const outcome: FailureOutcome = parsed.outcome === 'none' ? 'none' : 'unknown'
+
   if (code === 'UNAUTHENTICATED' && !skipRefresh) {
     // 멱등성 키가 있으므로 원요청 재시도가 안전하다. 그 키를 헤더로 둔 값이 여기서 난다.
     if (await refreshTokens()) return request<T>(path, options)
     onUnauthenticated?.()
   }
 
-  throw new ApiError(code, parsed.message ?? '서버가 요청을 처리하지 못했습니다', response.status)
+  throw new ApiError(code, parsed.message ?? '서버가 요청을 처리하지 못했습니다', response.status, outcome)
 }
 
 /** 이체마다 하나. 재시도는 같은 키를 다시 쓴다. */

@@ -71,6 +71,10 @@ export const FAILURE_CODES = [
   'SYMBOL_TAKEN',
   /** 이미 발행한 양보다 낮은 상한 */
   'CAP_BELOW_ISSUED',
+  /** 본문이 계약과 다르다. 화면에서는 도달하지 않는다 */
+  'MALFORMED_REQUEST',
+  /** 그 이체가 없거나 내 것이 아니다 */
+  'TRANSFER_NOT_FOUND',
   /** 결과를 알 수 없다. 이 둘만 그렇다 */
   'NETWORK',
   'SERVER',
@@ -78,8 +82,16 @@ export const FAILURE_CODES = [
 
 export type FailureCode = (typeof FAILURE_CODES)[number]
 
+/**
+ * 서버가 처리했는지 아는가. **코드에서 파생하지 않는다** — 코드를 늘릴 때마다
+ * 클라이언트가 표를 함께 늘려야 하고, 빠뜨리면 확정된 실패를 「어디까지 갔는지
+ * 알 수 없어요」라고 말하게 된다. 계약: docs/API.md
+ */
+export type FailureOutcome = 'none' | 'unknown'
+
 export interface Failure {
   code: FailureCode
+  outcome: FailureOutcome
   message: string
 }
 

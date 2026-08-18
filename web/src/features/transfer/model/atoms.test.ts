@@ -85,7 +85,7 @@ describe('실패', () => {
     typeAmount(store, '30000')
     store.set(toConfirmAtom)
     const key = store.get(draftAtom)!.idempotencyKey
-    store.set(failAtom, { code: 'NETWORK', message: '' })
+    store.set(failAtom, { code: 'NETWORK', outcome: 'unknown', message: '' })
     return { store, key }
   }
 
@@ -113,13 +113,13 @@ describe('실패', () => {
     const afterFirst = store.get(navAtom).stack.map((s) => s.name)
     expect(afterFirst).toEqual(['enterAmount', 'confirm', 'failure'])
 
-    for (let i = 0; i < 3; i++) store.set(failAtom, { code: 'NETWORK', message: '' })
+    for (let i = 0; i < 3; i++) store.set(failAtom, { code: 'NETWORK', outcome: 'unknown', message: '' })
     expect(store.get(navAtom).stack.map((s) => s.name)).toEqual(afterFirst)
   })
 
   it('마지막 실패가 화면에 남는다 — 앞의 것을 보여주지 않는다', () => {
     const { store } = atFailure()
-    store.set(failAtom, { code: 'INSUFFICIENT_BALANCE', message: '' })
+    store.set(failAtom, { code: 'INSUFFICIENT_BALANCE', outcome: 'none', message: '' })
     expect(store.get(failureAtom)?.code).toBe('INSUFFICIENT_BALANCE')
   })
 })
