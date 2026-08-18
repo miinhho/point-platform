@@ -73,9 +73,18 @@ async function commit(
 
   const body = (await request.json()) as TransferBody
   const toId = selfOnly ? auth.userId : body.toId
-  // 발행 요청에 대상이 실려 오면 계약 위반이다. 조용히 무시하지 않는다.
   const malformed =
-    !body.pointTypeId || !toId || !body.amount || body.amount <= 0 || (selfOnly && body.toId)
+    !body.pointTypeId ||
+    !toId ||
+    // 타입은 컴파일 시점만 지킨다. HTTP 경계에는 타입이 없다 — 소수점 금액이 들어오면
+    // 잔액에 소수가 생기고, 한글 병기가 그것을 조용히 버려 두 표기가 다른 값을 말한다.
+    typeof body.amount !== 'number' ||
+    !Number.isSafeInteger(body.amount) ||
+    body.amount <= 0 ||
+    // 발행 요청에 대상이 실려 오면 계약 위반이다. 조용히 무시하지 않는다.
+    (selfOnly && body.toId) ||
+    // 발행은 자기 지갑으로 들어가지만, 이체는 옮길 곳이 없다 — docs/JOURNEY.md 「버린 것」
+    (!selfOnly && toId === auth.userId)
   if (malformed) {
     return HttpResponse.json({ code: 'SERVER', message: '요청 형식 오류' }, { status: 400 })
   }
@@ -85,7 +94,7 @@ async function commit(
       idempotencyKey: key,
       pointTypeId: body.pointTypeId!,
       toId: toId!,
-      amount: body.amount!,
+      amount: body.amount,
     })
     // 서버는 만들었고 클라이언트는 못 받는다. 멱등성이 실제로 시험되는 유일한 경로다.
     if (drawResponseLoss()) return HttpResponse.error()

@@ -153,6 +153,35 @@ describe('거절', () => {
       endpoints.createTransfer({ pointTypeId: 'pt_nope', toId: 'u_jisoo', amount: 1 }, key()),
     ).rejects.toMatchObject({ code: 'POINT_TYPE_NOT_FOUND' })
   })
+
+  /**
+   * 키패드로는 소수점을 칠 수 없다. 그래서 화면 QA 로는 절대 잡히지 않고,
+   * 통과하면 잔액에 소수가 생겨 한글 병기가 그것을 조용히 버린다 — 숫자와 한글이
+   * 다른 값을 말하게 되는 것은 여정 4 의 장치를 거꾸로 돌리는 일이다.
+   */
+  it('소수점 금액은 400 이고 잔액을 건드리지 않는다', async () => {
+    const before = balanceOf('pt_on', ME)
+    await expect(
+      endpoints.createTransfer({ pointTypeId: 'pt_on', toId: 'u_jisoo', amount: 0.5 }, key()),
+    ).rejects.toMatchObject({ status: 400 })
+    expect(balanceOf('pt_on', ME)).toBe(before)
+  })
+
+  it('정수로 셀 수 없이 큰 금액도 400 이다', async () => {
+    await expect(
+      endpoints.createTransfer(
+        { pointTypeId: 'pt_on', toId: 'u_jisoo', amount: Number.MAX_SAFE_INTEGER + 2 },
+        key(),
+      ),
+    ).rejects.toMatchObject({ status: 400 })
+  })
+
+  // 포인트별 지갑이 하나씩이라 옮길 곳이 없다. 순효과 0 인 줄이 내역에만 남는다.
+  it('나 자신에게 보내는 이체는 400 이다', async () => {
+    await expect(
+      endpoints.createTransfer({ pointTypeId: 'pt_on', toId: ME, amount: 1 }, key()),
+    ).rejects.toMatchObject({ status: 400 })
+  })
 })
 
 describe('발행', () => {
