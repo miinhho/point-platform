@@ -1,4 +1,4 @@
-import { Box, Text } from '@chakra-ui/react'
+import { Box, Button, Text } from '@chakra-ui/react'
 import { useQuery } from '@tanstack/react-query'
 import { useSetAtom } from 'jotai'
 import { useTranslation } from 'react-i18next'
@@ -42,6 +42,20 @@ export function Home() {
             onIssue={balance.pointType.canIssue ? () => go({ name: 'issuer' }) : undefined}
           />
         ))}
+
+        {/* 목록 끝에 둔다 — 계좌 목록 아래의 「계좌 개설」과 같은 자리다 */}
+        {data ? (
+          <Gutter paddingTop="4" paddingBottom="6">
+            <Button
+              size="lg"
+              width="full"
+              variant="outline"
+              onClick={() => go({ name: 'createPoint' })}
+            >
+              {t('create.entry')}
+            </Button>
+          </Gutter>
+        ) : null}
       </Body>
     </Screen>
   )

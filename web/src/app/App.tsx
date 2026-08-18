@@ -6,7 +6,7 @@ import { meQuery, queryKeys } from '@/api/queries'
 import { setUnauthenticatedHandler } from '@/api/http'
 import { SignIn } from '@/features/auth'
 import { History, HistoryDetail } from '@/features/history'
-import { Issuer } from '@/features/issuer'
+import { CreatePoint, Issuer, PointCreated } from '@/features/issuer'
 import { Settings } from '@/features/settings'
 import {
   Confirm,
@@ -19,8 +19,9 @@ import {
 } from '@/features/transfer'
 import { Home } from '@/features/wallet'
 import { ScreenTransition } from '@/shared/ui/ScreenTransition'
+import type { ReactElement } from 'react'
 import { TabBar } from './TabBar'
-import { currentScreenAtom, navAtom, resetNavAtom } from './atoms'
+import { currentScreenAtom, goAtom, leaveFlowAtom, navAtom, resetNavAtom } from './atoms'
 import { depthOf } from './depth'
 import { useAppBack } from './useAppBack'
 import type { Screen, TabName } from './navigation'
@@ -32,6 +33,8 @@ const FLOW: ReadonlySet<Screen['name']> = new Set([
   'confirm',
   'result',
   'failure',
+  'createPoint',
+  'pointCreated',
 ])
 
 interface Actions {
@@ -39,13 +42,21 @@ interface Actions {
   submit: () => void
   check: () => void
   busy: boolean
+  go: (screen: Screen) => void
+  leaveFlow: () => void
 }
 
 /**
  * switch 라서 화면을 추가하면 컴파일이 빠뜨린 곳을 잡는다.
  * 조건부 나열로 두면 빠뜨린 화면이 조용히 빈 화면이 된다.
  */
-function CurrentScreen({ screen, actions }: { screen: Screen; actions: Actions }) {
+function CurrentScreen({
+  screen,
+  actions,
+}: {
+  screen: Screen
+  actions: Actions
+}): ReactElement {
   switch (screen.name) {
     case 'pickRecipient':
       return <PickRecipient onBack={actions.back} />
@@ -61,6 +72,15 @@ function CurrentScreen({ screen, actions }: { screen: Screen; actions: Actions }
       return <HistoryDetail transferId={screen.transferId} onBack={actions.back} />
     case 'issuer':
       return <Issuer onBack={actions.back} />
+    case 'createPoint':
+      return (
+        <CreatePoint
+          onBack={actions.back}
+          onCreated={(pointType) => actions.go({ name: 'pointCreated', pointType })}
+        />
+      )
+    case 'pointCreated':
+      return <PointCreated pointType={screen.pointType} onHome={actions.leaveFlow} />
   }
 }
 
@@ -82,6 +102,8 @@ export default function App() {
   const screen = useAtomValue(currentScreenAtom)
   const endFlow = useSetAtom(endFlowAtom)
   const resetNav = useSetAtom(resetNavAtom)
+  const go = useSetAtom(goAtom)
+  const leaveFlow = useSetAtom(leaveFlowAtom)
   const { submit, check, busy } = useSubmit()
   const back = useAppBack(busy)
 
@@ -116,7 +138,10 @@ export default function App() {
           }
         >
           {screen ? (
-            <CurrentScreen screen={screen} actions={{ back, submit, check, busy }} />
+            <CurrentScreen
+              screen={screen}
+              actions={{ back, submit, check, busy, go, leaveFlow }}
+            />
           ) : (
             <TabRoot tab={nav.tab} />
           )}
