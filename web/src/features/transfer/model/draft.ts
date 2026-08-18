@@ -1,6 +1,8 @@
-import { MAX_AMOUNT_DIGITS } from '@/domain/rules'
 import { parseInput } from '@/domain/points'
 import type { PointType, Points, TransferKind, User } from '@/domain/types'
+
+/** 키패드 입력 자릿수 상한. 한글 병기가 성립하는 범위 안이다 */
+const MAX_AMOUNT_DIGITS = 13
 
 // 무엇을 · 누구에게 · 얼마. 내비게이션과 분리한다.
 export interface Draft {

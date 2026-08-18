@@ -1,7 +1,12 @@
 import { useCallback, useRef, useState } from 'react'
 import { chakra, Text } from '@chakra-ui/react'
 import { motion, useReducedMotion } from 'motion/react'
-import { HOLD_MS } from '@/domain/rules'
+
+/**
+ * 확정에 필요한 홀드 시간. 금액과 무관하다 — docs/JOURNEY.md 여정 5.
+ * 300ms 아래는 스크롤 중 스침과 구분되지 않고, 1초를 넘으면 매 이체가 대기가 된다.
+ */
+const HOLD_MS = 600
 
 const Button = chakra('button', {
   base: {
