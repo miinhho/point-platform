@@ -1,4 +1,4 @@
-import { Box, Text, chakra } from '@chakra-ui/react'
+import { Box, Button, Text } from '@chakra-ui/react'
 import { useAtomValue } from 'jotai'
 import { useTranslation } from 'react-i18next'
 import { failureTitleKey, failureWhereKey, handleFailure } from '@/domain/failures'
@@ -7,22 +7,6 @@ import { IssueBanner } from '@/shared/ui/IssueBanner'
 import { Body, Gutter, Header, Screen, Title } from '@/shared/ui/Screen'
 import { draftAtom, failureAtom } from './atoms'
 import { amountOf } from './draft'
-
-const Action = chakra('button', {
-  base: {
-    width: '100%',
-    minHeight: 'control',
-    borderRadius: 'l2',
-    textStyle: 'button',
-  },
-  variants: {
-    tone: {
-      primary: { bg: 'colorPalette.solid', color: 'colorPalette.contrast' },
-      quiet: { borderWidth: '1px', borderColor: 'border', color: 'fg.muted' },
-    },
-  },
-  defaultVariants: { tone: 'quiet' },
-})
 
 interface Props {
   onCheck: () => void
@@ -89,27 +73,28 @@ export function Failure({ onCheck, onEditAmount, onRepick, onHome }: Props) {
       <Gutter paddingBottom="4">
         <Box colorPalette={draft.pointType.accent} display="flex" flexDirection="column" gap="2">
           {handling.retryable ? (
-            <Action type="button" tone="primary" onClick={onCheck}>
+            <Button size="xl" width="full" onClick={onCheck}>
               {t('failure.check')}
-            </Action>
+            </Button>
           ) : null}
           {handling.editable ? (
-            <Action
-              type="button"
-              tone={handling.retryable ? 'quiet' : 'primary'}
+            <Button
+              size="xl"
+              width="full"
+              variant={handling.retryable ? 'outline' : 'solid'}
               onClick={onEditAmount}
             >
               {t('failure.editAmount')}
-            </Action>
+            </Button>
           ) : null}
           {handling.repickable ? (
-            <Action type="button" tone="primary" onClick={onRepick}>
+            <Button size="xl" width="full" onClick={onRepick}>
               {t('failure.repick')}
-            </Action>
+            </Button>
           ) : null}
-          <Action type="button" onClick={onHome}>
+          <Button size="xl" width="full" variant="outline" onClick={onHome}>
             {t('failure.home')}
-          </Action>
+          </Button>
         </Box>
       </Gutter>
     </Screen>

@@ -1,4 +1,4 @@
-import type { TransferId } from '@/domain/types'
+import type { Transfer, TransferId } from '@/domain/types'
 
 // 근거: docs/JOURNEY.md · 탭 하나에 스택 하나
 export type TabName = 'home' | 'history' | 'settings'
@@ -9,8 +9,8 @@ export type Screen =
   | { name: 'pickRecipient' }
   | { name: 'enterAmount' }
   | { name: 'confirm' }
-  /** 확정된 이체. 서버가 돌려준 것만 여기 온다 */
-  | { name: 'result'; transferId: TransferId }
+  /** 서버가 돌려준 이체를 그대로 싣는다. 다시 읽으면 그 사이 빈 프레임이 생긴다 */
+  | { name: 'result'; transfer: Transfer }
   | { name: 'failure' }
   | { name: 'historyDetail'; transferId: TransferId }
   | { name: 'issuer' }

@@ -30,10 +30,23 @@ export const ko = {
 
   settings: {
     title: '설정',
+    account: '내 계정',
     colorMode: '화면 밝기',
     colorModeSystem: '자동',
     colorModeLight: '밝게',
     colorModeDark: '어둡게',
+    dev: '개발자',
+    devLatency: '응답 지연',
+    devLatencyInstant: '즉시',
+    devLatencyNormal: '보통',
+    devLatencySlow: '느림',
+    devFailure: '다음 요청 실패',
+    devFailureNone: '없음',
+    devFailureNetwork: '네트워크',
+    devFailureServer: '서버',
+    devFailureLost: '응답 유실',
+    devReset: '원장 초기화',
+    devNote: 'Mock 서버 전용이에요. 실서버에는 없어요',
   },
 
   issuer: {
@@ -61,8 +74,6 @@ export const ko = {
     searchPlaceholder: '이름 또는 핸들',
     recentSection: '최근 보낸 사람',
     allSection: '전체',
-    /** 이 화면의 존재 이유다 */
-    sameName: '같은 이름 {{count}}명 · 핸들로 구분해요',
     /** 비교하라고 최근 묶음으로 끌어올린 줄 */
     notSentBefore: '보낸 적 없음',
     notFound: '"{{query}}"로 찾은 사람이 없어요',
@@ -70,10 +81,10 @@ export const ko = {
   },
 
   amount: {
-    ceiling: '보낼 수 있어요',
-    ceilingIssue: '발행할 수 있어요',
-    over: '잔액을 넘었어요',
-    overIssue: '발행 여력을 넘었어요',
+    ceiling: '{{amount}}만큼 보낼 수 있어요',
+    ceilingIssue: '{{amount}}만큼 발행할 수 있어요',
+    over: '잔액을 넘었어요. {{amount}}까지 보낼 수 있어요',
+    overIssue: '발행 여력을 넘었어요. {{amount}}까지 발행할 수 있어요',
     next: '보내기 확인',
     nextIssue: '발행 확인',
     clear: '전체삭제',

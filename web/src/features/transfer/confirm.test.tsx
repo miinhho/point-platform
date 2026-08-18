@@ -20,7 +20,7 @@ async function atConfirm(amount = '30000') {
   await user.click(await screen.findByRole('button', { name: /온포인트.*3,240,000/ }))
   await screen.findByText('누구에게 보낼까요?')
   await user.click(await screen.findByRole('button', { name: /@jisoo/ }))
-  await screen.findByText(/보낼 수 있어요/)
+  await screen.findByText(/만큼 보낼 수 있어요/)
   for (const d of amount) await user.click(screen.getByRole('button', { name: d }))
   await user.click(screen.getByRole('button', { name: '보내기 확인' }))
   await screen.findByText('이렇게 보낼까요?')
@@ -105,7 +105,7 @@ describe('멱등성 키 — 금액을 고치면 다른 이체다', () => {
   it('확정에서 뒤로 가 금액을 고치면 새 금액으로 다시 확정한다', async () => {
     const user = await atConfirm()
     await user.click(screen.getAllByRole('button', { name: '뒤로' })[0])
-    await screen.findByText(/보낼 수 있어요/)
+    await screen.findByText(/만큼 보낼 수 있어요/)
     await settle()
 
     await user.click(screen.getByRole('button', { name: '0' }))

@@ -1,4 +1,4 @@
-import { Box, Text, chakra } from '@chakra-ui/react'
+import { Box, Button, Text } from '@chakra-ui/react'
 import { useQuery } from '@tanstack/react-query'
 import { useSetAtom } from 'jotai'
 import { useTranslation } from 'react-i18next'
@@ -7,18 +7,6 @@ import { toGrouped } from '@/domain/points'
 import { startIssueAtom } from '@/features/transfer/atoms'
 import { BackButton } from '@/shared/ui/BackButton'
 import { Body, Gutter, Header, Screen, Title } from '@/shared/ui/Screen'
-
-const Issue = chakra('button', {
-  base: {
-    width: '100%',
-    minHeight: 'control',
-    borderRadius: 'l2',
-    textStyle: 'button',
-    bg: 'colorPalette.solid',
-    color: 'colorPalette.contrast',
-    _active: { bg: 'colorPalette.emphasized' },
-  },
-})
 
 /** 유통량은 발행자만 본다 — docs/JOURNEY.md 여정 8 */
 export function Issuer({ onBack }: { onBack: () => void }) {
@@ -50,12 +38,13 @@ export function Issuer({ onBack }: { onBack: () => void }) {
                 />
               </Box>
               <Box marginTop="4">
-                <Issue
-                  type="button"
+                <Button
+                  size="xl"
+                  width="full"
                   onClick={() => data && startIssue({ pointType, me: data.user })}
                 >
                   {t('issuer.issue')}
-                </Issue>
+                </Button>
               </Box>
             </Box>
           </Gutter>

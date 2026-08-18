@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useSetAtom } from 'jotai'
 import { motion } from 'motion/react'
 import { useTranslation } from 'react-i18next'
-import { historyQuery, walletQuery } from '@/api/queries'
+import { historyQuery, usersQuery, walletQuery } from '@/api/queries'
 import { toGrouped } from '@/domain/points'
 import { goAtom } from '@/app/atoms'
 import { Body, Gutter, Header, RowButton, Screen, Title } from '@/shared/ui/Screen'
@@ -16,9 +16,15 @@ export function History() {
   const go = useSetAtom(goAtom)
   const { data, isPending } = useQuery(historyQuery())
   const wallet = useQuery(walletQuery())
+  const users = useQuery(usersQuery(''))
 
-  const nameOf = (transfer: Transfer) =>
-    wallet.data?.balances.find((b) => b.pointType.id === transfer.pointTypeId)?.pointType.name ?? ''
+  const pointOf = (transfer: Transfer) =>
+    wallet.data?.balances.find((b) => b.pointType.id === transfer.pointTypeId)?.pointType
+  /** 발행은 내 지갑으로 들어온 것이므로 상대가 없다 */
+  const toOf = (transfer: Transfer) =>
+    transfer.kind === 'issue'
+      ? t('history.me')
+      : (users.data?.find((user) => user.id === transfer.toId)?.name ?? t('history.me'))
 
   return (
     <Screen>
@@ -48,16 +54,19 @@ export function History() {
             onClick={() => go({ name: 'historyDetail', transferId: transfer.id })}
           >
             <Box flex={1} minW={0}>
-              {/* 목록의 이름이 상세의 이름으로 이어진다. 화면은 밀지 않는다. */}
-              <motion.div layoutId={`t-${transfer.id}-name`}>
-                <Text textStyle="name">{nameOf(transfer)}</Text>
+              {/*
+                사용자가 보는 순서는 누구에게 → 무엇을 → 얼마다.
+                `layout="position"` 이 아니면 크기가 다른 두 요소를 이을 때 글자가 늘어난다.
+              */}
+              <motion.div layoutId={`t-${transfer.id}-to`} layout="position">
+                <Text textStyle="name">{toOf(transfer)}</Text>
               </motion.div>
               <Text textStyle="caption">
                 {transfer.kind === 'issue' ? `${t('history.issued')} · ` : ''}
-                {formatTime(transfer.createdAt)}
+                {pointOf(transfer)?.name} · {formatTime(transfer.confirmedAt)}
               </Text>
             </Box>
-            <motion.div layoutId={`t-${transfer.id}-amount`}>
+            <motion.div layoutId={`t-${transfer.id}-amount`} layout="position">
               <Text textStyle="line">{toGrouped(transfer.amount)}</Text>
             </motion.div>
           </RowButton>

@@ -2,21 +2,8 @@ import { Box, Text } from '@chakra-ui/react'
 import { useTranslation } from 'react-i18next'
 import { toGrouped } from '@/domain/points'
 import type { Balance } from '@/domain/types'
-import { chakra } from '@chakra-ui/react'
+import { Button } from '@chakra-ui/react'
 import { Row, RowButton } from '@/shared/ui/Screen'
-
-const IssueEntry = chakra('button', {
-  base: {
-    flexShrink: 0,
-    paddingInline: '2',
-    paddingBlock: '0.5',
-    borderRadius: 'full',
-    textStyle: 'verifyLabel',
-    borderWidth: '1px',
-    borderColor: 'verify.fg',
-    _active: { bg: 'verify.subtle' },
-  },
-})
 
 interface Props {
   /** 잔액 0 이면 주지 않는다. 들어가면 첫 글자부터 잠긴 금액 화면이 된다 */
@@ -65,8 +52,10 @@ export function PointCard({ balance, ambiguous, issuerName, isMine, onOpen, onIs
         <Box display="flex" alignItems="baseline" gap="1.5">
           <Text textStyle="name">{pointType.name}</Text>
           {isMine && onIssue ? (
-            <IssueEntry
-              type="button"
+            <Button
+              size="2xs"
+              variant="outline"
+              flexShrink={0}
               onClick={(event) => {
                 // 카드는 보내기로 간다. 배지만 발행으로 갈라진다.
                 event.stopPropagation()
@@ -74,7 +63,7 @@ export function PointCard({ balance, ambiguous, issuerName, isMine, onOpen, onIs
               }}
             >
               {t('home.issue')}
-            </IssueEntry>
+            </Button>
           ) : null}
         </Box>
         {ambiguous ? (

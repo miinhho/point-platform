@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import type { Transfer } from '@/domain/types'
 import {
   currentScreen,
   initialNav,
@@ -13,6 +14,18 @@ import {
 } from './navigation'
 
 const at = (nav: NavState) => currentScreen(nav)?.name ?? `tab:${nav.tab}`
+
+const TRANSFER: Transfer = {
+  id: 't_1',
+  idempotencyKey: 'k_1',
+  kind: 'transfer',
+  pointTypeId: 'pt_on',
+  fromId: 'u_minho',
+  toId: 'u_jisoo',
+  amount: 1_000,
+  createdAt: '2026-08-19T00:00:00Z',
+  confirmedAt: '2026-08-19T00:00:00Z',
+}
 
 describe('스택', () => {
   it('뿌리에서는 현재 화면이 없다', () => {
@@ -71,10 +84,7 @@ describe('시스템 back', () => {
   })
 
   it('완료·실패에서 back 은 플로우를 벗어난다 — 한 칸 뒤로가 아니다', () => {
-    const done = push(push(initialNav, { name: 'confirm' }), {
-      name: 'result',
-      transferId: 't_1',
-    })
+    const done = push(push(initialNav, { name: 'confirm' }), { name: 'result', transfer: TRANSFER })
     expect(resolveBack(done)).toEqual({ kind: 'handled', next: { tab: 'home', stack: [] } })
 
     const failed = push(push(initialNav, { name: 'confirm' }), { name: 'failure' })
@@ -88,7 +98,7 @@ describe('시스템 back', () => {
       push(initialNav, { name: 'pickRecipient' }),
       push(initialNav, { name: 'enterAmount' }),
       push(initialNav, { name: 'confirm' }),
-      push(initialNav, { name: 'result', transferId: 't_1' }),
+      push(initialNav, { name: 'result', transfer: TRANSFER }),
       push(initialNav, { name: 'failure' }),
       push(selectTab(initialNav, 'history'), { name: 'historyDetail', transferId: 't_1' }),
     ]

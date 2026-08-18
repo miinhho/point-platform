@@ -1,4 +1,4 @@
-import { Text, chakra } from '@chakra-ui/react'
+import { Button, Text } from '@chakra-ui/react'
 import { useQuery } from '@tanstack/react-query'
 import { useAtomValue, useSetAtom } from 'jotai'
 import { useTranslation } from 'react-i18next'
@@ -18,20 +18,6 @@ import {
   toConfirmAtom,
 } from './atoms'
 import { amountOf, isReady } from './draft'
-
-const Next = chakra('button', {
-  base: {
-    width: '100%',
-    minHeight: 'control',
-    borderRadius: 'l2',
-    textStyle: 'button',
-    bg: 'colorPalette.solid',
-    color: 'colorPalette.contrast',
-    _active: { bg: 'colorPalette.emphasized' },
-    // 누를 수 없는 버튼을 감추지 않는다. 자리가 사라지면 다음에 뭘 할지 알 수 없다.
-    _disabled: { opacity: 0.35, cursor: 'default' },
-  },
-})
 
 /** 근거: docs/JOURNEY.md 여정 4 */
 export function EnterAmount({ onBack }: { onBack: () => void }) {
@@ -70,14 +56,16 @@ export function EnterAmount({ onBack }: { onBack: () => void }) {
         <Gutter paddingTop="6">
           <Amount pointType={draft.pointType} amount={amount} over={over} />
           <Text textStyle="support" color={over ? 'red.fg' : undefined} marginTop="5">
-            {over
-              ? issuing
-                ? t('amount.overIssue')
-                : t('amount.over')
-              : issuing
-                ? t('amount.ceilingIssue')
-                : t('amount.ceiling')}{' '}
-            {toGrouped(ceiling)}
+            {t(
+              over
+                ? issuing
+                  ? 'amount.overIssue'
+                  : 'amount.over'
+                : issuing
+                  ? 'amount.ceilingIssue'
+                  : 'amount.ceiling',
+              { amount: toGrouped(ceiling) },
+            )}
           </Text>
         </Gutter>
       </Body>
@@ -85,14 +73,16 @@ export function EnterAmount({ onBack }: { onBack: () => void }) {
       <Keypad onDigit={digit} onBackspace={backspace} onClear={clear} />
 
       <Gutter paddingTop="2" paddingBottom="4">
-        <Next
-          type="button"
+        {/* 누를 수 없는 버튼을 감추지 않는다. 자리가 사라지면 다음에 뭘 할지 알 수 없다. */}
+        <Button
+          size="xl"
+          width="full"
           disabled={!ready}
           onClick={() => next()}
           colorPalette={draft.pointType.accent}
         >
           {issuing ? t('amount.nextIssue') : t('amount.next')}
-        </Next>
+        </Button>
       </Gutter>
     </Screen>
   )

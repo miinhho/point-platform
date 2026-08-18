@@ -56,7 +56,7 @@ export default function App() {
             <Confirm onBack={back} onConfirm={submit} busy={busy} />
           ) : null}
           {screen?.name === 'result' ? (
-            <Result transferId={screen.transferId} onHome={endFlow} />
+            <Result transfer={screen.transfer} onHome={endFlow} />
           ) : null}
           {screen?.name === 'failure' ? (
             <Failure

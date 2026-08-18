@@ -57,13 +57,13 @@ export function PickRecipient({ onBack }: { onBack: () => void }) {
       <Body marginTop="2">
         {list.recent.length > 0 ? (
           <Section label={t('pick.recentSection')}>
-            <Rows entries={list.recent} counts={list.countByName} onPick={pick} />
+            <Rows entries={list.recent} onPick={pick} />
           </Section>
         ) : null}
 
         {list.others.length > 0 ? (
           <Section label={list.recent.length > 0 ? t('pick.allSection') : undefined}>
-            <Rows entries={list.others} counts={list.countByName} onPick={pick} />
+            <Rows entries={list.others} onPick={pick} />
           </Section>
         ) : null}
 
@@ -94,31 +94,19 @@ function Section({ label, children }: { label?: string; children: React.ReactNod
 
 interface RowsProps {
   entries: RecipientEntry[]
-  counts: Map<string, number>
   onPick: (user: RecipientEntry['user']) => void
 }
 
-function Rows({ entries, counts, onPick }: RowsProps) {
-  const { t } = useTranslation()
-
+/**
+ * 겹치는 이름에 안내 문구를 붙였다가 뺐다. 사용자가 그 문장으로 하는 일이 없다 —
+ * 나란히 놓인 두 줄과 강조된 핸들이 이미 "여기를 보라" 를 말한다.
+ */
+function Rows({ entries, onPick }: RowsProps) {
   return (
     <>
-      {entries.map((entry, index) => {
-        // 묶음의 첫 줄에만 붙인다. 화면 상단 배너로 띄우면 곧 배경이 된다.
-        const startsCluster = entry.ambiguous && entries[index - 1]?.user.name !== entry.user.name
-        return (
-          <Box key={entry.user.id}>
-            {startsCluster ? (
-              <Gutter paddingTop="3" paddingBottom="1">
-                <Text textStyle="verifyLabel">
-                  {t('pick.sameName', { count: counts.get(entry.user.name) ?? 0 })}
-                </Text>
-              </Gutter>
-            ) : null}
-            <RecipientRow entry={entry} onPick={onPick} />
-          </Box>
-        )
-      })}
+      {entries.map((entry) => (
+        <RecipientRow key={entry.user.id} entry={entry} onPick={onPick} />
+      ))}
     </>
   )
 }

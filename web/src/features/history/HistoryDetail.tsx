@@ -44,20 +44,25 @@ export function HistoryDetail({ transferId, onBack }: Props) {
 
       <Body>
         <Gutter paddingTop="4">
-          <motion.div layoutId={`t-${transfer.id}-name`}>
-            <Text textStyle="name">{point?.name ?? ''}</Text>
+          {/* 누구에게 → 무엇을 → 얼마. 목록과 같은 순서라야 눌린 줄이 펼쳐진 것으로 읽힌다 */}
+          <motion.div layoutId={`t-${transfer.id}-to`} layout="position">
+            <Text textStyle="name">{issuing ? t('history.me') : (to?.name ?? t('history.me'))}</Text>
           </motion.div>
-          <Box marginTop="2">
-            <motion.div layoutId={`t-${transfer.id}-amount`}>
+          {issuing || !to ? null : <Text textStyle="handle">{to.handle}</Text>}
+
+          <Box marginTop="5" colorPalette={point?.accent ?? 'blue'}>
+            <Text textStyle="label" color="colorPalette.fg">
+              {point?.name ?? ''}
+            </Text>
+            <motion.div layoutId={`t-${transfer.id}-amount`} layout="position">
               <Text textStyle="balance">{toGrouped(transfer.amount)}</Text>
             </motion.div>
           </Box>
 
           <Box marginTop="6" display="flex" flexDirection="column">
-            <Field label={t('history.from')} value={issuing ? t('history.fromIssue') : t('history.me')} />
             <Field
-              label={t('history.to')}
-              value={to ? `${to.name} ${to.handle}` : t('history.me')}
+              label={t('history.from')}
+              value={issuing ? t('history.fromIssue') : t('history.me')}
             />
             <Field label={t('history.at')} value={formatTime(transfer.confirmedAt)} />
             {/* 두 번 보내지지 않았다를 사용자가 확인할 수 있는 유일한 근거다 */}

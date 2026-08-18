@@ -33,7 +33,7 @@ export function Amount({ pointType, amount, over }: Props) {
 
       {/* 자리를 비워 두어 첫 글자에서 화면이 튀지 않게 한다. */}
       <Text textStyle="support" color={tone} css={{ minHeight: '1.5em' }} wordBreak="keep-all">
-        {amount > 0 ? parts.korean : ''}
+        {parts.short}
       </Text>
     </Box>
   )

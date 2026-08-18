@@ -32,7 +32,7 @@ export function useSubmit() {
         idempotencyKey: draft.idempotencyKey,
       },
       {
-        onSuccess: (transfer) => succeed(transfer.id),
+        onSuccess: (transfer) => succeed(transfer),
         onError: (error) => fail(toFailure(error)),
       },
     )
@@ -47,7 +47,7 @@ export function useSubmit() {
     if (!key) return
     void endpoints
       .transferByKey(key)
-      .then((transfer) => (transfer ? succeed(transfer.id) : submit()))
+      .then((transfer) => (transfer ? succeed(transfer) : submit()))
       .catch((error: unknown) => fail(toFailure(error)))
   }, [draft, succeed, submit, fail])
 

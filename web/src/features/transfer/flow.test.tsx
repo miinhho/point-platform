@@ -62,10 +62,9 @@ describe('여정 2 — 홈 카드로 들어간다', () => {
 })
 
 describe('여정 3 — 받는 사람', () => {
-  it('동명이인 두 명이 나란히 오고 묶음 안내가 붙는다', async () => {
+  // 안내 문구는 뺐다. 나란히 놓인 두 줄과 강조된 핸들이 그 일을 한다.
+  it('동명이인 두 명이 나란히 온다', async () => {
     await openPicker()
-    expect(screen.getByText('같은 이름 2명 · 핸들로 구분해요')).toBeTruthy()
-
     const rows = screen.getAllByRole('button').map((b) => b.textContent ?? '')
     const first = rows.findIndex((t) => t.includes('@jisoo'))
     const second = rows.findIndex((t) => t.includes('@jisu'))
@@ -81,8 +80,7 @@ describe('여정 3 — 받는 사람', () => {
   it('핸들로 검색해 한 명만 맞아도 동명이인이 함께 보인다', async () => {
     const user = await openPicker()
     await user.type(screen.getByPlaceholderText('이름 또는 핸들'), '@jisu')
-    await screen.findByText('같은 이름 2명 · 핸들로 구분해요')
-    expect(screen.getByText('@jisoo')).toBeTruthy()
+    expect(await screen.findByText('@jisoo')).toBeTruthy()
   })
 
   it('찾는 사람이 없으면 그렇게 말한다', async () => {
@@ -101,7 +99,7 @@ describe('여정 4 — 금액', () => {
   async function atAmount() {
     const user = await openPicker()
     await user.click(screen.getByRole('button', { name: /@jisoo/ }))
-    await screen.findByText('보낼 수 있어요 3,240,000')
+    await screen.findByText('3,240,000만큼 보낼 수 있어요')
     await settle()
     return user
   }
@@ -116,21 +114,21 @@ describe('여정 4 — 금액', () => {
     const user = await atAmount()
     for (const d of '30000') await user.click(screen.getByRole('button', { name: d }))
     expect(screen.getByText('30,000')).toBeTruthy()
-    expect(screen.getByText('삼만')).toBeTruthy()
+    expect(screen.getByText('3만')).toBeTruthy()
   })
 
   it('150만과 1500만이 다르게 읽힌다', async () => {
     const user = await atAmount()
     for (const d of '1500000') await user.click(screen.getByRole('button', { name: d }))
-    expect(screen.getByText('백오십만')).toBeTruthy()
+    expect(screen.getByText('150만')).toBeTruthy()
   })
 
   it('전체삭제 한 번이면 처음으로 돌아간다', async () => {
     const user = await atAmount()
     for (const d of '12345') await user.click(screen.getByRole('button', { name: d }))
     await user.click(screen.getByRole('button', { name: '전체삭제' }))
-    // 한글 병기가 사라지고 확인이 다시 잠기는 것이 "처음" 이다.
-    expect(screen.queryByText('일만이천삼백사십오')).toBeNull()
+    // 병기가 사라지고 확인이 다시 잠기는 것이 "처음" 이다.
+    expect(screen.queryByText('1만 2,345')).toBeNull()
     expect(screen.getByRole('button', { name: '보내기 확인' })).toHaveProperty('disabled', true)
   })
 
