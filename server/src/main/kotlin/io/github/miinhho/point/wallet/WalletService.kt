@@ -25,16 +25,12 @@ class WalletService(
         val sharedPointNames = pointTypeRepository.sharedNames()
         val balanceByType = balanceRepository.findByUserId(userId).associateBy { it.pointType.id }
         val balances = pointTypeRepository.findAll().mapNotNull { pointType ->
-            val balance = balanceByType[pointType.id]
-            val amount = balance?.amount ?: 0
-            val isIssuer = pointType.issuer.id == userId
-            if (amount <= 0 && !isIssuer) return@mapNotNull null
+            val amount = balanceByType[pointType.id]?.amount ?: 0
+            if (amount <= 0 && pointType.issuer.id != userId) return@mapNotNull null
             BalanceResponse(
                 pointType = pointType.toResponse(userId, sharedPointNames),
                 amount = amount,
                 sendable = amount,
-                // 발행자는 자기가 만든 것을 확인할 것이 없다.
-                acknowledged = isIssuer || balance?.acknowledged == true,
             )
         }
         return WalletResponse(user.toResponse(userRepository.sharedNames()), balances)
