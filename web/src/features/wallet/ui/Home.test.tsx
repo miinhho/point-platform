@@ -73,6 +73,20 @@ describe('홈', () => {
     expect(screen.queryByText('장민호 발행')).toBeNull()
   })
 
+  /*
+   * 겹침은 원장의 성질이다 — 계약: docs/API.md. `@jisoo` 는 온포인트를 한쪽만 가져서
+   * 클라이언트가 자기 지갑 안에서 세면 "겹치지 않는다" 가 되고, 자기가 가진 것이
+   * 어느 온포인트인지 확정 화면까지 가도 알 수 없다.
+   */
+  it('한쪽만 가진 사람의 지갑에도 발행자 부제가 붙는다', async () => {
+    await signInAs('@jisoo')
+    renderApp(<Home />)
+
+    expect(await screen.findByText('온포인트')).toBeTruthy()
+    expect(screen.getAllByText('온포인트')).toHaveLength(1)
+    expect(screen.getByText('온마트 발행')).toBeTruthy()
+  })
+
   // 여정 8 — 발행자 화면의 진입점은 그 포인트 카드의 배지다.
   it('내가 발행하는 포인트에만 발행 진입점이 붙는다', async () => {
     renderApp(<Home />)

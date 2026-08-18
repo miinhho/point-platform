@@ -113,7 +113,7 @@ function Rows({ entries, onPick }: RowsProps) {
 
 function RecipientRow({ entry, onPick }: { entry: RecipientEntry; onPick: RowsProps['onPick'] }) {
   const { t } = useTranslation()
-  const { user, ambiguous, pulledUp } = entry
+  const { user, pulledUp } = entry
 
   return (
     <RowButton type="button" onClick={() => onPick(user)}>
@@ -138,8 +138,8 @@ function RecipientRow({ entry, onPick }: { entry: RecipientEntry; onPick: RowsPr
         </Box>
         {/* 겹칠 때만 크기·굵기·색을 함께 올린다. 색만으로 구분하지 않는다. */}
         <Text
-          textStyle={ambiguous ? 'handleVerify' : 'handle'}
-          color={ambiguous ? 'verify.fg' : undefined}
+          textStyle={user.nameIsShared ? 'handleVerify' : 'handle'}
+          color={user.nameIsShared ? 'verify.fg' : undefined}
         >
           {user.handle}
         </Text>

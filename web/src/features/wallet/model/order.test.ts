@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { duplicatedNames, orderBalances } from './order'
+import { orderBalances } from './order'
 import type { Balance, PointAccent, PointType } from '@/api/contract'
 
 const point = (id: string, name: string, accent: PointAccent = 'blue'): PointType => ({
   id,
   name,
+  nameIsShared: false,
   symbol: id.slice(-2).toUpperCase(),
   issuerId: 'u_x',
   issuerName: '발행자',
@@ -68,20 +69,5 @@ describe('orderBalances', () => {
     const input = [balance('pt_a', '가', 0), balance('pt_b', '나', 10)]
     orderBalances(input)
     expect(input.map((b) => b.pointType.id)).toEqual(['pt_a', 'pt_b'])
-  })
-})
-
-describe('duplicatedNames', () => {
-  it('겹치는 이름만 고른다', () => {
-    const found = duplicatedNames([
-      balance('pt_a', '온포인트', 10),
-      balance('pt_b', '솔포인트', 10),
-      balance('pt_c', '온포인트', 10),
-    ])
-    expect(found).toEqual(new Set(['온포인트']))
-  })
-
-  it('겹치지 않으면 비어 있다 — 평소에는 부제를 붙이지 않는다', () => {
-    expect(duplicatedNames([balance('pt_a', '가', 1), balance('pt_b', '나', 1)])).toEqual(new Set())
   })
 })

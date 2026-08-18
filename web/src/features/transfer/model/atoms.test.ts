@@ -21,13 +21,14 @@ const ON: PointType = {
   symbol: 'ON',
   issuerId: 'u_onmart',
   issuerName: '온마트',
+  nameIsShared: false,
   accent: 'blue',
   totalIssued: 50_000_000,
   issueCap: 100_000_000,
   canIssue: false,
   issuableHeadroom: 50_000_000,
 }
-const JISOO: User = { id: 'u_jisoo', name: '김지수', handle: '@jisoo' }
+const JISOO: User = { id: 'u_jisoo', name: '김지수', handle: '@jisoo', nameIsShared: true }
 
 const at = (store: ReturnType<typeof createStore>) => store.get(currentScreenAtom)?.name ?? 'root'
 

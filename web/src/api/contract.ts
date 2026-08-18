@@ -12,6 +12,8 @@ export interface User {
   name: string
   /** 동명이인을 가르는 유일한 문자열. */
   handle: string
+  /** 원장 전체에서 이 이름을 쓰는 사용자가 둘 이상인가. 받은 목록 안에서 세면 방어가 꺼진다. */
+  nameIsShared: boolean
 }
 
 /** 발행자 한 명이 발행 권한을 가진 화폐. 이체는 같은 종류끼리만 일어난다. */
@@ -23,6 +25,8 @@ export interface PointType {
   issuerId: UserId
   /** 이름이 겹치는 포인트를 가르는 부제. 화면이 사용자 목록을 뒤지지 않게 서버가 준다. */
   issuerName: string
+  /** 원장 전체에서 이 이름을 쓰는 포인트가 둘 이상인가. 내 지갑에는 한쪽만 올 수 있다. */
+  nameIsShared: boolean
   /** 내가 이 포인트를 발행할 수 있는가. 클라이언트가 판정하지 않는다. */
   canIssue: boolean
   /** 지금 더 발행할 수 있는 양. 상한 외의 규칙이 생기면 서버만 안다. */

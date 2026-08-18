@@ -12,14 +12,14 @@ interface Props {
   /** 발행 권한이 있을 때만. 여정 8 — 카드의 발행자 배지가 진입점이다 */
   onIssue?: () => void
   balance: Balance
-  /** 이름이 겹치는 포인트다. 발행자를 부제로 붙인다 */
-  ambiguous: boolean
+  /** 원장에 같은 이름의 포인트가 또 있다. 그때만 발행자를 부제로 붙인다 */
+  nameIsShared: boolean
   issuerName: string
   isMine: boolean
 }
 
 /** 근거: docs/JOURNEY.md 여정 1 */
-export function PointCard({ balance, ambiguous, issuerName, isMine, onOpen, onIssue }: Props) {
+export function PointCard({ balance, nameIsShared, issuerName, isMine, onOpen, onIssue }: Props) {
   const { t } = useTranslation()
   const { pointType, amount } = balance
   const empty = amount === 0
@@ -42,7 +42,7 @@ export function PointCard({ balance, ambiguous, issuerName, isMine, onOpen, onIs
         <Box display="flex" alignItems="baseline" gap="1.5">
           <Text textStyle="name">{pointType.name}</Text>
         </Box>
-        {ambiguous ? (
+        {nameIsShared ? (
           <Text textStyle="caption">{t('home.issuedBy', { name: issuerName })}</Text>
         ) : null}
         {empty ? <Text textStyle="caption">{t('home.zeroBalance')}</Text> : null}

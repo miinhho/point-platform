@@ -6,7 +6,7 @@ import { walletQuery } from '@/api/queries'
 import { startTransferAtom } from '@/features/transfer'
 import { goAtom } from '@/app/atoms'
 import { Body, Gutter, Header, Screen, Title } from '@/shared/ui/Screen'
-import { duplicatedNames, orderBalances } from '../model/order'
+import { orderBalances } from '../model/order'
 import { PointCard } from './PointCard'
 
 /** 근거: docs/JOURNEY.md 여정 1 */
@@ -17,7 +17,6 @@ export function Home() {
   const go = useSetAtom(goAtom)
 
   const balances = data ? orderBalances(data.balances) : []
-  const ambiguous = duplicatedNames(balances)
 
   return (
     <Screen>
@@ -35,7 +34,7 @@ export function Home() {
           <PointCard
             key={balance.pointType.id}
             balance={balance}
-            ambiguous={ambiguous.has(balance.pointType.name)}
+            nameIsShared={balance.pointType.nameIsShared}
             issuerName={balance.pointType.issuerName}
             isMine={balance.pointType.canIssue}
             onOpen={() => startTransfer({ pointType: balance.pointType })}

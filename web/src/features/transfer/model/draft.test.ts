@@ -18,13 +18,14 @@ const ON: PointType = {
   symbol: 'ON',
   issuerId: 'u_onmart',
   issuerName: '온마트',
+  nameIsShared: false,
   accent: 'blue',
   totalIssued: 50_000_000,
   issueCap: 100_000_000,
   canIssue: false,
   issuableHeadroom: 50_000_000,
 }
-const JISOO: User = { id: 'u_jisoo', name: '김지수', handle: '@jisoo' }
+const JISOO: User = { id: 'u_jisoo', name: '김지수', handle: '@jisoo', nameIsShared: true }
 
 const type = (draft: Draft, digits: string): Draft =>
   [...digits].reduce((acc, digit) => appendDigit(acc, digit), draft)
@@ -89,7 +90,7 @@ describe('멱등성 키', () => {
 
   it('대상을 고치면 키를 버린다 — 같은 키로 다른 사람에게 보내면 먼저 것이 돌아온다', () => {
     const sealed = seal(withRecipient(type(startDraft(ON), '30000'), JISOO), newKey)
-    const other: User = { id: 'u_jisu', name: '김지수', handle: '@jisu' }
+    const other: User = { id: 'u_jisu', name: '김지수', handle: '@jisu', nameIsShared: true }
     expect(withRecipient(sealed, other).idempotencyKey).toBeNull()
   })
 })

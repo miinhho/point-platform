@@ -3,8 +3,6 @@ import type { User } from '@/api/contract'
 // 근거: docs/JOURNEY.md 여정 3. 최근 묶음과 동명이인 인접이 부딪히는 자리다.
 export interface RecipientEntry {
   user: User
-  /** 이 결과 안에 같은 이름이 또 있는가 */
-  ambiguous: boolean
   /** 비교하라고 최근 묶음으로 끌어올린 줄. 없으면 제목이 거짓말이 된다. */
   pulledUp: boolean
 }
@@ -12,48 +10,41 @@ export interface RecipientEntry {
 export interface RecipientList {
   recent: RecipientEntry[]
   others: RecipientEntry[]
-  /** 전체에서 센다. 묶음만 세면 "같은 이름 1명" 이 나온다. */
-  countByName: Map<string, number>
 }
 
+/**
+ * 겹치는지는 서버가 답한다(`nameIsShared`). 화면이 하는 것은 겹치는 둘을
+ * 나란히 놓는 것뿐이다 — 떨어져 있으면 둘이 있다는 사실 자체를 모른다.
+ */
 export function buildRecipientList(recent: User[], all: User[]): RecipientList {
-  const countByName = new Map<string, number>()
-  for (const user of all) countByName.set(user.name, (countByName.get(user.name) ?? 0) + 1)
-
-  const isAmbiguous = (user: User) => (countByName.get(user.name) ?? 0) > 1
   const recentIds = new Set(recent.map((user) => user.id))
-
   const emitted = new Set<string>()
-  const recentEntries: RecipientEntry[] = []
 
-  for (const user of recent) {
-    if (emitted.has(user.id)) continue
+  const twinsOf = (user: User): User[] =>
+    user.nameIsShared
+      ? all.filter((twin) => twin.name === user.name && twin.id !== user.id)
+      : []
+
+  const emit = (into: RecipientEntry[], user: User, pulledUp: boolean) => {
+    if (emitted.has(user.id)) return
     emitted.add(user.id)
-    recentEntries.push({ user, ambiguous: isAmbiguous(user), pulledUp: false })
+    into.push({ user, pulledUp })
+  }
 
+  const recentEntries: RecipientEntry[] = []
+  for (const user of recent) {
+    emit(recentEntries, user, false)
     // 비교는 두 줄이 함께 보일 때만 일어난다.
-    if (!isAmbiguous(user)) continue
-    for (const twin of all) {
-      if (twin.id === user.id || twin.name !== user.name || emitted.has(twin.id)) continue
-      emitted.add(twin.id)
-      recentEntries.push({ user: twin, ambiguous: true, pulledUp: !recentIds.has(twin.id) })
-    }
+    for (const twin of twinsOf(user)) emit(recentEntries, twin, !recentIds.has(twin.id))
   }
 
   const others: RecipientEntry[] = []
   for (const user of all) {
-    if (emitted.has(user.id)) continue
-    emitted.add(user.id)
-    others.push({ user, ambiguous: isAmbiguous(user), pulledUp: false })
-    if (!isAmbiguous(user)) continue
-    for (const twin of all) {
-      if (twin.id === user.id || twin.name !== user.name || emitted.has(twin.id)) continue
-      emitted.add(twin.id)
-      others.push({ user: twin, ambiguous: true, pulledUp: false })
-    }
+    emit(others, user, false)
+    for (const twin of twinsOf(user)) emit(others, twin, false)
   }
 
-  return { recent: recentEntries, others, countByName }
+  return { recent: recentEntries, others }
 }
 
 /** 검색 중에는 최근 묶음을 만들지 않는다. 찾는 사람이 있는데 다른 목록이 위에 있으면 방해다. */

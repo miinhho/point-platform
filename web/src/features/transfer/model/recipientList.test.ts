@@ -2,10 +2,16 @@ import { describe, expect, it } from 'vitest'
 import { buildRecipientList, buildSearchList } from './recipientList'
 import type { User } from '@/api/contract'
 
-const member = (id: string, name: string, handle: string): User => ({ id, name, handle })
+/** `nameIsShared` 는 서버가 원장 전체에서 판정해 실어 준다 — 계약: docs/API.md */
+const member = (id: string, name: string, handle: string, nameIsShared = false): User => ({
+  id,
+  name,
+  handle,
+  nameIsShared,
+})
 
-const JISOO = member('u_jisoo', '김지수', '@jisoo')
-const JISU = member('u_jisu', '김지수', '@jisu')
+const JISOO = member('u_jisoo', '김지수', '@jisoo', true)
+const JISU = member('u_jisu', '김지수', '@jisu', true)
 const TAEYUN = member('u_taeyun', '박태윤', '@taeyun')
 const JUNHO = member('u_junho', '최준호', '@junho')
 
@@ -36,16 +42,17 @@ describe('buildRecipientList', () => {
     expect(recent.map((e) => e.pulledUp)).toEqual([false, false])
   })
 
-  it('인원 수는 전체에서 센다 — 묶음만 세면 "같은 이름 1명"이 나온다', () => {
-    const { countByName } = buildRecipientList([JISOO], ALL)
-    expect(countByName.get('김지수')).toBe(2)
+  // 지갑·검색 어느 쪽이든 겹치는 둘 중 하나만 담겨 올 수 있다 — 계약: docs/API.md
+  it('목록에 한 명만 있어도 서버가 겹친다고 하면 겹친다', () => {
+    const { others } = buildRecipientList([], [JISOO, TAEYUN])
+    expect(others.map((e) => e.user.nameIsShared)).toEqual([true, false])
   })
 
   it('아무도 중복되지 않으면 아무것도 끌어오지 않는다', () => {
     const { recent, others } = buildRecipientList([TAEYUN], [TAEYUN, JUNHO])
     expect(recent.map((e) => e.user.id)).toEqual(['u_taeyun'])
     expect(others.map((e) => e.user.id)).toEqual(['u_junho'])
-    expect([...recent, ...others].every((e) => !e.ambiguous)).toBe(true)
+    expect([...recent, ...others].every((e) => !e.user.nameIsShared)).toBe(true)
   })
 
   it('같은 사람이 두 묶음에 나오지 않는다', () => {

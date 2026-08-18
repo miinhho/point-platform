@@ -30,17 +30,3 @@ function groupByName(sorted: Balance[]): Balance[] {
   }
   return out
 }
-
-/**
- * 이름이 겹치는 포인트. 사람 이름이 겹치는 것과 같은 위험이다.
- * 겹칠 때만 발행자를 부제로 붙인다 — 항상 붙이면 배경이 된다.
- */
-export function duplicatedNames(balances: Balance[]): Set<string> {
-  const seen = new Set<string>()
-  const duplicated = new Set<string>()
-  for (const { pointType } of balances) {
-    if (seen.has(pointType.name)) duplicated.add(pointType.name)
-    seen.add(pointType.name)
-  }
-  return duplicated
-}

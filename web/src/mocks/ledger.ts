@@ -31,7 +31,10 @@ export type LedgerErrorCode =
   | 'POINT_TYPE_NOT_FOUND'
   | 'SYMBOL_TAKEN'
 
-function seedUsers(): User[] {
+/** 겹침은 원장을 봐야 알 수 있다. 시드가 들고 있으면 사용자가 늘 때 거짓이 된다. */
+type SeedUser = Omit<User, 'nameIsShared'>
+
+function seedUsers(): SeedUser[] {
   return [
     { id: SEED_ISSUER, name: '장민호', handle: '@minho' },
     { id: 'u_jisoo', name: '김지수', handle: '@jisoo' },
@@ -47,7 +50,7 @@ function seedUsers(): User[] {
 }
 
 /** 하나는 내가 발행자, 둘은 보유자다. 그 조합이 실제 상태다. */
-type SeedPoint = Omit<PointType, 'canIssue' | 'issuableHeadroom'>
+type SeedPoint = Omit<PointType, 'canIssue' | 'issuableHeadroom' | 'nameIsShared'>
 
 function seedPointTypes(): SeedPoint[] {
   return [
@@ -124,7 +127,7 @@ function seedRecent(): Map<PointTypeId, UserId[]> {
 }
 
 interface State {
-  users: Map<UserId, User>
+  users: Map<UserId, SeedUser>
   pointTypes: Map<PointTypeId, SeedPoint>
   balances: Map<BalanceKey, Points>
   transfers: Map<TransferId, Transfer>
@@ -157,11 +160,24 @@ export function resetLedger(): void {
 }
 
 export function userById(userId: UserId): User | undefined {
-  return state.users.get(userId)
+  const user = state.users.get(userId)
+  return user && userViewOf(user)
 }
 
 export function allUsers(): User[] {
-  return [...state.users.values()]
+  return [...state.users.values()].map(userViewOf)
+}
+
+/**
+ * 겹침은 응답의 성질이 아니라 원장의 성질이다 — 계약: docs/API.md.
+ * 한쪽만 담긴 응답에서 클라이언트가 세면 방어가 조용히 꺼진다.
+ */
+function sharesName(name: string, among: readonly { name: string }[]): boolean {
+  return among.filter((other) => other.name === name).length > 1
+}
+
+function userViewOf(user: SeedUser): User {
+  return { ...user, nameIsShared: sharesName(user.name, [...state.users.values()]) }
 }
 
 function seedPoints(): SeedPoint[] {
@@ -193,6 +209,7 @@ export function viewOf(pointType: SeedPoint, userId: UserId): PointType {
     ...pointType,
     canIssue: pointType.issuerId === userId,
     issuableHeadroom: Math.max(0, pointType.issueCap - pointType.totalIssued),
+    nameIsShared: sharesName(pointType.name, seedPoints()),
   }
 }
 
@@ -212,7 +229,7 @@ export function searchUsers(query: string | null, meId: UserId): User[] {
 export function recentFor(pointTypeId: PointTypeId, limit: number): User[] {
   return (state.recent.get(pointTypeId) ?? [])
     .slice(0, limit)
-    .map((id) => state.users.get(id))
+    .map((id) => userById(id))
     .filter((user): user is User => user !== undefined)
 }
 
@@ -326,7 +343,7 @@ function requirePointType(pointTypeId: PointTypeId): SeedPoint {
   return pointType
 }
 
-function requireRecipient(toId: UserId): User {
+function requireRecipient(toId: UserId): SeedUser {
   const recipient = state.users.get(toId)
   if (!recipient) throw new LedgerError('RECIPIENT_NOT_FOUND')
   return recipient
