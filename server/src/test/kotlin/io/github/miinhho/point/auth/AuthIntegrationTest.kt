@@ -1,7 +1,11 @@
 package io.github.miinhho.point.auth
 
 import io.github.miinhho.point.TestcontainersConfiguration
+import io.github.miinhho.point.api.FailureResponse
 import io.github.miinhho.point.domain.auth.RefreshTokenRepository
+import io.github.miinhho.point.domain.balance.BalanceRepository
+import io.github.miinhho.point.domain.pointtype.PointTypeRepository
+import io.github.miinhho.point.domain.transfer.TransferRepository
 import io.github.miinhho.point.domain.user.User
 import io.github.miinhho.point.domain.user.UserRepository
 import org.junit.jupiter.api.BeforeEach
@@ -31,10 +35,17 @@ class AuthIntegrationTest {
     @Autowired lateinit var restTemplate: TestRestTemplate
     @Autowired lateinit var userRepository: UserRepository
     @Autowired lateinit var refreshTokenRepository: RefreshTokenRepository
+    @Autowired lateinit var transferRepository: TransferRepository
+    @Autowired lateinit var balanceRepository: BalanceRepository
+    @Autowired lateinit var pointTypeRepository: PointTypeRepository
     @Autowired lateinit var passwordEncoder: PasswordEncoder
 
+    // 다른 테스트가 같은 DB 에 남긴 것을 FK 역순으로 지운다 — 순서가 어긋나면 제약에 걸린다.
     @BeforeEach
     fun seedUser() {
+        transferRepository.deleteAll()
+        balanceRepository.deleteAll()
+        pointTypeRepository.deleteAll()
         refreshTokenRepository.deleteAll()
         userRepository.deleteAll()
         userRepository.save(User(name = "김지수", handle = "@jisoo", passwordHash = passwordEncoder.encode("point")!!))

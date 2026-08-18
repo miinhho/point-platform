@@ -1,6 +1,8 @@
 package io.github.miinhho.point.auth
 
+import io.github.miinhho.point.api.toResponse
 import io.github.miinhho.point.domain.user.UserRepository
+import io.github.miinhho.point.domain.user.normalizeHandle
 import org.springframework.http.ResponseEntity
 import org.springframework.security.authentication.BadCredentialsException
 import org.springframework.security.crypto.password.PasswordEncoder
@@ -46,7 +48,3 @@ class AuthController(
         return ResponseEntity.noContent().build()
     }
 }
-
-// 근거: docs/API.md 「인증」. User.handle 은 이미 이 형태로 저장돼 있어야 한다 —
-// 저장 시점에 정규화하지 않으면 @Minho 와 @minho 두 행이 함께 존재할 수 있다.
-fun normalizeHandle(handle: String): String = "@" + handle.trim().replace(Regex("^@+"), "").lowercase()

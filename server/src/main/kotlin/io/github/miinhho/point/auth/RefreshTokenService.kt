@@ -50,12 +50,10 @@ class RefreshTokenService(
 
         val raw = randomToken()
         val nextHash = hash(raw)
-        // 조건부 UPDATE 가 실패(영향 행 0)했다면 동시 요청이 먼저 이겼다는 뜻이다 — 재사용과 같게 다룬다.
+        // 읽을 때는 살아 있었는데 UPDATE 가 0 행이면 동시 회전에서 진 것이다 — 재사용이 아니다.
+        // 여기서 family 를 태우면 탭 둘인 정상 사용자의 세션이 통째로 죽는다 (docs/API.md 「동시에 왔을 때」).
         val won = refreshTokenRepository.markRotated(tokenHash, nextHash, Instant.now()) == 1
-        if (!won) {
-            refreshTokenRepository.revokeFamily(current.familyId, Instant.now())
-            throw InvalidRefreshTokenException("동시 회전 충돌")
-        }
+        if (!won) throw InvalidRefreshTokenException("동시 회전에서 밀림")
 
         refreshTokenRepository.save(
             RefreshToken(

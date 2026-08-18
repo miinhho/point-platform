@@ -1,5 +1,6 @@
 package io.github.miinhho.point.auth
 
+import io.github.miinhho.point.api.FailureResponse
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.security.authentication.BadCredentialsException
