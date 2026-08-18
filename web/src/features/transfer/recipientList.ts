@@ -1,4 +1,4 @@
-import type { User } from '../domain/types'
+import type { User } from '@/domain/types'
 
 /**
  * 대상 목록 구성 (여정 2).

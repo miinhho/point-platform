@@ -1,7 +1,7 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
-import { Provider } from '@/components/ui/provider'
-import App from './App.tsx'
+import { Provider } from '@/app/providers'
+import App from '@/app/App'
 
 /**
  * Mock 서버를 먼저 띄운다.

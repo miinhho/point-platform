@@ -61,6 +61,27 @@ locale 은 `ko` 하나로 시작하지만 하드코딩을 막는 것이 목적�
 `system.ts` 에 토큰과 recipe 를 정의하고 화면은 **토큰 이름만** 쓴다.
 `fontSize`·`minHeight`·`bg` 를 화면에서 직접 지정하지 않는 것을 규칙으로 두고 lint 로 잡는다.
 
+## 폴더 구조
+
+1차 구현은 `ui/` 와 `components/ui/` 가 공존했고 `api/` 안에 순수 로직과 훅이 섞여 있었다.
+기준을 하나로 둔다 — **누가 그것을 소유하는가.**
+
+```
+src/
+  app/          앱 셸. 진입점·프로바이더·색 모드
+  domain/       순수 도메인. 프레임워크를 모른다
+  api/          HTTP 클라이언트 · 엔드포인트 · 쿼리
+  mocks/        MSW. 실서버가 오면 통째로 사라진다
+  features/     여정 단위. transfer / wallet / issue / history / settings
+  shared/       여러 feature 가 쓰는 것. ui(디자인 시스템) · i18n
+  test/         테스트 설정
+```
+
+`features/` 는 여정을 따른다. 화면과 그 화면만 쓰는 로직이 같은 폴더에 있어야,
+화면을 고칠 때 그 로직이 다른 곳에서도 쓰이는지 찾아다니지 않는다.
+`api/recipientList.ts` 가 `features/transfer/` 로 간 것이 그 예다 — API 가 아니라
+보내기 플로우의 목록 구성 규칙이었다.
+
 ## 작업 단위
 
 각 Task 는 **끝날 때마다 리뷰 서브에이전트에게 리뷰받고**, 지적을 반영한 뒤 다음으로 넘어간다.
