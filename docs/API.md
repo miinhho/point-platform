@@ -129,7 +129,6 @@ access 만 둔다. 갱신은 브릿지로 셸에 요청한다. `HttpOnly` 가 �
 | `POST` | `/api/issues` | `Transfer` `201` | 발행. 발행자만. **대상 없음** |
 | `POST` | `/api/point-types` | `PointType` `201` | 포인트 창설. `Idempotency-Key` 필수 |
 | `PATCH` | `/api/point-types/:id/cap` | `PointType` | 상한 변경. 발행자만. `Idempotency-Key` 필수 |
-| `POST` | `/api/point-types/:id/acknowledge` | `204` | 처음 받은 포인트를 확인했다. 멱등 |
 | `GET` | `/api/transfers/:id` | `Transfer` | 단건. **404 는 일어나지 않았다는 뜻** |
 | `GET` | `/api/transfers/by-key?idempotencyKey=` | `Transfer \| null` | 결과를 모를 때의 확인 |
 | `GET` | `/api/history?pointTypeId=&limit=` | `HistoryEntry[]` | 내역, 최신순. 이체와 상한 변경이 섞인다 |
@@ -221,13 +220,12 @@ access 만 둔다. 갱신은 브릿지로 셸에 요청한다. `HttpOnly` 가 �
 **서버는 진짜인지 가짜인지 판정하지 않는다.** 판정할 수 없다 — 동명이인을 가르지 못해
 나란히 놓고 사람이 고르게 한 것과 같다. 사실을 모아 주고 판단은 사람이 한다.
 
-`POST /api/point-types/:id/acknowledge` 는 그 판단이 끝났다는 표시다. 멱등이고, 이미
-확인한 것에 다시 보내도 `204` 다. 그 포인트를 갖고 있지 않으면 `404`. 발행자가 자기
-포인트에 보낼 일은 없다 — 만든 사람에게는 처음부터 참이다.
+**판단의 근거는 `issuerHandle` 이다.** 이름은 겹칠 수 있고 기호도 색도 발행자가 고르는
+것이지만 핸들은 하나뿐이다. 사람을 가를 때 쓰는 것과 같은 것으로 은행도 가른다.
 
-확인을 자동으로 하지 않는 이유는 「항상 붙이면 배경이 된다」(여정 1)와 같다. "받았지만
-아직 이걸로 아무것도 안 했다" 로 판정하면 받기만 하는 사용자에게는 표시가 영원히 남고,
-영원히 남는 표시는 읽히지 않는다.
+**별도의 확인 단계는 두지 않는다.** 가입이 명시적인 행동이고 그 화면이 판단할 것을 이미
+다 보여주므로, 가입이 곧 확인이다. 확인 엔드포인트를 따로 두면 사용자가 두 번 같은 일을
+하게 되고 두 번째는 읽지 않고 누른다.
 
 ### 내역은 이체만이 아니다
 
@@ -297,7 +295,6 @@ interface CapChange {
 | `PointType.issuerHandle` | 발행자의 핸들. **유일하다** — `issuerName` 은 흉내낼 수 있다 |
 | `PointType.createdAt` | 만들어진 시각. 오래된 것은 흉내낼 수 없다 |
 | `PointType.visibility` | `"public"` 이면 누구나 가입하고 제한 없이 주고받는다. `"private"` 는 초대받은 회원끼리만 |
-| `Balance.acknowledged` | 이 포인트를 처음 받은 뒤 사용자가 확인했는가. 발행자는 항상 참 |
 | `Balance.sendable` | 지금 보낼 수 있는 양. 보류금이 생기면 `amount` 와 달라진다 |
 | `User.nameIsShared` | **원장 전체에서** 이 이름을 쓰는 사용자가 둘 이상인가 |
 
