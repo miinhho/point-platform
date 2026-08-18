@@ -11,6 +11,7 @@ import io.github.miinhho.point.wallet.BalanceRepository
 import io.github.miinhho.point.pointtype.PointAccent
 import io.github.miinhho.point.pointtype.PointType
 import io.github.miinhho.point.pointtype.PointTypeRepository
+import io.github.miinhho.point.pointtype.PointVisibility
 import io.github.miinhho.point.transfer.TransferRepository
 import io.github.miinhho.point.user.User
 import io.github.miinhho.point.user.UserRepository
@@ -77,6 +78,7 @@ class ConcurrencyTest {
                 symbol = "GM",
                 issuer = issuer,
                 accent = PointAccent.PURPLE,
+                visibility = PointVisibility.PUBLIC,
                 issueCap = 1_000_000,
                 totalIssued = 0,
             ),
@@ -254,7 +256,7 @@ class ConcurrencyTest {
         val before = pointTypeRepository.count()
 
         val responses = inParallel(8) {
-            postPointType(token, key, CreatePointTypeRequest("동네빵집", "BK", "orange", BigDecimal(1_000_000)))
+            postPointType(token, key, CreatePointTypeRequest("동네빵집", "BK", "orange", BigDecimal(1_000_000), "public"))
         }
 
         assertTrue(responses.all { it.statusCode.is2xxSuccessful }, "전부 성공 응답이어야 한다: ${responses.map { it.statusCode }}")
@@ -269,7 +271,7 @@ class ConcurrencyTest {
 
         // 키가 서로 다르다 — 다른 사람이 만든 것을 내 것이라고 돌려주면 안 된다.
         val responses = inParallel(6) {
-            postPointType(token, UUID.randomUUID().toString(), CreatePointTypeRequest("동네빵집", "bk", "orange", BigDecimal(1_000_000)))
+            postPointType(token, UUID.randomUUID().toString(), CreatePointTypeRequest("동네빵집", "bk", "orange", BigDecimal(1_000_000), "public"))
         }
 
         assertEquals(1, responses.count { it.statusCode == HttpStatus.CREATED }, "기호가 같으니 하나만 성공해야 한다")
@@ -348,7 +350,7 @@ class ConcurrencyTest {
     fun `창설을 같은 키로 다시 보내면 자기가 만든 기호에 SYMBOL_TAKEN 이 나지 않는다`() {
         val token = login("@minho").accessToken
         val key = UUID.randomUUID().toString()
-        val body = CreatePointTypeRequest("동네빵집", "BK", "orange", BigDecimal(1_000_000))
+        val body = CreatePointTypeRequest("동네빵집", "BK", "orange", BigDecimal(1_000_000), "public")
 
         val first = postPointType(token, key, body)
         assertEquals(HttpStatus.CREATED, first.statusCode)

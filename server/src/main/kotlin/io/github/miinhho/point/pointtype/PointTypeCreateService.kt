@@ -28,11 +28,14 @@ class PointTypeCreateService(
         val symbol = request.symbol?.trim().orEmpty()
         val accent = request.accent?.trim()?.uppercase()
         val issueCap = request.issueCap?.asSafeInteger()
+        val visibility = request.visibility?.trim()?.uppercase()
+            ?.let { name -> PointVisibility.entries.find { it.name == name } }
 
         val malformed = name.filterNot(Char::isWhitespace).length !in 1..12 ||
             !SYMBOL.matches(symbol) ||
             accent == null || PointAccent.entries.none { it.name == accent } ||
-            issueCap == null || issueCap <= 0
+            issueCap == null || issueCap <= 0 ||
+            visibility == null
         if (malformed) throw DomainFailureException(FailureCode.MALFORMED_REQUEST, "요청 형식 오류")
 
         // 조회는 방어가 아니다 — 같은 기호가 동시에 오면 둘 다 비어 있다고 본다.
@@ -43,6 +46,7 @@ class PointTypeCreateService(
                 symbol = symbol,
                 issuer = userRepository.getReferenceById(creatorId),
                 accent = PointAccent.valueOf(accent!!),
+                visibility = visibility!!,
                 issueCap = issueCap!!,
                 totalIssued = 0,
                 idempotencyKey = idempotencyKey,

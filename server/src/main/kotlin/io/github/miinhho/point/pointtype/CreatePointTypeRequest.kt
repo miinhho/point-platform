@@ -9,4 +9,6 @@ data class CreatePointTypeRequest(
     val symbol: String? = null,
     val accent: String? = null,
     val issueCap: BigDecimal? = null,
+    // 기본값을 두지 않는다 — 「기본이 공개」는 만든 사람이 모르는 사이에 열리는 일이다.
+    val visibility: String? = null,
 )

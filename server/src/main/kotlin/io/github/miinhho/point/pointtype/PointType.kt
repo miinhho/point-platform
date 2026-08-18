@@ -34,10 +34,11 @@ class PointType(
     @Column(nullable = false, length = 10)
     var accent: PointAccent,
 
-    // 창설 시 정해진다. 화면에 선택지가 붙는 것은 멤버십 슬라이스에서다.
+    // 창설 시 정해지고 바뀌지 않는다. 바꾸면 이미 받은 사람이 회원 아닌 채로 잔액만 남거나
+    // 초대로만 닿던 것이 모두에게 열린다 — 사람에게 일어나는 일이지 설정 변경이 아니다.
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 10)
-    var visibility: PointVisibility = PointVisibility.PUBLIC,
+    @Column(nullable = false, length = 10, updatable = false)
+    val visibility: PointVisibility,
 
     @Column(name = "issue_cap", nullable = false)
     var issueCap: Long,

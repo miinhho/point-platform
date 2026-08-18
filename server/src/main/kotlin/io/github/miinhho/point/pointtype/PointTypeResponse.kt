@@ -19,6 +19,8 @@ data class PointTypeResponse(
     val nameIsShared: Boolean,
     /** 만들어진 시각. 오래된 것은 흉내낼 수 없다. */
     val createdAt: Instant,
+    /** `"public"` 이면 회원 개념이 없고 누구나 주고받는다. 창설 뒤에는 바뀌지 않는다. */
+    val visibility: String,
 )
 
 // canIssue·issuableHeadroom 은 보는 사람에 따라 다르다 — 서버가 판정해 실어 준다.
@@ -37,4 +39,5 @@ fun PointType.toResponse(viewerId: Long, sharedNames: Set<String>) = PointTypeRe
     issueCap = issueCap,
     nameIsShared = name in sharedNames,
     createdAt = createdAt,
+    visibility = visibility.name.lowercase(),
 )

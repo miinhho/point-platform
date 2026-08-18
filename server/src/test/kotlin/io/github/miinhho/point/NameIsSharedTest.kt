@@ -8,6 +8,7 @@ import io.github.miinhho.point.wallet.BalanceRepository
 import io.github.miinhho.point.pointtype.PointAccent
 import io.github.miinhho.point.pointtype.PointType
 import io.github.miinhho.point.pointtype.PointTypeRepository
+import io.github.miinhho.point.pointtype.PointVisibility
 import io.github.miinhho.point.transfer.TransferRepository
 import io.github.miinhho.point.user.User
 import io.github.miinhho.point.user.UserRepository
@@ -114,5 +115,6 @@ class NameIsSharedTest {
         userRepository.save(User(name = name, handle = handle, passwordHash = passwordEncoder.encode("point")!!))
 
     private fun point(name: String, symbol: String, issuer: User, accent: PointAccent) =
-        PointType(name = name, symbol = symbol, issuer = issuer, accent = accent, issueCap = 1_000_000, totalIssued = 0)
+        PointType(name = name, symbol = symbol, issuer = issuer, accent = accent,
+            visibility = PointVisibility.PUBLIC, issueCap = 1_000_000, totalIssued = 0)
 }
