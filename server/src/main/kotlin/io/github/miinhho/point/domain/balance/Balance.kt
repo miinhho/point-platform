@@ -21,6 +21,10 @@ class Balance(
     pointType: PointType,
     @Column(nullable = false)
     var amount: Long = 0,
+
+    // 처음 받은 뒤 사용자가 확인했는가. 발행자는 응답에서 항상 참으로 나간다.
+    @Column(nullable = false)
+    var acknowledged: Boolean = false,
 ) {
     @EmbeddedId
     val id: BalanceId = BalanceId(requireNotNull(user.id), requireNotNull(pointType.id))

@@ -14,6 +14,7 @@ import jakarta.persistence.ManyToOne
 import jakarta.persistence.PrePersist
 import jakarta.persistence.PreUpdate
 import jakarta.persistence.Table
+import java.time.Instant
 import java.util.UUID
 
 @Entity
@@ -43,6 +44,10 @@ class PointType(
     // 어느 것이 자기 것인지 알 방법이 없다. 시드로 만든 것은 키가 없다.
     @Column(name = "idempotency_key", unique = true, length = 36, updatable = false)
     var idempotencyKey: String? = null,
+
+    // 발행자가 정할 수 없는 사실 — 오래된 것은 흉내낼 수 없다 (docs/API.md 「흉내낼 수 없는 것」).
+    @Column(name = "created_at", nullable = false, updatable = false)
+    val createdAt: Instant = Instant.now(),
 ) {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

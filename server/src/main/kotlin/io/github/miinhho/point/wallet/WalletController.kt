@@ -7,6 +7,8 @@ import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.security.core.annotation.AuthenticationPrincipal
 import org.springframework.web.bind.annotation.GetMapping
+import org.springframework.web.bind.annotation.PatchMapping
+import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestHeader
@@ -20,6 +22,8 @@ import org.springframework.web.bind.annotation.RestController
 class WalletController(
     private val walletService: WalletService,
     private val pointTypeCreateService: PointTypeCreateService,
+    private val capChangeService: CapChangeService,
+    private val acknowledgeService: AcknowledgeService,
 ) {
     @GetMapping("/me")
     fun me(@AuthenticationPrincipal userId: Long): UserResponse = walletService.me(userId)
@@ -51,5 +55,35 @@ class WalletController(
             pointTypeCreateService.findByIdempotencyKey(key, userId)?.let { return ResponseEntity.ok(it) }
             throw DomainFailureException("SYMBOL_TAKEN", HttpStatus.CONFLICT, "이미 쓰이는 기호")
         }
+    }
+
+    // 취소 엔드포인트는 없다. 낮추는 것은 다시 PATCH 지만 취소가 아니다 —
+    // 올려 둔 동안 발행된 것은 이미 남의 지갑에 있다.
+    @PatchMapping("/point-types/{id}/cap")
+    fun changeCap(
+        @PathVariable id: String,
+        @RequestHeader("Idempotency-Key", required = false) idempotencyKey: String?,
+        @RequestBody body: ChangeCapRequest,
+        @AuthenticationPrincipal userId: Long,
+    ): PointTypeResponse {
+        val key = idempotencyKey?.takeIf { it.isNotBlank() }
+            ?: throw DomainFailureException("SERVER", HttpStatus.BAD_REQUEST, "Idempotency-Key 없음")
+
+        capChangeService.findByIdempotencyKey(key, userId)?.let { return it }
+        return try {
+            capChangeService.changeCap(userId, id, key, body.issueCap)
+        } catch (e: DataIntegrityViolationException) {
+            // 같은 키가 동시에 왔다 — 한 번만 바뀌고 둘 다 같은 결과를 본다.
+            capChangeService.findByIdempotencyKey(key, userId) ?: throw e
+        }
+    }
+
+    @PostMapping("/point-types/{id}/acknowledge")
+    fun acknowledge(
+        @PathVariable id: String,
+        @AuthenticationPrincipal userId: Long,
+    ): ResponseEntity<Unit> {
+        acknowledgeService.acknowledge(userId, id)
+        return ResponseEntity.noContent().build()
     }
 }

@@ -13,6 +13,8 @@ import io.github.miinhho.point.domain.transfer.TransferRepository
 import io.github.miinhho.point.domain.user.User
 import io.github.miinhho.point.domain.user.UserRepository
 import io.github.miinhho.point.transfer.TransferRequest
+import io.github.miinhho.point.domain.pointtype.CapChangeRepository
+import io.github.miinhho.point.wallet.ChangeCapRequest
 import io.github.miinhho.point.wallet.CreatePointTypeRequest
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -51,6 +53,7 @@ class ConcurrencyTest {
     @Autowired lateinit var balanceRepository: BalanceRepository
     @Autowired lateinit var transferRepository: TransferRepository
     @Autowired lateinit var refreshTokenRepository: RefreshTokenRepository
+    @Autowired lateinit var capChangeRepository: CapChangeRepository
     @Autowired lateinit var passwordEncoder: PasswordEncoder
 
     private lateinit var issuer: User
@@ -60,6 +63,7 @@ class ConcurrencyTest {
     @BeforeEach
     fun seed() {
         transferRepository.deleteAll()
+        capChangeRepository.deleteAll()
         balanceRepository.deleteAll()
         pointTypeRepository.deleteAll()
         refreshTokenRepository.deleteAll()
@@ -243,6 +247,51 @@ class ConcurrencyTest {
         assertNotNull(pointTypeRepository.findAll().firstOrNull { it.symbol == "BK" })
     }
 
+    // 계약: docs/API.md — 상한 변경은 발행이 상한을 읽을 때와 같은 행을 잠근다.
+    // 확인하는 동안 발행이 끼어들면 확인은 통과하고 결과는 유통량이 상한을 넘은 상태가 된다.
+    @Test
+    fun `상한을 낮추는 것과 발행이 겹쳐도 유통량이 상한을 넘지 않는다`() {
+        pointType.totalIssued = 500_000
+        pointTypeRepository.save(pointType)
+        val token = login("@minho").accessToken
+
+        // 상한을 발행량까지 낮추는 요청과, 여유를 쓰는 발행을 같은 순간에 보낸다.
+        val pool = java.util.concurrent.Executors.newFixedThreadPool(2)
+        val ready = CountDownLatch(2)
+        val go = CountDownLatch(1)
+        val lower = pool.submit<ResponseEntity<String>> {
+            ready.countDown(); go.await()
+            patchCap(token, UUID.randomUUID().toString(), BigDecimal(500_000))
+        }
+        val issue = pool.submit<ResponseEntity<String>> {
+            ready.countDown(); go.await()
+            postIssue(token, UUID.randomUUID().toString(), TransferRequest(pointTypeId = publicPointTypeId(), amount = BigDecimal(400_000)))
+        }
+        assertTrue(ready.await(10, TimeUnit.SECONDS))
+        go.countDown()
+        lower.get(30, TimeUnit.SECONDS)
+        issue.get(30, TimeUnit.SECONDS)
+        pool.shutdown()
+
+        val after = pointTypeRepository.findById(pointType.id!!).orElseThrow()
+        assertTrue(
+            after.totalIssued <= after.issueCap,
+            "유통량이 상한을 넘었다: ${after.totalIssued} > ${after.issueCap}",
+        )
+    }
+
+    @Test
+    fun `같은 키로 동시에 상한을 바꿔도 한 번만 바뀐다`() {
+        val token = login("@minho").accessToken
+        val key = UUID.randomUUID().toString()
+
+        val responses = inParallel(6) { patchCap(token, key, BigDecimal(2_000_000)) }
+
+        assertTrue(responses.all { it.statusCode.is2xxSuccessful }, "전부 성공 응답이어야 한다: ${responses.map { it.statusCode }}")
+        assertEquals(1, capChangeRepository.count(), "이력은 한 줄만 남아야 한다")
+        assertEquals(2_000_000, pointTypeRepository.findById(pointType.id!!).orElseThrow().issueCap)
+    }
+
     @Test
     fun `refresh 회전이 겹치면 하나만 성공하고 진 쪽이 사슬을 죽이지 않는다`() {
         val session = login("@minho")
@@ -303,6 +352,19 @@ class ConcurrencyTest {
     private fun transferIdOf(body: String?) = body?.let { Regex("\"id\":\"([^\"]+)\"").find(it)?.groupValues?.get(1) }
 
     private fun publicIdOf(body: String?) = transferIdOf(body)
+
+    private fun patchCap(token: String, key: String, cap: BigDecimal): ResponseEntity<String> {
+        val headers = HttpHeaders().apply {
+            setBearerAuth(token)
+            set("Idempotency-Key", key)
+        }
+        return restTemplate.exchange(
+            "/api/point-types/" + publicPointTypeId() + "/cap",
+            HttpMethod.PATCH,
+            HttpEntity(ChangeCapRequest(cap), headers),
+            String::class.java,
+        )
+    }
 
     private fun postPointType(token: String, key: String, body: CreatePointTypeRequest): ResponseEntity<String> {
         val headers = HttpHeaders().apply {
