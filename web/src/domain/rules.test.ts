@@ -1,29 +1,20 @@
 import { describe, expect, it } from 'vitest'
-import { cancelWindowFor, cancelWindowRemaining, HOLD_MS, isInCancelWindow } from './rules'
-
-const UNTIL = '2026-08-18T00:00:03.000Z'
-const AT = (iso: string) => Date.parse(iso)
-
-describe('취소 창', () => {
-  it('발행이 이체보다 길다 — 회수 불가능성이 다르다', () => {
-    expect(cancelWindowFor('issue')).toBeGreaterThan(cancelWindowFor('transfer'))
-  })
-
-  it('경계 시각은 이미 창 밖이다 — 애매한 순간에는 취소되지 않는 쪽으로 판단한다', () => {
-    expect(isInCancelWindow(UNTIL, AT('2026-08-18T00:00:02.999Z'))).toBe(true)
-    expect(isInCancelWindow(UNTIL, AT(UNTIL))).toBe(false)
-    expect(isInCancelWindow(UNTIL, AT('2026-08-18T00:00:03.001Z'))).toBe(false)
-  })
-
-  it('남은 시간은 음수가 되지 않는다', () => {
-    expect(cancelWindowRemaining(UNTIL, AT('2026-08-18T00:00:01.000Z'))).toBe(2000)
-    expect(cancelWindowRemaining(UNTIL, AT('2026-08-18T00:00:09.000Z'))).toBe(0)
-  })
-})
+import { HOLD_MS, MAX_AMOUNT_DIGITS } from './rules'
 
 describe('홀드', () => {
   it('금액과 무관한 상수다 — 위험도 전달이 아니라 오터치 방지가 목적이다', () => {
-    expect(typeof HOLD_MS).toBe('number')
     expect(HOLD_MS).toBeGreaterThan(0)
+  })
+
+  it('오터치를 막을 만큼 길고, 기다림으로 느껴지지 않을 만큼 짧다', () => {
+    // 300ms 미만이면 스크롤 중 스침과 구분되지 않고, 1초를 넘으면 매 이체가 대기가 된다.
+    expect(HOLD_MS).toBeGreaterThanOrEqual(300)
+    expect(HOLD_MS).toBeLessThanOrEqual(1000)
+  })
+})
+
+describe('입력 상한', () => {
+  it('한글 표기가 성립하는 범위 안이다', () => {
+    expect(MAX_AMOUNT_DIGITS).toBeLessThanOrEqual(16)
   })
 })

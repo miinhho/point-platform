@@ -66,16 +66,11 @@ describe('toGrouped', () => {
 
 describe('label', () => {
   it('두 표기를 함께 만든다 — 따로 쓰지 못하게 묶는다', () => {
-    expect(label(1_500_000)).toEqual({
-      grouped: '1,500,000',
-      korean: '백오십만',
-      withUnit: '1,500,000 P',
-      koreanWithUnit: '백오십만 포인트',
-    })
+    expect(label(1_500_000)).toEqual({ grouped: '1,500,000', korean: '백오십만' })
   })
 
-  it('한글을 만들 수 없으면 koreanWithUnit 은 비운다', () => {
-    expect(label(1e20).koreanWithUnit).toBe('')
+  it('한글을 만들 수 없으면 비운다 — 조용히 틀린 값을 내놓지 않는다', () => {
+    expect(label(1e20).korean).toBe('')
   })
 })
 

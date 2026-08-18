@@ -1,0 +1,215 @@
+import { describe, expect, it } from 'vitest'
+import { endpoints } from './endpoints'
+import { ApiError, newIdempotencyKey } from './http'
+import { balanceOf, ME } from '@/mocks/ledger'
+import { setSim } from '@/mocks/sim'
+
+/**
+ * HTTP 계약 시나리오.
+ *
+ * 인메모리 객체를 부르지 않고 실제 `fetch` 를 한다. MSW 가 앱과 같은 핸들러로
+ * 그것을 받으므로, 여기서 통과하는 것은 상태 코드와 헤더까지 포함한 계약이다.
+ */
+const key = () => newIdempotencyKey()
+
+describe('조회', () => {
+  it('내 정보', async () => {
+    await expect(endpoints.me()).resolves.toMatchObject({ id: ME, name: '장민호' })
+  })
+
+  it('지갑은 포인트별 잔액을 준다 — 이 앱에서 잔액은 하나가 아니다', async () => {
+    const wallet = await endpoints.wallet()
+    const byName = new Map(wallet.balances.map((b) => [b.pointType.name, b.amount]))
+    expect(byName.get('온포인트')).toBe(3_240_000)
+    expect(byName.get('솔포인트')).toBe(87_500)
+    expect(byName.get('금머니')).toBe(620_000)
+  })
+
+  it('내가 발행자인 포인트는 잔액이 0이어도 지갑에 남는다', async () => {
+    // 금머니를 다 보내도 발행자에게는 그 포인트가 계속 보여야 한다.
+    await endpoints.createTransfer(
+      { pointTypeId: 'pt_gm', toId: 'u_jisu', amount: 620_000 },
+      key(),
+    )
+    const wallet = await endpoints.wallet()
+    const gm = wallet.balances.find((b) => b.pointType.id === 'pt_gm')
+    expect(gm).toMatchObject({ amount: 0 })
+  })
+
+  it('이름 검색은 동명이인을 모두 준다 — 화면이 구별을 책임진다', async () => {
+    const found = await endpoints.users('김지수')
+    expect(found.map((u) => u.handle).sort()).toEqual(['@jisoo', '@jisu'])
+  })
+
+  // 포인트별 최근 대상이 이 계약의 핵심 중 하나다.
+  it('최근 대상은 포인트마다 다르다', async () => {
+    const on = await endpoints.recent('pt_on')
+    const sol = await endpoints.recent('pt_sol')
+    const gm = await endpoints.recent('pt_gm')
+    expect(on.map((u) => u.id)).toEqual(['u_jisoo', 'u_taeyun', 'u_junho'])
+    expect(sol.map((u) => u.id)).toEqual(['u_seoyeon'])
+    expect(gm.map((u) => u.id)).toEqual(['u_jisu'])
+  })
+})
+
+describe('이체', () => {
+  it('확정되어 돌아오고 잔액이 움직인다', async () => {
+    const transfer = await endpoints.createTransfer(
+      { pointTypeId: 'pt_on', toId: 'u_jisoo', amount: 30_000 },
+      key(),
+    )
+    expect(transfer.confirmedAt).toBeTruthy()
+    expect(transfer.pointTypeId).toBe('pt_on')
+    expect(balanceOf('pt_on', ME)).toBe(3_210_000)
+    expect(balanceOf('pt_on', 'u_jisoo')).toBe(842_000)
+  })
+
+  // 다중 포인트가 만드는 새 위험의 반대편 보증이다.
+  it('한 포인트를 보내도 다른 포인트 잔액은 그대로다', async () => {
+    await endpoints.createTransfer({ pointTypeId: 'pt_on', toId: 'u_jisoo', amount: 30_000 }, key())
+    expect(balanceOf('pt_sol', ME)).toBe(87_500)
+    expect(balanceOf('pt_gm', ME)).toBe(620_000)
+  })
+
+  it('확정되면 그 포인트의 최근 목록 맨 앞으로 온다', async () => {
+    await endpoints.createTransfer({ pointTypeId: 'pt_on', toId: 'u_seoyeon', amount: 1_000 }, key())
+    const recent = await endpoints.recent('pt_on')
+    expect(recent[0].id).toBe('u_seoyeon')
+    // 다른 포인트의 최근 목록은 영향받지 않는다
+    const gm = await endpoints.recent('pt_gm')
+    expect(gm.map((u) => u.id)).toEqual(['u_jisu'])
+  })
+})
+
+describe('멱등성 — 이중 이체를 막는 것은 이 헤더뿐이다', () => {
+  it('같은 키로 두 번 보내면 이체가 하나만 생긴다', async () => {
+    const k = key()
+    const first = await endpoints.createTransfer(
+      { pointTypeId: 'pt_on', toId: 'u_jisoo', amount: 30_000 },
+      k,
+    )
+    const second = await endpoints.createTransfer(
+      { pointTypeId: 'pt_on', toId: 'u_jisoo', amount: 30_000 },
+      k,
+    )
+    expect(second.id).toBe(first.id)
+    expect(balanceOf('pt_on', ME)).toBe(3_210_000)
+    await expect(endpoints.history()).resolves.toHaveLength(1)
+  })
+
+  it('키 없는 쓰기는 거절한다 — 받아 주면 조용히 이중 이체가 가능해진다', async () => {
+    await expect(
+      fetch('http://localhost/api/transfers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pointTypeId: 'pt_on', toId: 'u_jisoo', amount: 1 }),
+      }).then((r) => r.status),
+    ).resolves.toBe(400)
+  })
+})
+
+describe('거절', () => {
+  it('잔액을 넘으면 422 와 코드를 준다', async () => {
+    const error = await endpoints
+      .createTransfer({ pointTypeId: 'pt_on', toId: 'u_jisoo', amount: 9_999_999 }, key())
+      .catch((e: unknown) => e)
+    expect(error).toBeInstanceOf(ApiError)
+    expect(error).toMatchObject({ code: 'INSUFFICIENT_BALANCE', status: 422, outcomeUnknown: false })
+  })
+
+  it('없는 사람은 404', async () => {
+    await expect(
+      endpoints.createTransfer({ pointTypeId: 'pt_on', toId: 'u_nobody', amount: 1 }, key()),
+    ).rejects.toMatchObject({ code: 'RECIPIENT_NOT_FOUND', status: 404 })
+  })
+
+  it('없는 포인트는 404', async () => {
+    await expect(
+      endpoints.createTransfer({ pointTypeId: 'pt_nope', toId: 'u_jisoo', amount: 1 }, key()),
+    ).rejects.toMatchObject({ code: 'POINT_TYPE_NOT_FOUND' })
+  })
+})
+
+describe('발행', () => {
+  it('무에서 만들고 총 유통량이 늘어난다. 내 잔액은 그대로다', async () => {
+    const before = balanceOf('pt_gm', ME)
+    const issued = await endpoints.createIssue(
+      { pointTypeId: 'pt_gm', toId: 'u_jisu', amount: 100_000 },
+      key(),
+    )
+    expect(issued.fromId).toBeNull()
+    expect(issued.kind).toBe('issue')
+    expect(balanceOf('pt_gm', ME)).toBe(before)
+    expect(balanceOf('pt_gm', 'u_jisu')).toBe(145_000)
+
+    const types = await endpoints.pointTypes()
+    expect(types.find((t) => t.id === 'pt_gm')?.totalIssued).toBe(1_300_000)
+  })
+
+  it('상한을 넘으면 422', async () => {
+    await expect(
+      endpoints.createIssue({ pointTypeId: 'pt_gm', toId: 'u_jisu', amount: 99_000_000 }, key()),
+    ).rejects.toMatchObject({ code: 'CAP_EXCEEDED' })
+  })
+
+  it('내 포인트가 아니면 403 — 권한은 화면이 아니라 서버가 막는다', async () => {
+    await expect(
+      endpoints.createIssue({ pointTypeId: 'pt_on', toId: 'u_jisu', amount: 1 }, key()),
+    ).rejects.toMatchObject({ code: 'NOT_ISSUER', status: 403 })
+  })
+})
+
+describe('결과를 알 수 없는 실패', () => {
+  it('네트워크 실패는 전송 자체가 실패한다', async () => {
+    setSim({ forceFailure: 'NETWORK' })
+    const error = await endpoints.me().catch((e: unknown) => e)
+    expect(error).toMatchObject({ code: 'NETWORK', status: null, outcomeUnknown: true })
+  })
+
+  it('서버 오류도 결과를 알 수 없다', async () => {
+    setSim({ forceFailure: 'SERVER' })
+    await expect(endpoints.me()).rejects.toMatchObject({ code: 'SERVER', outcomeUnknown: true })
+  })
+
+  it('주입된 실패는 한 번만 쓰이고 소모된다', async () => {
+    setSim({ forceFailure: 'NETWORK' })
+    await expect(endpoints.me()).rejects.toBeInstanceOf(ApiError)
+    await expect(endpoints.me()).resolves.toBeTruthy()
+  })
+
+  it('없는 이체를 조회하면 404 — 일어나지 않았다는 답이 된다', async () => {
+    await expect(endpoints.transfer('t_nope')).rejects.toMatchObject({ status: 404 })
+  })
+
+  it('결과를 모를 때 같은 키로 재시도하면 하나만 생긴다', async () => {
+    const k = key()
+    setSim({ forceFailure: 'NETWORK' })
+    await expect(
+      endpoints.createTransfer({ pointTypeId: 'pt_on', toId: 'u_jisoo', amount: 30_000 }, k),
+    ).rejects.toMatchObject({ outcomeUnknown: true })
+
+    // 네트워크 실패는 서버에 닿지 못했으므로 아무것도 일어나지 않았다
+    expect(balanceOf('pt_on', ME)).toBe(3_240_000)
+
+    await endpoints.createTransfer({ pointTypeId: 'pt_on', toId: 'u_jisoo', amount: 30_000 }, k)
+    expect(balanceOf('pt_on', ME)).toBe(3_210_000)
+    await expect(endpoints.history()).resolves.toHaveLength(1)
+  })
+})
+
+describe('내역', () => {
+  it('최신순으로 주고 포인트로 걸러진다', async () => {
+    const on = await endpoints.createTransfer(
+      { pointTypeId: 'pt_on', toId: 'u_jisoo', amount: 1_000 },
+      key(),
+    )
+    const gm = await endpoints.createTransfer(
+      { pointTypeId: 'pt_gm', toId: 'u_jisu', amount: 2_000 },
+      key(),
+    )
+    await expect(endpoints.history()).resolves.toMatchObject([{ id: gm.id }, { id: on.id }])
+    await expect(endpoints.history({ pointTypeId: 'pt_on' })).resolves.toMatchObject([
+      { id: on.id },
+    ])
+  })
+})

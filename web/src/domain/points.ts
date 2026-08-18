@@ -1,10 +1,14 @@
-// 포인트 표기. 헌법 6조 — 금액은 항상 두 표기를 나란히 둔다.
+// 금액 표기 (docs/JOURNEY.md 여정 4).
 //
-//   1,500,000 P
-//   백오십만 포인트
+//   1,500,000
+//   백오십만
 //
 // 자릿수 오타(150만 → 1500만)는 숫자만 보면 놓치지만 한글 표기에서는 즉시 눈에 띈다.
 // 이것이 이 파일이 존재하는 유일한 이유다.
+//
+// 포인트 이름은 여기서 붙이지 않는다. 어느 포인트인지는 `PointType` 이 알고,
+// 둘을 묶는 것은 화면의 일이다 — 다만 **금액만 단독으로 보여주는 화면을 만들지
+// 않는 것**이 규칙이다. `30,000` 은 어느 포인트든 똑같이 생겼다.
 
 import type { Points } from './types'
 
@@ -60,24 +64,12 @@ export interface PointsLabel {
   grouped: string
   /** "백오십만" — 비어 있으면 한글 표기를 만들 수 없었다는 뜻이다. */
   korean: string
-  /** "1,500,000 P" */
-  withUnit: string
-  /** "백오십만 포인트" */
-  koreanWithUnit: string
 }
-
-export const UNIT_SYMBOL = 'P'
-export const UNIT_NAME = '포인트'
 
 export function label(amount: Points): PointsLabel {
   const grouped = toGrouped(amount)
   const korean = toKorean(amount)
-  return {
-    grouped,
-    korean,
-    withUnit: `${grouped} ${UNIT_SYMBOL}`,
-    koreanWithUnit: korean ? `${korean} ${UNIT_NAME}` : '',
-  }
+  return { grouped, korean }
 }
 
 /** 키패드 입력을 Points 로. 최소 단위가 1P 이므로 정수만 받는다. */

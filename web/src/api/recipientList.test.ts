@@ -2,12 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { buildRecipientList, buildSearchList } from './recipientList'
 import type { User } from '../domain/types'
 
-const member = (id: string, name: string, handle: string): User => ({
-  id,
-  name,
-  handle,
-  role: 'member',
-})
+const member = (id: string, name: string, handle: string): User => ({ id, name, handle })
 
 const JISOO = member('u_jisoo', '김지수', '@jisoo')
 const JISU = member('u_jisu', '김지수', '@jisu')

@@ -1,136 +1,135 @@
 # API 계약
 
-Mock 서버와 실서버(Spring Boot + Kotlin + MySQL)가 **같은 계약**을 구현한다. 클라이언트는 `PointApi` 인터페이스에만 의존하고, 교체는 구현체를 바꾸는 것으로 끝난다.
+계약은 **HTTP** 다. TypeScript 인터페이스가 아니다.
+
+1차 구현에서는 `PointApi` 라는 TS 인터페이스를 계약이라 부르고 Mock 을 로컬 모듈로 두었다.
+그러면 앱이 HTTP 를 한 번도 쓰지 않은 채 완성된다 — 멱등성 키가 헤더가 아니라 JS 객체
+필드였고, "네트워크 실패"는 진짜 실패가 아니라 로컬에서 던진 예외였다. 실서버를 붙이는 날
+클라이언트 계층을 처음부터 새로 써야 했을 것이다.
+
+지금은 앱이 실제 `fetch` 를 하고 개발 중에는 **MSW** 가 그것을 가로챈다.
+Spring Boot 가 오면 `src/mocks/` 만 지운다.
+
+- 클라이언트: `src/api/http.ts`, `src/api/endpoints.ts`
+- Mock 서버: `src/mocks/handlers.ts`, `src/mocks/ledger.ts`
+- 시뮬레이션: `src/mocks/sim.ts`
+
+기준 경로는 `/api` 다.
 
 ## 설계 결정
 
-### 멱등성은 처음부터 넣는다
-
-이체는 되돌릴 수 없다(헌법 23조). 그러므로 네트워크 재시도로 인한 이중 이체는 치명적이다. 헌법 12조는 "실패 시 재시도 경로를 제시하라"고 요구하는데, **재시도를 안전하게 만드는 것이 멱등성**이다.
-
-- 클라이언트가 `idempotencyKey`(UUID)를 생성해서 보낸다
-- 같은 키로 재요청하면 서버는 **새 이체를 만들지 않고 기존 것을 반환**한다
-- 키는 사용자가 금액 입력을 마치고 확정 화면에 진입할 때 생성한다. 재시도 버튼은 같은 키를 재사용한다
-- Mock에서도 동일하게 동작하므로, 실서버 교체 전에 검증된다
-
-### 취소 창은 서버 상태로 표현한다
-
-헌법 9조의 3초 취소 창을 클라이언트 타이머만으로 구현하면, 헌법 11조("서버가 확정하기 전에 완료라고 말하지 않는다")와 충돌한다. 3초 동안 앱이 무슨 상태인지 설명할 수 없기 때문이다.
-
-그래서 서버가 `pending` 상태로 접수하고, `cancelableUntil`까지 취소를 받는다.
+### 멱등성 키는 헤더다
 
 ```
-                  ┌─────────────► cancelled   (cancelableUntil 이전에만)
-                  │
- (요청) ──► pending ──────────────► confirmed  (모든 단계 완료. 되돌릴 수 없음)
-                  │
-                  └─────────────► failed
+POST /api/transfers
+Idempotency-Key: 3a729bd1-8d12-4837-8082-97942afa0ed2
 ```
 
-**`pending`은 두 구간으로 나뉜다.**
+본문 필드로 보내면 서버가 본문을 파싱해야 키를 알 수 있고, 그러면 재시도 판정이 본문
+스키마에 묶인다. 결제 API 들이 헤더를 쓰는 이유가 이것이다.
 
-| 구간 | 시각 | 무슨 일이 일어나는가 | 취소 |
-|---|---|---|---|
-| 취소 창 | `createdAt` ~ `cancelableUntil` | **아무 처리도 하지 않는다** | 가능 |
-| 처리 중 | `cancelableUntil` ~ `confirmedAt` | 단계가 실제로 진행된다 | 불가 |
+**키 없는 쓰기는 400 으로 거절한다.** 받아 주면 클라이언트가 키를 빼먹었을 때 조용히
+이중 이체가 가능해지고, 그건 배포된 뒤에 발견된다.
 
-취소 창 동안 이미 출금해 두면, "취소 가능"은 거짓말이 된다. 그래서 창이 끝난 뒤에 처리를 시작한다. `cancelableUntil`을 서버가 정하므로 클라이언트 시계를 신뢰하지 않는다.
+같은 키로 다시 요청하면 새 이체를 만들지 않고 기존 것을 `200` 으로 돌려준다.
 
-이 구분은 화면 문구에도 그대로 나타나야 한다. 취소 창 동안은 "보내는 중"이 아니라 "3초 후 보냅니다"다.
+### 취소가 없다
 
-### 발행은 이체와 같은 상태 기계를 쓴다
+`cancelableUntil`, `POST /transfers/:id/cancel`, `NOT_CANCELLABLE`, `cancelled` 상태가
+모두 사라졌다. 이유는 `JOURNEY.md` 의 "버린 것" 에 있다 — 거의 쓰이지 않으면서 모든
+이체에 인지 부하를 더하고, "몇 초 안에 결정" 자체가 스트레스다.
 
-헌법 24조에 따라 발행은 이체보다 위험하다. 그러나 상태 기계는 동일하게 두고, **취소 창의 길이만 다르게** 한다. 상태 모델을 두 벌 만들면 어느 쪽 규칙이 적용되는지 흐려진다.
+그래서 **쓰기는 동기·원자적**이다. 검증과 반영이 한 순간에 일어나고 응답은 확정된
+이체이거나 오류다. 중간 상태가 없다는 것은 화면이 그릴 중간 상태도 없다는 뜻이다.
 
-| | 취소 창 |
-|---|---|
-| 이체 | 3초 |
-| 발행 | 8초 |
+`Transfer` 에 `status` 필드가 없는 것도 같은 이유다. 저장된 이체는 언제나 확정된 것이다.
+시스템이 만들어 낼 수 없는 값을 타입에 두면 화면은 그 상태를 그리게 되고, 그 화면은
+영원히 검증되지 않는다.
 
-## 타입
+**실패는 기록이 아니라 응답이다.** 실패한 요청은 내역에 남지 않는다.
 
-`web/src/domain/types.ts` 가 원본이다. 이 문서는 요약이다.
+### 포인트는 여럿이다
 
-```ts
-type Points = number          // 정수. 최소 단위 1P. 소수점 없음
-type UserId = string
-type TransferStatus = 'pending' | 'confirmed' | 'cancelled' | 'failed'
+발행자마다 자기 포인트가 있고 사용자는 여러 종류를 동시에 가진다.
 
-interface User {
-  id: UserId
-  name: string        // 사람이 검증할 수 있는 것 (헌법 6조)
-  handle: string      // @minho — 계좌번호 역할. 작게 표시한다
-  role: 'member' | 'issuer'
-}
+- 잔액은 `(pointTypeId, userId)` 단위다
+- 이체는 **같은 종류끼리만** 일어난다. 요청에 `pointTypeId` 가 없으면 400
+- 발행은 `PointType.issuerId` 와 요청자가 같을 때만 성공한다 (403 `NOT_ISSUER`)
+- 최근 대상은 **포인트별로** 다르다
 
-interface Ledger {
-  totalIssued: Points   // 총 발행량
-  issueCap: Points      // 발행 상한 (헌법 22조)
-}
+### 발행은 이체와 같은 모양이다
 
-interface Transfer {
-  id: string
-  idempotencyKey: string
-  kind: 'transfer' | 'issue'
-  fromId: UserId | null      // issue는 null (무에서 발행)
-  toId: UserId
-  amount: Points
-  memo?: string
-  status: TransferStatus
-  completedSteps: ProgressStep[]  // 서버가 실제로 끝낸 단계만
-  createdAt: string               // ISO 8601
-  cancelableUntil: string         // 취소 창의 끝. 이후 처리 시작
-  confirmedAt?: string            // 모든 단계 완료 시각
-  failure?: { code: FailureCode; message: string }
-}
-```
+`POST /issues` 는 `POST /transfers` 와 같은 본문·같은 헤더를 받고 같은 `Transfer` 를
+돌려준다. 다른 것은 `fromId` 가 `null` 이고(무에서 만든다) `totalIssued` 가 늘어난다는 점뿐이다.
+클라이언트가 두 흐름을 하나의 상태 기계로 다룰 수 있는 이유다.
 
 ## 엔드포인트
 
-| 메서드 | 경로 | 설명 |
-|---|---|---|
-| `GET` | `/me` | 현재 사용자 + 잔액 |
-| `GET` | `/users` | 최근 이체 대상 + 검색 (`?q=`) |
-| `GET` | `/ledger` | 총 발행량, 발행 상한 (헌법 22조) |
-| `POST` | `/transfers` | 이체 요청. `Idempotency-Key` 필수 |
-| `POST` | `/transfers/:id/cancel` | 취소. `cancelableUntil` 이전에만 |
-| `GET` | `/transfers/:id` | 단건 조회 (확정 대기 중 폴링) |
-| `GET` | `/transfers` | 내역 (`?limit=&cursor=`) |
-| `POST` | `/issues` | 발행. `issuer` 역할만. `Idempotency-Key` 필수 |
+| 메서드 | 경로 | 응답 | 설명 |
+|---|---|---|---|
+| `GET` | `/api/me` | `User` | 현재 사용자 |
+| `GET` | `/api/wallet` | `Wallet` | 포인트별 잔액 전부 |
+| `GET` | `/api/point-types` | `PointType[]` | 존재하는 포인트 종류 |
+| `GET` | `/api/users?q=` | `User[]` | 검색. 질의 없으면 전체 |
+| `GET` | `/api/recent?pointTypeId=&limit=` | `User[]` | 그 포인트로 최근에 보낸 사람 |
+| `POST` | `/api/transfers` | `Transfer` `201` | 이체. `Idempotency-Key` 필수 |
+| `POST` | `/api/issues` | `Transfer` `201` | 발행. 발행자만 |
+| `GET` | `/api/transfers/:id` | `Transfer` | 단건. **404 는 일어나지 않았다는 뜻** |
+| `GET` | `/api/transfers?pointTypeId=&limit=` | `Transfer[]` | 내역, 최신순 |
 
-## 실패 코드
+쓰기 본문:
 
-클라이언트는 코드로 분기하고, `message`를 그대로 화면에 뿌리지 않는다. 헌법 12조에 따라 화면 문구는 "무엇이 실패했는지 / 돈이 어디 있는지 / 지금 뭘 할 수 있는지"를 담아야 하고, 그건 서버 메시지로 대체되지 않는다.
+```json
+{ "pointTypeId": "pt_on", "toId": "u_jisoo", "amount": 30000 }
+```
 
-| 코드 | 의미 | 재시도 가능 |
-|---|---|---|
-| `INSUFFICIENT_BALANCE` | 잔액 부족 | 아니오 (금액 수정 필요) |
-| `CAP_EXCEEDED` | 발행 상한 초과 | 아니오 |
-| `NOT_CANCELLABLE` | 취소 창이 지났다 | 아니오 |
-| `RECIPIENT_NOT_FOUND` | 대상 없음 | 아니오 |
-| `NETWORK` | 요청이 서버에 닿지 못함 | **예** (같은 키로) |
-| `SERVER` | 서버 오류 | **예** (같은 키로) |
+`GET /api/wallet` 은 잔액이 0인 포인트도 **내가 발행자라면** 포함한다. 가졌던 것과
+가진 적 없는 것은 다르고, 그 판단은 화면이 한다.
 
-`NETWORK`와 `SERVER`는 **이체가 성립했는지 클라이언트가 알 수 없는 상태**다. 헌법 12조가 요구하는 "돈이 어디 있는지"를 답할 수 없으므로, 이 경우 화면은 추측하지 않고 "확인 중"으로 두고 `GET /transfers/:id`로 실제 상태를 조회한다. 멱등성 키가 있기 때문에 이 조회와 재시도가 안전하다.
+## 실패
 
-## Mock 시뮬레이션
+오류 응답 본문은 `{ "code": FailureCode, "message"?: string }` 이다.
+클라이언트는 `code` 로 분기하고 `message` 를 화면에 그대로 뿌리지 않는다 — 화면 문구는
+"무엇이 실패했는지 / 돈이 어디 있는지 / 지금 뭘 할 수 있는지"를 담아야 하고, 그건 서버
+메시지로 대체되지 않는다.
 
-Mock은 동시성 충돌을 만들지 않는다(요청은 직렬 처리). 대신 헌법 10~12조를 검증하기 위해 아래를 주입할 수 있다.
+| 코드 | 상태 | 의미 | 다음 행동 |
+|---|---|---|---|
+| `INSUFFICIENT_BALANCE` | 422 | 그 포인트의 잔액 부족 | 금액 수정 |
+| `CAP_EXCEEDED` | 422 | 발행 상한 초과 | 금액 수정 |
+| `NOT_ISSUER` | 403 | 그 포인트의 발행자가 아님 | 없음 (막다른 화면) |
+| `RECIPIENT_NOT_FOUND` | 404 | 대상 없음 | 대상 다시 고르기 |
+| `POINT_TYPE_NOT_FOUND` | 404 | 포인트 없음 | 없음 |
+| `SERVER` | 5xx | 서버 오류 | **재시도** (같은 키) |
+| `NETWORK` | — | 요청이 서버에 닿지 못함 | **재시도** (같은 키) |
+
+`NETWORK` 와 `SERVER` 만 **결과를 알 수 없는 실패**다. 서버가 요청을 처리했는지 알 수
+없으므로 화면은 "실패했습니다"라고 단정하지 않는다. 멱등성 키가 있으므로 재시도가 안전하고,
+`GET /api/transfers/:id` 로 실제 상태를 확인할 수도 있다.
+
+`NETWORK` 는 응답이 아니다. MSW 는 `HttpResponse.error()` 로 **전송 자체를 실패**시킨다.
+서버가 준 오류와 요청이 닿지 못한 것은 클라이언트에게 전혀 다른 상황이고, 그 차이를
+흉내내면 "결과를 알 수 없다"를 검증할 수 없다.
+
+## 시뮬레이션
+
+`src/mocks/sim.ts`. 실패하지 않는 앱에서는 정직함을 시험할 수 없다.
 
 ```ts
 interface SimConfig {
-  latencyMs: number            // 기본 700
-  jitterMs: number             // 기본 300
-  failureRate: number          // 0.0 ~ 1.0. 기본 0
-  forceFailure: FailureCode | null
-  stepDelays: number[]         // 진행 단계별 지연 (헌법 10조)
+  latencyMs: number        // 기본 400
+  jitterMs: number         // 기본 200
+  failureRate: number      // 0.0 ~ 1.0. 기본 0
+  forceFailure: FailureCode | null   // 다음 한 요청만. 쓰면 소모된다
 }
 ```
 
-`stepDelays`는 헌법 10조("스피너를 쓰지 않는다. 진행은 실제 단계로 보여준다")를 위한 것이다. 이체는 네 단계로 진행한다.
+## 실기기에서 볼 때
 
-```
-출금 → 이체 요청 → 상대 확인 → 입금 완료
-```
+서비스 워커는 **보안 컨텍스트에서만** 등록된다. 폰에서 LAN IP(`http://172.30.x.x:5173`)로
+열면 MSW 가 뜨지 않고 모든 요청이 404 가 된다.
 
-실서버에서는 이 단계가 실제 처리 단계에 대응한다. Mock에서는 지연으로 흉내내되, **단계를 건너뛰거나 가짜로 먼저 완료 표시하지 않는다**(헌법 11조).
+```bash
+adb reverse tcp:5173 tcp:5173   # 무선 adb 에서도 된다
+# 폰에서 http://localhost:5173 으로 연다 — localhost 는 보안 컨텍스트다
+```

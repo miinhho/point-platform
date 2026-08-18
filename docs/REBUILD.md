@@ -37,6 +37,20 @@ Jotai 비동기 atom 하나로 통일하는 안을 검토했다가 버렸다. �
 | TanStack Query | 지갑·사용자·포인트 종류·이체 내역 — 서버가 진실인 것 |
 | Jotai | 플로우 상태, 선택된 포인트, 개발자 패널, 색 모드 — 클라이언트가 진실인 것 |
 
+**Mock — MSW (Mock Service Worker)**
+
+계약을 TypeScript 인터페이스가 아니라 **HTTP** 로 둔다. 1차 구현은 `PointApi` 인터페이스와
+로컬 Mock 모듈이었고, 그래서 앱이 HTTP 를 한 번도 쓰지 않은 채 완성됐다 — 멱등성 키가
+헤더가 아니라 JS 객체 필드였고, "네트워크 실패"는 로컬에서 던진 예외였다. 실서버를
+붙이는 날 클라이언트 계층을 새로 써야 했을 것이다.
+
+지금은 앱이 실제 `fetch` 를 하고 MSW 가 가로챈다. 테스트도 같은 핸들러를 쓴다 —
+그래서 테스트가 검증하는 것이 실제 계약(상태 코드·헤더·전송 실패)이 된다.
+Spring Boot 가 오면 `src/mocks/` 만 지운다.
+
+주의: 서비스 워커는 보안 컨텍스트에서만 등록된다. 실기기에서는 LAN IP 대신
+`adb reverse` 로 `localhost` 를 써야 한다.
+
 **문자열 — i18next + react-i18next**
 
 키로 관리하고 타입을 잡는다. RN 셸에서도 같은 카탈로그를 쓸 수 있다.
@@ -54,7 +68,7 @@ locale 은 `ko` 하나로 시작하지만 하드코딩을 막는 것이 목적�
 | Task | 내용 | 산출물 |
 |---|---|---|
 | **T0** | 여정 재작성 · 결정 기록 | `JOURNEY.md`, `REBUILD.md` |
-| **T1** | 도메인 · 계약 재설계 | `domain/`, `API.md`, Mock, 도메인 테스트 |
+| **T1** | 도메인 · HTTP 계약 · MSW | `domain/`, `api/`, `mocks/`, `API.md` |
 | **T2** | 폴더 재배치 · 죽은 코드 제거 | `features/`, `shared/` |
 | **T3** | 상태 계층 | TanStack Query + Jotai 배선, 내비게이션 분리 |
 | **T4** | 문자열 카탈로그 | i18next, 해요체 전환, 문구 규칙 테스트 |
@@ -72,7 +86,7 @@ T1~T5 가 끝나기 전까지는 화면을 건드리지 않는다. 순서를 뒤
 
 1차 구현에서 검증된 것은 버리지 않는다.
 
-- `domain/points.ts` — 한글 표기 (15케이스). 포인트 이름만 붙이면 그대로 쓴다
+- `domain/points.ts` — 한글 표기 (15케이스). 전역 단위 기호(`P`)만 떼어냈다
 - `domain/failures.ts` — 실패를 "돈이 어디 있는지"로 옮기는 것 (7케이스)
 - `domain/ledger.ts` — 비율 표기 (6케이스)
 - `api/recipientList.ts` — 최근 묶음과 동명이인 인접의 충돌 해결 (8케이스)
@@ -86,5 +100,9 @@ T1~T5 가 끝나기 전까지는 화면을 건드리지 않는다. 순서를 뒤
 - 취소 창 전부 — `cancelableUntil`, `cancel()`, `NOT_CANCELLABLE`, `cancelled` 상태
 - `watch()` 구독 — 서버가 동기로 확정을 돌려주면 필요 없다
 - 진행 4단계 — `ProgressStep`, `completedSteps`
+- `Transfer.status` — 취소가 없어지자 저장된 이체는 언제나 확정된 것이 되었다.
+  시스템이 만들어 낼 수 없는 값을 타입에 두면 화면은 그 상태를 그리게 되고,
+  그 화면은 영원히 검증되지 않는다
+- `PointApi` 인터페이스 — 계약이 HTTP 로 옮겨갔다
 - `screens/Sending.tsx` — 화면 자체가 사라진다
 - 쿠폰 (만들지 않았다)

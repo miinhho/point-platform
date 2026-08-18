@@ -1118,3 +1118,460 @@ R2 에서 가장 중요한 발견이다. 같은 `@jisu` 를 화면별로 따라�
 ## 현장 기록 · R3
 
 <!-- 실기기 세션이 append -->
+
+---
+
+# 재작성 준비 · 실기기 세션
+
+R3 은 중단됐다 (작업 세션 `msg_79be3132810a`). 화면 대부분이 사라지므로 R3 현장 기록은
+비운 채 둔다. 이 절은 **T6 이 나왔을 때 바로 잴 수 있도록** 준비해 둔 것이다.
+
+## 이 기록 중 무엇이 살아남는가
+
+R1·R2 기록은 그대로 둔다 — 재작성의 근거다. 다만 **어떤 관측이 새 구현에서도 유효한지**를
+가려 두지 않으면, 사라진 화면에 대한 기록을 근거로 쓰게 된다.
+
+**그대로 유효 — 다시 잴 필요 없다**
+
+| 기록 | 왜 유효한가 |
+|---|---|
+| R1-4 `gfxinfo` 로는 웹 프레임을 못 잰다 | 계측 방법. 구현과 무관 |
+| R1-5 / B-7 / B-20 두 세션 운영 사고 | 운영 방식. 구현과 무관 |
+| R2-1 시스템 back 덫 | `useSystemBack.ts` 가 살아남는 목록에 있다 |
+| R2-2 / R2-4 전환 속도·프레임 | `ScreenTransition.tsx` 가 살아남는다 |
+| R2-3 전환 중 글자 소실 0회 | 같은 전환 구현 |
+| R2-5 키보드가 뷰포트의 63% 를 덮는다 (앱에 286 CSS px) | **기기 실측치다.** 화면이 바뀌어도 이 수는 그대로다 |
+| B-12 멱등성 | 멱등성 키 설계가 살아남는다 |
+| B-13 실패 문구가 돈의 위치를 다르게 말한다 | `domain/failures.ts` 가 살아남는다 |
+| B-16 내역 모프가 슬라이드와 안 싸운다 | `ScreenTransition` 의 morph 분리가 살아남는다 |
+| B-17 자릿수 축소 | `ui/amountFit.ts` 가 살아남는다 |
+
+**무의미해진다 — 대상이 사라진다**
+
+| 기록 | 왜 |
+|---|---|
+| B-9 의 진행 4단계 부분 | 진행 4단계가 제거된다 |
+| B-11 취소 창 정직성 | 취소 창이 통째로 사라진다 |
+| B-18 진행 화면 미도달 단계 대비 4.12 / 2.56 | 그 화면이 사라진다. **다만 색 토큰 문제는 남을 수 있으니 T5 이후 다시 훑는다** |
+
+**다시 재야 한다 — 대상은 남지만 구현이 바뀐다**
+
+| 기록 | 왜 |
+|---|---|
+| R2-7 키패드 기하 108×60 CSS px | 키패드를 다시 만든다. 이 값은 **비교 기준선**으로 남긴다 |
+| B-2 / B-8 대비 전반 | T5 에서 토큰과 recipe 를 전면 교체한다 |
+| B-10 / B-15 완료 화면이 옛 값을 보여준다 | TanStack Query 로 바뀌면 조회 시점이 달라진다. **T8 에서 최우선으로 다시 본다** |
+| B-14 발행 색·문구 분리 | 화면을 다시 만든다 |
+
+**새로 생기는 확인 항목** — `JOURNEY.md` 재작성판에서 온 것.
+
+- 여정 1 — 포인트 다섯 개를 놓고 특정 포인트의 잔액을 찾는 데 걸리는 시선 이동.
+  **카드 제목을 읽어야만 찾을 수 있으면 색 표식이 실패한 것이다.** 사람 눈이 필요하다
+- 여정 2 — **보내기 플로우의 모든 화면에서 포인트 이름이 보이는지.**
+  한 화면이라도 `30,000`만 있고 무엇인지 없으면 실패. 아래 스크립트로 자동화했다
+
+## 도구 1 — adb 무선 재연결 (포트가 매번 바뀐다)
+
+R2-8 에서 겪은 문제: 폰이 절전에 들어가면 연결이 끊기고, 다시 켜면 **포트 번호가 바뀐다.**
+페어링은 유지되므로 `adb pair` 는 다시 하지 않아도 된다. 포트를 자동으로 찾아 붙는다.
+
+```bash
+adb-reconnect() {
+  adb start-server >/dev/null 2>&1
+  local addr
+  addr=$(timeout 15 adb mdns services 2>/dev/null \
+         | awk '/_adb-tls-connect/ {print $NF; exit}')
+  if [ -z "$addr" ]; then
+    echo "mdns 에 기기가 없다. 폰 화면을 켜고 개발자 옵션 → 무선 디버깅을 다시 켜라."
+    return 1
+  fi
+  echo "찾음: $addr"
+  adb connect "$addr"
+}
+```
+
+`awk` 부분은 실제 `adb mdns services` 출력으로 검증했다
+(`adb-R3CW…  _adb-tls-connect._tcp  172.30.1.31:42241` → `172.30.1.31:42241`).
+**연결 자체는 기기가 없어 검증하지 못했다.**
+
+폰이 응답은 하는데 `connect` 가 거부되면 절전 상태다 — `ping` 의 RTT 가 LAN 인데도
+300ms 근처면 그렇다. 화면을 켜야 한다.
+
+## 도구 2 — 전환 프레임 실측
+
+`gfxinfo` 로는 웹 프레임이 안 잡힌다 (R1-4). 웹 컨텐츠 서피스를 직접 봐야 한다.
+
+```bash
+# 레이어 이름을 찾는다. 브라우저가 서피스를 새로 만들면 #뒤 숫자가 바뀌므로 매번 찾는다.
+sf-layer() {
+  adb shell dumpsys SurfaceFlinger --list 2>/dev/null \
+    | grep -o "${1:-com.android.chrome}/ChromeChildSurface#[0-9]*" | tail -1
+}
+
+# 전환 직전 2초 정지 → 전환 1회 → 정지, 그 뒤에 덤프한다.
+# 유휴 상태에서는 프레임이 생기지 않으므로 링버퍼에 그 전환만 남는다.
+sf-frames() {
+  adb shell dumpsys SurfaceFlinger --latency "$(sf-layer "$1")" | frames.py
+}
+```
+
+`frames.py` (표준입력으로 받는다):
+
+```python
+import sys
+lines = [l.strip() for l in sys.stdin if l.strip()]
+rows = [tuple(int(x) for x in l.split()) for l in lines[1:] if len(l.split()) == 3]
+act = sorted(r[1] for r in rows if r[1] not in (0, 9223372036854775807))
+gaps = [(act[i+1] - act[i]) / 1e6 for i in range(len(act) - 1)]
+bursts, cur = [], []
+for g in gaps:                      # 200ms 이상 비면 다른 동작으로 본다
+    if g > 200:
+        if cur: bursts.append(cur); 
+        cur = []
+    else: cur.append(g)
+if cur: bursts.append(cur)
+for i, b in enumerate(bursts):
+    if len(b) < 3: continue
+    s = sorted(b)
+    print(f"버스트{i}: {len(b)+1}프레임 / {sum(b):.0f}ms / "
+          f"중앙 {s[len(s)//2]:.1f}ms ({1000/s[len(s)//2]:.0f}Hz) / "
+          f"최대 {max(b):.1f}ms / 16.7ms 초과 {len([x for x in b if x > 16.7])}개")
+```
+
+**검증했다** — R2-4 에서 실제로 받았던 덤프를 이 파서에 넣으면 그때 보고한 값이 그대로
+나온다 (앞으로 50프레임/436ms, 뒤로 58프레임/545ms, 양쪽 중앙 8.4ms = 119Hz).
+
+첫 행의 `41666665`(=24Hz)는 유휴 상태 값이라 믿으면 안 된다. 실측 간격이 정답이다.
+
+## 도구 3 — 대비 자동 검사
+
+새 화면마다 다시 잴 것이므로 재사용 가능한 형태로 둔다. 브라우저 콘솔이나
+`agent-browser eval` 에 그대로 넣는다.
+
+두 가지가 중요하다. **(1) `body` 는 투명이라 배경을 조상으로 거슬러 올라가 찾아야 한다** —
+그냥 쓰면 값이 전부 틀린다. **(2) WCAG large text 예외**(24px 이상, 또는 18.66px 이상이면서
+bold)를 적용해야 오탐이 안 난다.
+
+```js
+(() => {
+  const painted = (el) => {                       // 실제로 칠해진 배경
+    for (let n = el; n; n = n.parentElement) {
+      const c = getComputedStyle(n).backgroundColor;
+      if (c && !/rgba\(0, 0, 0, 0\)|transparent/.test(c)) return c;
+    }
+    return "rgb(255, 255, 255)";
+  };
+  const lum = (c) => {
+    const [r, g, b] = c.match(/\d+/g).slice(0, 3).map(Number).map((v) => {
+      v /= 255;
+      return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+    });
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  };
+  const ratio = (a, b) => {
+    const [l1, l2] = [lum(a), lum(b)];
+    return +(((Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05)).toFixed(2));
+  };
+  const needs = (px, w) => (px >= 24 || (px >= 18.66 && w >= 700) ? 3.0 : 4.5);
+
+  const fails = [];
+  document.querySelectorAll("*").forEach((el) => {
+    if (el.children.length) return;
+    const text = (el.textContent || "").trim();
+    if (!text) return;
+    const cs = getComputedStyle(el);
+    if (cs.display === "none" || cs.visibility === "hidden") return;
+    if (el.getAttribute("aria-hidden") === "true") return;   // 장식은 제외
+    const px = parseFloat(cs.fontSize), w = parseInt(cs.fontWeight, 10) || 400;
+    const r = ratio(cs.color, painted(el));
+    if (r < needs(px, w)) fails.push({ text: text.slice(0, 34), fg: cs.color, px, w, ratio: r });
+  });
+  return JSON.stringify({ failCount: fails.length, fails });
+})()
+```
+
+**검증했다** — 현재 홈에서 20개 중 1개 미달을 잡아낸다 (개발자 패널 아이콘 `⚙`,
+`rgb(113,113,122)` 14px/400, 4.12). 핸들 수정 뒤라 나머지는 통과한다.
+
+## 도구 4 — 금액에 포인트 이름이 붙어 있는가 (여정 2)
+
+새 여정 2 의 확인 방법이 **자동화 가능한 형태로 쓰여 있다**: "한 화면이라도 `30,000`만
+있고 무엇인지 없으면 실패다." 보내기 플로우의 각 화면에서 이걸 실행한다.
+
+```js
+(() => {
+  const NAMES = window.__POINT_NAMES;        // T1 이후 실제 포인트 이름 배열을 넣는다
+  const AMOUNT = /\d{1,3}(,\d{3})+|\b\d{4,}\b/;
+  const visible = (el) => {
+    for (let n = el; n; n = n.parentElement) {
+      if (/^(SCRIPT|STYLE|TEMPLATE|NOSCRIPT)$/.test(n.tagName)) return false;
+      const cs = getComputedStyle(n);
+      if (cs.display === "none" || cs.visibility === "hidden") return false;
+    }
+    return true;
+  };
+  // 요소가 아니라 텍스트 노드를 훑는다 — 형제 요소가 있는 텍스트를 놓치지 않으려고.
+  const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+  const orphans = [], amounts = [];
+  for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+    const t = (node.nodeValue || "").trim();
+    if (!t || !AMOUNT.test(t)) continue;
+    const el = node.parentElement;
+    if (!el || !visible(el)) continue;
+    amounts.push(t.slice(0, 34));
+    let found = false;
+    for (let n = el, i = 0; n && i < 4; n = n.parentElement, i++) {
+      if (NAMES.some((name) => (n.textContent || "").includes(name))) { found = true; break; }
+    }
+    if (!found) orphans.push(t.slice(0, 34));
+  }
+  return JSON.stringify({ screen: (document.querySelector("h1")||{}).textContent, amounts, orphans });
+})()
+```
+
+**양쪽으로 검증했다.**
+
+- 정상: 현재 홈에서 금액 두 개(`3,240,000`, `50,000,000`)를 모두 찾고 미검출 0
+- **음성 검증**: 화면에 없는 이름(`["온포인트","하나포인트"]`)을 넣으면 **둘 다 미검출로
+  보고한다.** 실패해야 할 때 실패한다
+
+처음에 요소 기반으로 짰다가 `전체 50,000,000 P 중 6.0%` 처럼 **형제 요소가 있는 텍스트를
+놓치는** 것을 발견해 텍스트 노드 순회로 바꿨다. 조용히 통과시키는 검사기는 없느니만 못하다.
+
+## 경계에 대한 메모
+
+작업 세션이 "스크립트로 만들어 두라"고 했지만, 실기기 세션은 `docs/FIELD.md` 외의 파일을
+만들지도 고치지도 않는다. 그래서 **스크립트를 이 파일 안에 복사해 쓸 수 있는 형태로 두었다.**
+실행본은 저장소 밖(스크래치패드)에 있다.
+
+저장소에 `tools/` 같은 자리를 만들어 두는 편이 낫다면 **작업 세션이 만들면 된다** — 위
+내용을 그대로 옮기면 되고, 그때부터는 그쪽이 관리한다.
+
+## 도구 5 — `JOURNEY.md` 의 "확인 방법" 을 실행 가능한 형태로
+
+재작성판 `JOURNEY.md` 는 여정마다 **확인 방법**을 달아 두었다. 그중 절반 이상은 사람 눈이
+아니라 스크립트로 답이 난다. 화면이 없는 동안(T1~T5) 그것들을 **미리 만들고 검증해 두었다.**
+T6 부터는 화면이 나오는 즉시 돌리면 된다.
+
+검사기는 화면이 없으므로 실제 화면에 대고 검증할 수 없다. 대신 **픽스처로 양방향 검증**했다 —
+통과해야 할 DOM 과 일부러 망친 DOM 을 각각 넣고, 검사기가 둘을 가르는지 확인했다.
+**검사기 10개 × 정상/망침 = 20건 전부 기대대로 나왔다.** 아래 표의 ✔ 는 그 뜻이다.
+
+### 확인 방법 대조표
+
+| 여정 | `JOURNEY.md` 의 확인 방법 | 어떻게 | 상태 |
+|---|---|---|---|
+| 1 | 특정 포인트 잔액을 찾는 시선 이동. 제목을 읽어야만 찾으면 표식 실패 | 사람 눈 | **사람** |
+| 1 | (자동화한 부분) 잔액이 카드에서 가장 큰가 | `FIELD.biggest(/[\d,]{5,}/)` | 자동 ✔ |
+| 1 | (자동화한 부분) 포인트 표식 색이 서로 구별되는가 | `FIELD.markerDistance(sel)` — Lab ΔE ≥ 25 | 자동 ✔ |
+| 2 | 보내기 플로우 모든 화면에서 포인트 이름이 금액과 함께 보이는가 | 도구 4 (금액-이름 짝 검사) | 자동 ✔ |
+| 3 | 같은 이름 두 명이 **한 화면에 함께** 들어오는가 | `FIELD.homonymsTogether(rowSel, nameSel)` — 두 행이 뷰포트 안에 동시에 | 자동 ✔ |
+| 3 | 다른 쪽을 골랐을 때 다음 화면에서 알아채는가 | `FIELD.confirmComplete([/핸들/])` 로 핸들 노출은 자동, 알아채는지는 사람 | 반 |
+| 4 | 150만과 1500만의 한글 표기가 갈라지는가 | `domain/points.ts` 테스트가 이미 한다 (15케이스) | 작업 세션 |
+| 4 | 입력 상한까지 넣었을 때 잘리지 않는가 | 넘침 검사 (B-17 방법: `scrollWidth>clientWidth` 와 뷰포트 이탈 0건) | 자동 ✔ |
+| 5 | 화면에 확인 다이얼로그가 **0개**인가 | `FIELD.noDialogs()` | 자동 ✔ |
+| 5 | 확정 화면만 보고 이체 결과를 전부 말할 수 있는가 | `FIELD.confirmComplete([포인트, 받는사람, 금액, 남는잔액])` | 자동 ✔ |
+| 5 | 홀드를 도중에 놓았을 때 아무 일도 일어나지 않는가 | 짧은 클릭 후 화면 불변 (B-6 방법) | 자동 ✔ |
+| 5 | 요청 중 화면을 바꾸지 않고 버튼만 진행 중이 되는가 | 100ms 기록기로 `h1`·카드 텍스트가 불변인지 (B-9 방법) | 자동 ✔ |
+| 6 | 네트워크 실패 시 사용자가 **돈의 위치**를 알 수 있는가 | `FIELD.confirmComplete` 로 필수 문구 존재 확인 (B-13 방법) | 자동 ✔ |
+| 6 | 실패 후 재시도했을 때 잔액이 정확히 한 번만 움직이는가 | B-12 절차 | 자동 ✔ |
+| 6 | 완료는 **서버가 확정을 알려준 뒤에만** — 거짓 완료 금지 | **B-10 이 정확히 이 항목이다.** 100ms 기록기로 완료 화면 첫 프레임의 잔액이 최종값과 같은지 | 자동 ✔ |
+| 7 | 발행 경로 모든 화면에서 "잔액" 이라는 말이 나오지 않는가 | `FIELD.forbidden(["잔액"])` | 자동 ✔ |
+| 7 | 이체와 색이 겹치는 화면이 있는가 | 버튼 배경색 비교 (B-14 방법) | 자동 ✔ |
+| 7 | 변화율을 반올림해 `0.0%` 로 만들지 않는가 | `FIELD.forbidden(["0.0%"])` | 자동 ✔ |
+| 8 | 보유자 화면에 유통량이 나오는 곳이 있는가 | `FIELD.forbidden(["유통량", "상한"])` — 보유자 화면에서 돌린다 | 자동 ✔ |
+| 8 | 관리자에게 이체를 되돌리는 경로가 있는가 | 화면·코드 검색 | 반 |
+| 전체 | 화면마다 가장 큰 것은 하나다 (표 7행) | `FIELD.biggest(기대 정규식)` 을 화면마다 | 자동 ✔ |
+| 전체 | 문체 — 해요체. UI 가 `~다` 로 끝나지 않는가 | `FIELD.politeStyle()` | 자동 ✔ |
+| 전체 | 같은 정보를 두 모션이 다투게 두지 않는가 | morph 대 slide 검출기 (B-16 방법) | 자동 ✔ |
+| 전체 | 상태 변화가 스크린리더에 읽히는가 | `FIELD.hasLiveRegion()` | 자동 ✔ |
+| 전체 | 색만으로 구분하지 않는가 | `FIELD.notColorAlone(강조sel, 평범sel)` — 색 외에 크기·굵기·장식 중 하나는 달라야 | 자동 ✔ |
+| 전체 | 터치 타깃, 한 손 도달, 스프링 체감, 홀드 시간감, 야외 밝기 | 기기 + 사람 | **사람** |
+| 플랫폼 | 오버스크롤·탭 하이라이트·롱프레스·safe area | Phase 7 WebView 이후 | 나중 |
+
+**사람이 있어야만 답이 나는 것은 셋으로 줄었다** — 여정 1 의 시선 이동, 여정 3 의 "알아채는가",
+그리고 손·눈에 관한 묶음. 나머지는 기기 없이도 돌아간다.
+
+### 검사기 본체
+
+`agent-browser eval` 이나 브라우저 콘솔에 붙여 `window.FIELD` 를 만든다.
+`eval` 은 같은 스코프를 재사용하므로 **반드시 IIFE 로 감싼다** (안 그러면 `already declared` 로 죽는다).
+
+```js
+// 검증 배터리. window.FIELD 에 붙인다.
+(() => {
+  const visible = (el) => {
+    for (let n = el; n; n = n.parentElement) {
+      if (/^(SCRIPT|STYLE|TEMPLATE|NOSCRIPT)$/.test(n.tagName)) return false;
+      const cs = getComputedStyle(n);
+      if (cs.display === "none" || cs.visibility === "hidden") return false;
+    }
+    return true;
+  };
+  const texts = () => {
+    const w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+    const out = [];
+    for (let n = w.nextNode(); n; n = w.nextNode()) {
+      const t = (n.nodeValue || "").trim();
+      if (!t) continue;
+      const el = n.parentElement;
+      if (!el || !visible(el)) continue;
+      out.push({ t, el, cs: getComputedStyle(el) });
+    }
+    return out;
+  };
+
+  // 여정 전체 — 화면마다 가장 큰 것은 하나다
+  const biggest = (expectRe) => {
+    const items = texts().map((x) => ({ t: x.t, px: parseFloat(x.cs.fontSize) }));
+    if (!items.length) return { pass: false, why: "텍스트 없음" };
+    const max = Math.max(...items.map((i) => i.px));
+    const top = items.filter((i) => i.px === max);
+    const ok = top.some((i) => expectRe.test(i.t));
+    return { pass: ok, why: ok ? "" : `가장 큰 것(${max}px)이 ${JSON.stringify(top.map(i=>i.t))} 인데 ${expectRe} 를 기대했다` };
+  };
+
+  // 여정 1 — 포인트 표식 색이 서로 구별되는가 (CIE76 ΔE)
+  const markerDistance = (sel, minDE = 25) => {
+    const rgb = (c) => c.match(/\d+/g).slice(0, 3).map(Number);
+    const lab = (c) => {              // sRGB -> Lab (D65)
+      let [r, g, b] = rgb(c).map((v) => v / 255).map((v) => v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4));
+      let x = (r * 0.4124 + g * 0.3576 + b * 0.1805) / 0.95047;
+      let y = (r * 0.2126 + g * 0.7152 + b * 0.0722);
+      let z = (r * 0.0193 + g * 0.1192 + b * 0.9505) / 1.08883;
+      const f = (t) => t > 0.008856 ? Math.cbrt(t) : 7.787 * t + 16 / 116;
+      [x, y, z] = [f(x), f(y), f(z)];
+      return [116 * y - 16, 500 * (x - y), 200 * (y - z)];
+    };
+    const els = [...document.querySelectorAll(sel)].filter(visible);
+    const cols = els.map((e) => getComputedStyle(e).backgroundColor);
+    const bad = [];
+    for (let i = 0; i < cols.length; i++)
+      for (let j = i + 1; j < cols.length; j++) {
+        const [a, b] = [lab(cols[i]), lab(cols[j])];
+        const de = Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
+        if (de < minDE) bad.push({ i, j, a: cols[i], b: cols[j], de: +de.toFixed(1) });
+      }
+    return { pass: els.length > 1 && bad.length === 0, count: els.length, tooClose: bad };
+  };
+
+  // 여정 3 — 같은 이름 두 줄이 한 화면에 함께 들어오는가
+  const homonymsTogether = (rowSel, nameSel) => {
+    const rows = [...document.querySelectorAll(rowSel)].filter(visible);
+    const byName = new Map();
+    rows.forEach((r) => {
+      const n = r.querySelector(nameSel);
+      if (!n) return;
+      const k = n.textContent.trim();
+      if (!byName.has(k)) byName.set(k, []);
+      byName.get(k).push(r);
+    });
+    const groups = [...byName.entries()].filter(([, v]) => v.length > 1);
+    const fails = [];
+    groups.forEach(([name, rs]) => {
+      const inView = rs.every((r) => { const b = r.getBoundingClientRect(); return b.top >= 0 && b.bottom <= innerHeight; });
+      if (!inView) fails.push({ name, rects: rs.map((r) => { const b = r.getBoundingClientRect(); return [Math.round(b.top), Math.round(b.bottom)]; }), viewportH: innerHeight });
+    });
+    return { pass: fails.length === 0, groupCount: groups.length, fails };
+  };
+
+  // 여정 5 — 확인 다이얼로그가 0개인가
+  const noDialogs = () => {
+    const d = [...document.querySelectorAll('[role=dialog],[role=alertdialog],dialog')].filter(visible);
+    return { pass: d.length === 0, count: d.length };
+  };
+
+  // 여정 5 — 확정 화면만 보고 결과를 전부 말할 수 있는가
+  const confirmComplete = (required) => {
+    const all = texts().map((x) => x.t).join(" ");
+    const missing = required.filter((re) => !re.test(all));
+    return { pass: missing.length === 0, missing: missing.map(String) };
+  };
+
+  // 여정 7·8 — 금지 단어
+  const forbidden = (words) => {
+    const all = texts().map((x) => x.t).join(" ");
+    const hit = words.filter((w) => all.includes(w));
+    return { pass: hit.length === 0, hit };
+  };
+
+  // 여정 전체 — 문체. UI 문장이 '~다' 로 끝나면 안 된다 (해요체)
+  const politeStyle = () => {
+    const bad = texts()
+      .map((x) => x.t)
+      .filter((t) => /(다|다\.)$/.test(t) && t.length > 3 && !/^\d/.test(t));
+    return { pass: bad.length === 0, bad };
+  };
+
+  // 접근성 — 상태 변화가 읽히는가
+  const hasLiveRegion = () => {
+    const r = [...document.querySelectorAll("[aria-live],[role=status],[role=alert]")].filter(visible);
+    return { pass: r.length > 0, count: r.length, roles: r.map((e) => e.getAttribute("aria-live") || e.getAttribute("role")) };
+  };
+
+  window.FIELD = { biggest, markerDistance, homonymsTogether, noDialogs, confirmComplete, forbidden, politeStyle, hasLiveRegion };
+  return "FIELD 준비됨";
+})()
+```
+
+여정 전체 규칙 하나를 추가로 붙인다.
+
+```js
+(() => {
+  // 여정 전체 — 색만으로 구분하지 않는다.
+  // 강조된 요소와 평범한 요소를 받아, 색 외에 크기나 굵기도 다른지 본다.
+  window.FIELD.notColorAlone = (emphSel, plainSel) => {
+    const one = (sel) => {
+      const el = document.querySelector(sel);
+      if (!el) return null;
+      const cs = getComputedStyle(el);
+      return { color: cs.color, px: parseFloat(cs.fontSize), w: parseInt(cs.fontWeight, 10) || 400,
+               deco: cs.textDecorationLine, style: cs.fontStyle };
+    };
+    const a = one(emphSel), b = one(plainSel);
+    if (!a || !b) return { pass: false, why: "요소를 못 찾았다" };
+    const diffs = [];
+    if (a.color !== b.color) diffs.push("color");
+    if (a.px !== b.px) diffs.push("fontSize");
+    if (a.w !== b.w) diffs.push("fontWeight");
+    if (a.deco !== b.deco) diffs.push("textDecoration");
+    if (a.style !== b.style) diffs.push("fontStyle");
+    const nonColor = diffs.filter((d) => d !== "color");
+    return { pass: nonColor.length > 0, diffs, nonColor, emph: a, plain: b };
+  };
+  return "notColorAlone 추가됨";
+})()
+```
+
+### 쓰는 법
+
+```js
+// 홈 (여정 1)
+FIELD.biggest(/[\d,]{5,}/)                      // 잔액이 가장 커야 한다
+FIELD.markerDistance(".point-marker")            // 표식 색이 서로 멀어야 한다
+FIELD.forbidden(["유통량", "상한"])                // 보유자 화면이면 없어야 한다 (여정 8)
+
+// 받는 사람 (여정 3)
+FIELD.homonymsTogether("[data-row]", "[data-name]")
+FIELD.notColorAlone("[data-ambiguous] [data-handle]", "[data-plain] [data-handle]")
+
+// 확정 (여정 5)
+FIELD.noDialogs()
+FIELD.confirmComplete([/온포인트/, /김지수/, /30,000/, /남는/])
+FIELD.biggest(/30,000/)                          // 금액이 가장 커야 한다
+
+// 발행 확정 (여정 7)
+FIELD.forbidden(["잔액", "0.0%"])
+FIELD.biggest(/[\d,]{5,}/)                      // 발행 뒤 총 유통량
+
+// 어느 화면에서나
+FIELD.politeStyle()
+FIELD.hasLiveRegion()
+```
+
+`markerDistance` 의 ΔE 기준 25 는 **임의로 정한 값이다.** CIE76 은 청색 계열에서 오차가
+크므로, 실제 팔레트가 나오면 눈으로 한 번 맞춰 보고 조정해야 한다. 스크립트가 통과했다고
+표식이 구별된다는 보장은 아니다 — 명백히 닮은 색을 걸러내는 1차 방어선이다.
+
+`politeStyle` 은 렌더된 텍스트를 본다. T4 에서 문자열이 카탈로그로 옮겨지면 **카탈로그를
+직접 훑는 테스트가 더 낫다** (화면을 다 열지 않아도 되므로). 그건 작업 세션 몫이다.
