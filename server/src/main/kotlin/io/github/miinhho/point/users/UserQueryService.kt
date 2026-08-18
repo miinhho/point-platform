@@ -1,5 +1,7 @@
 package io.github.miinhho.point.users
 
+import io.github.miinhho.point.api.UserResponse
+import io.github.miinhho.point.api.toResponse
 import io.github.miinhho.point.domain.pointtype.PointTypeRepository
 import io.github.miinhho.point.domain.transfer.TransferRepository
 import io.github.miinhho.point.domain.user.User
@@ -18,19 +20,20 @@ class UserQueryService(
     // 근거: docs/API.md — 결과 안에서만 겹침을 세면 핸들로 검색해 한 명만 나올 때
     // 동명이인 방어가 꺼진다. 매치된 이름 전원을 함께 담는다.
     @Transactional(readOnly = true)
-    fun search(query: String?, meId: Long): List<User> {
+    fun search(query: String?, meId: Long): List<UserResponse> {
+        val shared = userRepository.sharedNames()
         val others = userRepository.findAll().filterNot { it.id == meId }
         val needle = query?.trim()?.lowercase()
-        if (needle.isNullOrEmpty()) return others
+        if (needle.isNullOrEmpty()) return others.map { it.toResponse(shared) }
 
         val matched = others.filter { it.name.contains(needle) || it.handle.lowercase().contains(needle) }
         val names = matched.map { it.name }.toSet()
-        return others.filter { it.name in names }
+        return others.filter { it.name in names }.map { it.toResponse(shared) }
     }
 
     // 근거: docs/API.md — 최근 대상은 포인트별로 다르다. 최신순, 대상 중복 제거.
     @Transactional(readOnly = true)
-    fun recent(pointTypePublicId: String, limit: Int, userId: Long): List<User> {
+    fun recent(pointTypePublicId: String, limit: Int, userId: Long): List<UserResponse> {
         val pointType = runCatching { UUID.fromString(pointTypePublicId) }.getOrNull()
             ?.let(pointTypeRepository::findByPublicId) ?: return emptyList()
 
@@ -39,6 +42,7 @@ class UserQueryService(
             seen.add(transfer.to.id!!)
             if (seen.size >= limit) break
         }
-        return seen.mapNotNull { userRepository.findById(it).orElse(null) }
+        val shared = userRepository.sharedNames()
+        return seen.mapNotNull { userRepository.findById(it).orElse(null) }.map { it.toResponse(shared) }
     }
 }

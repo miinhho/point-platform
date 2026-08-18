@@ -17,7 +17,7 @@ class UserController(private val userQueryService: UserQueryService) {
     fun search(
         @RequestParam(required = false) q: String?,
         @AuthenticationPrincipal userId: Long,
-    ): List<UserResponse> = userQueryService.search(q, userId).map { it.toResponse() }
+    ): List<UserResponse> = userQueryService.search(q, userId)
 
     @GetMapping("/recent")
     fun recent(
@@ -28,6 +28,6 @@ class UserController(private val userQueryService: UserQueryService) {
         if (pointTypeId.isNullOrBlank()) {
             throw DomainFailureException("POINT_TYPE_NOT_FOUND", HttpStatus.NOT_FOUND, "pointTypeId 없음")
         }
-        return userQueryService.recent(pointTypeId, limit, userId).map { it.toResponse() }
+        return userQueryService.recent(pointTypeId, limit, userId)
     }
 }

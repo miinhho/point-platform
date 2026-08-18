@@ -178,7 +178,8 @@ class ConcurrencyTest {
             String::class.java,
         )
         assertEquals(HttpStatus.OK, byKey.statusCode)
-        assertTrue(byKey.body.isNullOrBlank(), "남의 것이면 null 이어야 한다: ${byKey.body}")
+        // 빈 본문이 아니라 리터럴 null 이어야 한다 — 빈 본문은 JSON 이 아니라 클라이언트 파싱이 깨진다.
+        assertEquals("null", byKey.body?.trim(), "남의 것이면 JSON null 이어야 한다")
 
         // 당사자는 둘 다 읽을 수 있어야 한다.
         val mineHeaders = HttpHeaders().apply { setBearerAuth(login("@jisoo").accessToken) }
@@ -189,6 +190,22 @@ class ConcurrencyTest {
             String::class.java,
         )
         assertEquals(transferId, transferIdOf(mine.body), "받은 쪽은 자기 이체를 키로 확인할 수 있어야 한다")
+    }
+
+    // 계약: docs/API.md — by-key 는 없을 때 404 가 아니라 null 이다. 여정 6 의 유일한 확인 수단이라
+    // 「안 일어났다」가 정확히 재시도해야 하는 경우이고, 거기서 본문이 비면 회복 경로가 깨진다.
+    @Test
+    fun `by-key 는 없을 때 빈 본문이 아니라 리터럴 null 을 준다`() {
+        val headers = HttpHeaders().apply { setBearerAuth(login("@minho").accessToken) }
+        val response = restTemplate.exchange(
+            "/api/transfers/by-key?idempotencyKey=${UUID.randomUUID()}",
+            HttpMethod.GET,
+            HttpEntity<Void>(headers),
+            String::class.java,
+        )
+
+        assertEquals(HttpStatus.OK, response.statusCode)
+        assertEquals("null", response.body?.trim(), "빈 본문이면 클라이언트의 JSON 파싱이 깨진다")
     }
 
     // 계약: docs/API.md 「엔드포인트」 + docs/JOURNEY.md 여정 9

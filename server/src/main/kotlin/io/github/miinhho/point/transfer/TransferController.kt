@@ -4,6 +4,9 @@ import io.github.miinhho.point.api.DomainFailureException
 import io.github.miinhho.point.domain.pointtype.PointTypeRepository
 import io.github.miinhho.point.domain.transfer.TransferRepository
 import org.springframework.dao.DataIntegrityViolationException
+import tools.jackson.databind.JsonNode
+import tools.jackson.databind.ObjectMapper
+import tools.jackson.databind.node.NullNode
 import org.springframework.data.domain.Limit
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
@@ -28,6 +31,7 @@ class TransferController(
     private val transferService: TransferService,
     private val transferRepository: TransferRepository,
     private val pointTypeRepository: PointTypeRepository,
+    private val objectMapper: ObjectMapper,
 ) {
     @PostMapping("/transfers")
     fun createTransfer(
@@ -48,11 +52,15 @@ class TransferController(
     fun byKey(
         @RequestParam idempotencyKey: String?,
         @AuthenticationPrincipal userId: Long,
-    ): TransferResponse? {
+    ): ResponseEntity<JsonNode> {
         val key = idempotencyKey?.takeIf { it.isNotBlank() }
             ?: throw DomainFailureException("SERVER", HttpStatus.BAD_REQUEST, "idempotencyKey 없음")
         // 남의 것이면 null 이다 — 없을 때와 같다. 「추측하기 어렵다」는 접근 제어가 아니다.
-        return transferService.findByIdempotencyKey(key, userId)
+        val found = transferService.findByIdempotencyKey(key, userId)
+        // 본문에 리터럴 null 을 싣는다. 그냥 null 을 반환하면 Spring 이 본문을 아예 쓰지 않아
+        // 200 + 빈 본문이 되고, 클라이언트의 JSON 파싱이 거기서 깨진다.
+        val body: JsonNode = found?.let { objectMapper.valueToTree(it) } ?: NullNode.instance
+        return ResponseEntity.ok(body)
     }
 
     // 근거: docs/API.md — 404 는 "안 일어났다"는 뜻. 내 것이 아닌 이체도 같은 404 로 감춘다(IDOR 방지).

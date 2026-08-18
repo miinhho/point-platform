@@ -21,7 +21,7 @@ class PointTypeCreateService(
 ) {
     @Transactional(readOnly = true)
     fun findByIdempotencyKey(key: String, viewerId: Long): PointTypeResponse? =
-        pointTypeRepository.findByIdempotencyKey(key)?.toResponse(viewerId)
+        pointTypeRepository.findByIdempotencyKey(key)?.toResponse(viewerId, pointTypeRepository.sharedNames())
 
     /** 발행자 자격을 심사하지 않는다 — 누구나 만들고 상한도 자기가 정한다 (docs/JOURNEY.md 여정 9). */
     @Transactional
@@ -50,7 +50,7 @@ class PointTypeCreateService(
                 idempotencyKey = idempotencyKey,
             ),
         )
-        return created.toResponse(creatorId)
+        return created.toResponse(creatorId, pointTypeRepository.sharedNames())
     }
 
     private fun BigDecimal.asSafeInteger(): Long? =
