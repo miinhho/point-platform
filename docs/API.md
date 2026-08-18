@@ -128,9 +128,10 @@ access 만 둔다. 갱신은 브릿지로 셸에 요청한다. `HttpOnly` 가 �
 | `POST` | `/api/transfers` | `Transfer` `201` | 이체. `Idempotency-Key` 필수 |
 | `POST` | `/api/issues` | `Transfer` `201` | 발행. 발행자만. **대상 없음** |
 | `POST` | `/api/point-types` | `PointType` `201` | 포인트 창설. `Idempotency-Key` 필수 |
+| `PATCH` | `/api/point-types/:id/cap` | `PointType` | 상한 변경. 발행자만. `Idempotency-Key` 필수 |
 | `GET` | `/api/transfers/:id` | `Transfer` | 단건. **404 는 일어나지 않았다는 뜻** |
 | `GET` | `/api/transfers/by-key?idempotencyKey=` | `Transfer \| null` | 결과를 모를 때의 확인 |
-| `GET` | `/api/transfers?pointTypeId=&limit=` | `Transfer[]` | 내역, 최신순 |
+| `GET` | `/api/history?pointTypeId=&limit=` | `HistoryEntry[]` | 내역, 최신순. 이체와 상한 변경이 섞인다 |
 
 이체 본문:
 
@@ -179,6 +180,52 @@ access 만 둔다. 갱신은 브릿지로 셸에 요청한다. `HttpOnly` 가 �
 기호가 유일한 이유는 화면에 있다. 이름은 겹쳐도 발행자로 가르지만, 기호는 좁은 자리에서
 이름 대신 쓰는 표식이라 겹치는 순간 표식이 아니게 된다. **겹침 판정은 서버만 한다** —
 클라이언트가 목록을 받아 확인하면 그 사이에 만들어진 것을 놓친다.
+
+상한 변경 본문:
+
+```json
+{ "issueCap": 2000000 }
+```
+
+발행자만 바꿀 수 있고(`403 NOT_ISSUER`), **이미 발행한 양보다 낮출 수 없다**
+(`422 CAP_BELOW_ISSUED`). 그 아래로 내리면 유통량이 상한을 넘은 상태가 되어 상한이 뜻을
+잃는다. 값이 지금과 같으면 `400` 이다 — 이력에 남는 사건이므로 아무것도 바꾸지 않는 줄을
+만들지 않는다. `Idempotency-Key` 가 필요한 이유는 창설과 같다: 응답을 못 받고 다시 눌러도
+이력에 두 줄이 생기면 안 된다.
+
+**취소 엔드포인트는 없다.** 낮추는 것은 다시 `PATCH` 지만 그것은 취소가 아니다 — 올려 둔
+동안 발행된 것은 이미 남의 지갑에 있다.
+
+### 내역은 이체만이 아니다
+
+`GET /api/history` 는 두 종류를 시간순으로 섞어서 준다.
+
+```ts
+type HistoryEntry =
+  | { type: 'transfer'; transfer: Transfer }
+  | { type: 'capChange'; capChange: CapChange }
+
+interface CapChange {
+  id: string
+  idempotencyKey: string
+  pointTypeId: PointTypeId
+  /** 바꾼 사람. 그 포인트의 발행자다 */
+  byId: UserId
+  previousCap: Points
+  issueCap: Points
+  changedAt: string
+}
+```
+
+**서버가 섞어서 준다.** 두 목록을 클라이언트가 받아 시간순으로 합치면 페이지네이션에서
+깨진다 — 각 목록의 `limit` 안에 든 것만 합쳐지므로 경계에서 항목이 사라진다.
+
+**누가 보는가.** 이체는 관여한 사람만(아래). 상한 변경은 **그 포인트가 자기 지갑에 있는
+사람**과 발행자다 — `GET /api/wallet` 에 나오는 포인트면 그 포인트의 상한 변경이 내역에
+보인다. 발행자만 아는 변경은 약속이 아니다 (`docs/JOURNEY.md` 여정 8).
+
+**`Transfer.kind` 와 `HistoryEntry.type` 은 다른 것이다.** 앞엣것은 이체냐 발행이냐를,
+뒤엣것은 내역 줄의 종류를 가른다.
 
 **이체는 관여한 사람만 읽는다.** `GET /api/transfers/:id` 와 `by-key` 와 목록 전부,
 요청자가 보낸 쪽이거나 받은 쪽일 때만 답한다. 남의 것은 **없는 것과 같은 `404`** 다 —
@@ -238,6 +285,7 @@ access 만 둔다. 갱신은 브릿지로 셸에 요청한다. `HttpOnly` 가 �
 | `RECIPIENT_NOT_FOUND` | 404 | 대상 없음 | 대상 다시 고르기 |
 | `POINT_TYPE_NOT_FOUND` | 404 | 포인트 없음 | 없음 |
 | `SYMBOL_TAKEN` | 409 | 그 기호를 이미 쓰는 포인트가 있음 | 기호 고치기 |
+| `CAP_BELOW_ISSUED` | 422 | 이미 발행한 양보다 낮은 상한 | 상한 고치기 |
 | `SERVER` | 5xx | 서버 오류 | **재시도** (같은 키) |
 | `NETWORK` | — | 요청이 서버에 닿지 못함 | **확인하기** → 재시도 |
 
@@ -275,6 +323,10 @@ access 만 둔다. 갱신은 브릿지로 셸에 요청한다. `HttpOnly` 가 �
 **refresh 회전이 겹치면 하나만 성공한다.** 클라이언트는 갱신을 한 번에 하나만 돌리지만
 그것은 예의이지 보장이 아니다. 탭이 둘이면 동시에 온다. 회전을 원자적으로 처리하고,
 진 쪽에는 재사용 탐지를 발동시키지 않는다 — 정상 사용자의 세션이 통째로 죽는다.
+
+**상한 변경도 잠그고 읽어야 한다.** 「이미 발행한 양보다 낮출 수 없다」를 확인하는 동안
+발행이 들어오면, 확인은 통과하고 결과는 유통량이 상한을 넘은 상태가 된다. 발행이 상한을
+읽을 때와 같은 행을 잠근다.
 
 **기호도 unique 제약이 진짜 방어선이다.** 같은 기호로 두 창설이 동시에 오면 조회는
 둘 다 비어 있다고 답한다. 위반이 나면 `409 SYMBOL_TAKEN` 이다 — 여기서는 멱등성 키와
