@@ -38,6 +38,10 @@ export const ko = {
     at: '보낸 시각',
     requestKey: '요청 키',
     me: '나',
+    /** 상한 변경 줄. 이체 줄의 위계를 빌려 쓰지 않는다 — 여정 8 */
+    capRaised: '{{name}} 발행 상한이 올랐어요',
+    capLowered: '{{name}} 발행 상한이 내렸어요',
+    capFromTo: '{{from}} → {{to}}',
   },
 
   create: {
@@ -64,6 +68,20 @@ export const ko = {
       pink: '분홍',
       teal: '청록',
     },
+  },
+
+  cap: {
+    title: '발행 상한 바꾸기',
+    entry: '상한 바꾸기',
+    now: '지금 상한',
+    next: '새 상한',
+    floor: '{{amount}}보다 낮출 수 없어요',
+    holdersLabel: '가진 사람에게는',
+    /** 상한은 「여기까지만 희석된다」는 약속이다 — 여정 9 */
+    holdersRaised: '{{amount}}까지 늘어날 수 있게 돼요',
+    holdersLowered: '{{amount}}까지만 늘어나요',
+    irreversible: '바꾼 뒤에는 취소할 수 없어요',
+    hold: '꾹 눌러서 바꾸기',
   },
 
   settings: {
@@ -203,6 +221,12 @@ export const ko = {
       title: '이미 쓰는 기호예요',
       whereTransfer: '만들어지지 않았어요',
       whereIssue: '만들어지지 않았어요',
+    },
+    /** 상한 변경 화면 안에서 그 자리에 뜬다. where 는 키 구조를 맞추려고 둔다 */
+    CAP_BELOW_ISSUED: {
+      title: '이미 발행한 양보다 낮아요',
+      whereTransfer: '상한은 그대로예요',
+      whereIssue: '상한은 그대로예요',
     },
     BAD_CREDENTIALS: {
       title: '핸들이나 암호가 맞지 않아요',

@@ -8,6 +8,7 @@ const DEPTH: Record<Screen['name'], number> = {
   failure: 4,
   historyDetail: 1,
   issuer: 1,
+  changeCap: 2,
   createPoint: 1,
   pointCreated: 2,
 }

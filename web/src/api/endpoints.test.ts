@@ -457,10 +457,109 @@ describe('내역', () => {
       { pointTypeId: 'pt_gm', toId: 'u_jisu', amount: 2_000 },
       key(),
     )
-    await expect(endpoints.history()).resolves.toMatchObject([{ id: gm.id }, { id: on.id }])
-    await expect(endpoints.history({ pointTypeId: 'pt_on' })).resolves.toMatchObject([
-      { id: on.id },
+    await expect(endpoints.history()).resolves.toMatchObject([
+      { type: 'transfer', transfer: { id: gm.id } },
+      { type: 'transfer', transfer: { id: on.id } },
     ])
+    await expect(endpoints.history({ pointTypeId: 'pt_on' })).resolves.toMatchObject([
+      { type: 'transfer', transfer: { id: on.id } },
+    ])
+  })
+})
+
+describe('상한 변경', () => {
+  // 계약: docs/API.md. 시드의 금머니는 @minho 가 발행자고 120만이 발행돼 있다.
+  const GM = 'pt_gm'
+
+  async function signInAs(handle: string) {
+    setTokens(await endpoints.login({ handle, password: 'point' }))
+  }
+
+  it('발행자가 올리면 그 값이 상한이 된다', async () => {
+    const changed = await endpoints.changeCap(GM, 20_000_000, key())
+    expect(changed).toMatchObject({ id: GM, issueCap: 20_000_000 })
+    const wallet = await endpoints.wallet()
+    expect(wallet.balances.find((b) => b.pointType.id === GM)?.pointType.issueCap).toBe(20_000_000)
+  })
+
+  it('발행자가 아니면 403 이다 — 권한은 화면이 아니라 서버가 막는다', async () => {
+    await expect(endpoints.changeCap('pt_on', 200_000_000, key())).rejects.toMatchObject({
+      code: 'NOT_ISSUER',
+      status: 403,
+    })
+  })
+
+  // 그 아래로 내리면 유통량이 상한을 넘은 상태가 되어 상한이 뜻을 잃는다.
+  it('이미 발행한 양보다 낮출 수 없다', async () => {
+    await expect(endpoints.changeCap(GM, 1_000_000, key())).rejects.toMatchObject({
+      code: 'CAP_BELOW_ISSUED',
+      status: 422,
+    })
+  })
+
+  it('이미 발행한 양과 같은 값까지는 내릴 수 있다', async () => {
+    await expect(endpoints.changeCap(GM, 1_200_000, key())).resolves.toMatchObject({
+      issueCap: 1_200_000,
+    })
+  })
+
+  // 이력에 남는 사건이므로 아무것도 바꾸지 않는 줄을 만들지 않는다.
+  it('지금과 같은 값이면 400 이다', async () => {
+    await expect(endpoints.changeCap(GM, 10_000_000, key())).rejects.toMatchObject({ status: 400 })
+  })
+
+  it('같은 키로 다시 보내도 이력은 한 줄이다', async () => {
+    const k = key()
+    await endpoints.changeCap(GM, 20_000_000, k)
+    await expect(endpoints.changeCap(GM, 20_000_000, k)).resolves.toMatchObject({
+      issueCap: 20_000_000,
+    })
+    await expect(endpoints.history()).resolves.toHaveLength(1)
+  })
+
+  // 응답을 못 받고 다시 누르면 상한은 이미 새 값이다. 같은 값 판정이 앞서면
+  // 성공한 요청이 400 으로 돌아온다.
+  it('응답이 유실돼도 같은 키로 재시도하면 성립한다', async () => {
+    const k = key()
+    setSim({ loseNextResponse: true })
+    await expect(endpoints.changeCap(GM, 20_000_000, k)).rejects.toBeInstanceOf(ApiError)
+
+    await expect(endpoints.changeCap(GM, 20_000_000, k)).resolves.toMatchObject({
+      issueCap: 20_000_000,
+    })
+    await expect(endpoints.history()).resolves.toHaveLength(1)
+  })
+
+  it('내역에 이체와 섞여 최신순으로 온다', async () => {
+    const sent = await endpoints.createTransfer(
+      { pointTypeId: GM, toId: 'u_jisu', amount: 1_000 },
+      key(),
+    )
+    await endpoints.changeCap(GM, 20_000_000, key())
+
+    await expect(endpoints.history()).resolves.toMatchObject([
+      { type: 'capChange', capChange: { previousCap: 10_000_000, issueCap: 20_000_000 } },
+      { type: 'transfer', transfer: { id: sent.id } },
+    ])
+  })
+
+  // 발행자만 아는 변경은 약속이 아니다 — docs/JOURNEY.md 여정 8
+  it('그 포인트를 가진 사람의 내역에 보인다', async () => {
+    await endpoints.changeCap(GM, 20_000_000, key())
+
+    // @jisu 는 금머니를 45,000 가지고 있다.
+    await signInAs('@jisu')
+    await expect(endpoints.history()).resolves.toMatchObject([
+      { type: 'capChange', capChange: { pointTypeId: GM, byId: ME } },
+    ])
+  })
+
+  it('안 가진 사람의 내역에는 없다', async () => {
+    await endpoints.changeCap(GM, 20_000_000, key())
+
+    // @jisoo 는 온포인트만 가진다.
+    await signInAs('@jisoo')
+    await expect(endpoints.history()).resolves.toEqual([])
   })
 })
 

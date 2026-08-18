@@ -14,6 +14,7 @@ const STATUS: Record<FailureCode, number> = {
   RECIPIENT_NOT_FOUND: 404,
   POINT_TYPE_NOT_FOUND: 404,
   SYMBOL_TAKEN: 409,
+  CAP_BELOW_ISSUED: 422,
   NETWORK: 599,
   SERVER: 500,
 }
@@ -250,11 +251,47 @@ export const handlers = [
     return HttpResponse.json(transfer)
   }),
 
+  // 이체와 상한 변경을 서버가 섞어서 준다 — 계약: docs/API.md
   http.get(
-    '*/api/transfers',
+    '*/api/history',
     authed((userId, request) => {
       const params = new URL(request.url).searchParams
       return ledger.history(userId, params.get('pointTypeId'), Number(params.get('limit') ?? 30))
     }),
   ),
+
+  http.patch('*/api/point-types/:id/cap', async ({ request, params }) => {
+    const blocked = await gate()
+    if (blocked) return blocked
+    const auth = requireUser(request)
+    if (auth instanceof Response) return auth
+
+    const key = readKey(request)
+    // 이력에 남는 사건이다. 응답을 못 받고 다시 눌러도 두 줄이 생기면 안 된다.
+    if (!key) {
+      return HttpResponse.json({ code: 'SERVER', message: 'Idempotency-Key 없음' }, { status: 400 })
+    }
+
+    const { issueCap } = (await request.json()) as { issueCap?: unknown }
+    if (typeof issueCap !== 'number' || !Number.isSafeInteger(issueCap) || issueCap <= 0) {
+      return HttpResponse.json({ code: 'SERVER', message: '요청 형식 오류' }, { status: 400 })
+    }
+
+    // 같은 값은 400 이다 — 아무것도 바꾸지 않는 줄을 이력에 남기지 않는다.
+    // 다만 재시도보다 뒤에 본다. 응답을 못 받고 다시 누르면 상한은 이미 새 값이라,
+    // 순서를 바꾸면 성공한 요청이 400 으로 돌아온다.
+    const current = ledger.pointTypesFor(auth.userId).find((type) => type.id === String(params.id))
+    if (!ledger.findCapChangeByKey(key) && current?.issueCap === issueCap) {
+      return HttpResponse.json({ code: 'SERVER', message: '지금과 같은 상한' }, { status: 400 })
+    }
+
+    try {
+      const changed = ledger.changeCap(auth.userId, String(params.id), issueCap, key)
+      if (drawResponseLoss()) return HttpResponse.error()
+      return HttpResponse.json(changed)
+    } catch (error) {
+      if (error instanceof ledger.LedgerError) return fail(error.code)
+      throw error
+    }
+  }),
 ]

@@ -1,4 +1,4 @@
-import type { PointType, Transfer, TransferId } from '@/api/contract'
+import type { PointType, PointTypeId, Transfer, TransferId } from '@/api/contract'
 
 // 근거: docs/JOURNEY.md · 탭 하나에 스택 하나
 export type TabName = 'home' | 'history' | 'settings'
@@ -15,6 +15,7 @@ export type Screen =
   | { name: 'historyDetail'; transferId: TransferId }
   | { name: 'issuer' }
   | { name: 'createPoint' }
+  | { name: 'changeCap'; pointTypeId: PointTypeId }
   /** 서버가 돌려준 포인트를 그대로 싣는다 — 다시 읽으면 그 사이 빈 프레임이 생긴다 */
   | { name: 'pointCreated'; pointType: PointType }
 

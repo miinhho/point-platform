@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useSetAtom } from 'jotai'
 import { useTranslation } from 'react-i18next'
 import { walletQuery } from '@/api/queries'
+import { goAtom } from '@/app/atoms'
 import { toGrouped } from '@/shared/format'
 import { startIssueAtom } from '@/features/transfer'
 import { BackButton } from '@/shared/ui/BackButton'
@@ -14,6 +15,7 @@ export function Issuer({ onBack }: { onBack: () => void }) {
   const { t } = useTranslation()
   const { data } = useQuery(walletQuery())
   const startIssue = useSetAtom(startIssueAtom)
+  const go = useSetAtom(goAtom)
 
   const mine = data?.balances.filter((b) => b.pointType.canIssue) ?? []
 
@@ -38,13 +40,22 @@ export function Issuer({ onBack }: { onBack: () => void }) {
                   textStyle="lineStrong"
                 />
               </Box>
-              <Box marginTop="4">
+              <Box marginTop="4" display="flex" flexDirection="column" gap="2">
                 <Button
                   size="xl"
                   width="full"
                   onClick={() => data && startIssue({ pointType, me: data.user })}
                 >
                   {t('issuer.issue')}
+                </Button>
+                {/* 상한도 발행과 같은 무게다. 그래서 같은 자리에 둔다 — 여정 9 */}
+                <Button
+                  size="lg"
+                  width="full"
+                  variant="outline"
+                  onClick={() => go({ name: 'changeCap', pointTypeId: pointType.id })}
+                >
+                  {t('cap.entry')}
                 </Button>
               </Box>
             </Box>

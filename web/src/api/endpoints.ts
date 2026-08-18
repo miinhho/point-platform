@@ -1,5 +1,6 @@
 import { request, type RequestOptions } from './http'
 import type {
+  HistoryEntry,
   PointAccent,
   PointType,
   PointTypeId,
@@ -87,6 +88,14 @@ export const endpoints = {
   createIssue: (input: CreateIssueInput, idempotencyKey: string) =>
     request<Transfer>('/issues', { method: 'POST', body: input, idempotencyKey }),
 
+  /** 상한 변경. 발행자만. 취소가 아니라 또 하나의 변경이다 — docs/API.md */
+  changeCap: (pointTypeId: PointTypeId, issueCap: Points, idempotencyKey: string) =>
+    request<PointType>(`/point-types/${pointTypeId}/cap`, {
+      method: 'PATCH',
+      body: { issueCap },
+      idempotencyKey,
+    }),
+
   transfer: (id: TransferId, options?: RequestOptions) =>
     request<Transfer>(`/transfers/${id}`, options),
 
@@ -98,7 +107,7 @@ export const endpoints = {
     request<Transfer | null>('/transfers/by-key', { ...options, query: { idempotencyKey } }),
 
   history: (params: HistoryQuery = {}, options?: RequestOptions) =>
-    request<Transfer[]>('/transfers', {
+    request<HistoryEntry[]>('/history', {
       ...options,
       query: { pointTypeId: params.pointTypeId, limit: params.limit },
     }),

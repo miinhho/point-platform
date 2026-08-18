@@ -69,6 +69,8 @@ export const FAILURE_CODES = [
   'POINT_TYPE_NOT_FOUND',
   /** 그 기호를 이미 쓰는 포인트가 있다 */
   'SYMBOL_TAKEN',
+  /** 이미 발행한 양보다 낮은 상한 */
+  'CAP_BELOW_ISSUED',
   /** 결과를 알 수 없다. 이 둘만 그렇다 */
   'NETWORK',
   'SERVER',
@@ -94,3 +96,28 @@ export interface Transfer {
   createdAt: string
   confirmedAt: string
 }
+
+/**
+ * 상한이 바뀐 사건. 되돌리는 것이 아니라 또 하나의 변경으로만 이어진다 —
+ * docs/JOURNEY.md 여정 9
+ */
+export interface CapChange {
+  id: string
+  idempotencyKey: string
+  pointTypeId: PointTypeId
+  /** 바꾼 사람. 그 포인트의 발행자다 */
+  byId: UserId
+  previousCap: Points
+  issueCap: Points
+  changedAt: string
+}
+
+/**
+ * 내역 한 줄. 서버가 두 종류를 시간순으로 섞어 준다 — 클라이언트가 두 목록을
+ * 받아 합치면 각 목록의 `limit` 경계에서 항목이 사라진다.
+ *
+ * `Transfer.kind` 와는 다른 것이다. 그쪽은 이체냐 발행이냐를 가른다.
+ */
+export type HistoryEntry =
+  | { type: 'transfer'; transfer: Transfer }
+  | { type: 'capChange'; capChange: CapChange }

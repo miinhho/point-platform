@@ -25,9 +25,16 @@ const ALL = flatten(ko)
 
 /**
  * 실패 화면(여정 6)에 도달하는 코드만 「돈이 어디 있는가」를 말한다.
- * 인증 실패는 로그인 화면으로 가고, 기호 겹침은 만들기 화면 안에서 그 자리에 뜬다.
+ * 인증 실패는 로그인 화면으로 가고, 기호 겹침과 상한 미달은 각자의 화면 안에서 뜬다.
  */
-const NOT_ON_FAILURE_SCREEN: FailureCode[] = ['BAD_CREDENTIALS', 'UNAUTHENTICATED', 'SYMBOL_TAKEN']
+const NOT_ON_FAILURE_SCREEN: FailureCode[] = [
+  'BAD_CREDENTIALS',
+  'UNAUTHENTICATED',
+  'SYMBOL_TAKEN',
+  'CAP_BELOW_ISSUED',
+]
+
+
 const ON_FAILURE_SCREEN = FAILURE_CODES.filter((code) => !NOT_ON_FAILURE_SCREEN.includes(code))
 
 describe('문체', () => {

@@ -6,7 +6,7 @@ import { meQuery, queryKeys } from '@/api/queries'
 import { setUnauthenticatedHandler } from '@/api/http'
 import { SignIn } from '@/features/auth'
 import { History, HistoryDetail } from '@/features/history'
-import { CreatePoint, Issuer, PointCreated } from '@/features/issuer'
+import { ChangeCap, CreatePoint, Issuer, PointCreated } from '@/features/issuer'
 import { Settings } from '@/features/settings'
 import {
   Confirm,
@@ -35,6 +35,7 @@ const FLOW: ReadonlySet<Screen['name']> = new Set([
   'failure',
   'createPoint',
   'pointCreated',
+  'changeCap',
 ])
 
 interface Actions {
@@ -77,6 +78,14 @@ function CurrentScreen({
         <CreatePoint
           onBack={actions.back}
           onCreated={(pointType) => actions.go({ name: 'pointCreated', pointType })}
+        />
+      )
+    case 'changeCap':
+      return (
+        <ChangeCap
+          pointTypeId={screen.pointTypeId}
+          onBack={actions.back}
+          onChanged={actions.back}
         />
       )
     case 'pointCreated':

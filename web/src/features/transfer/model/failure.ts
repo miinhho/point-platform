@@ -39,10 +39,11 @@ export function handleFailure(code: FailureCode, kind: TransferKind): FailureHan
     case 'SERVER':
       return { outcomeUnknown: true, retryable: true, editable: true, repickable: false, aboutSupply }
 
-    // 이 셋은 실패 화면에 오지 않는다 — 인증은 로그인으로 가고, 기호 겹침은
-    // 만들기 화면 안에서 그 자리에 뜬다. 그래도 값을 주는 것은 화면이 방어적으로
-    // 그리기 때문이고, 여기서 빠뜨리면 컴파일이 잡는다.
+    // 이 넷은 실패 화면에 오지 않는다 — 인증은 로그인으로 가고, 기호 겹침과
+    // 상한 미달은 각자의 화면 안에서 그 자리에 뜬다. 그래도 값을 주는 것은 화면이
+    // 방어적으로 그리기 때문이고, 여기서 빠뜨리면 컴파일이 잡는다.
     case 'SYMBOL_TAKEN':
+    case 'CAP_BELOW_ISSUED':
     case 'BAD_CREDENTIALS':
     case 'UNAUTHENTICATED':
       return { outcomeUnknown: false, retryable: false, editable: false, repickable: false, aboutSupply }

@@ -1,4 +1,6 @@
 import type {
+  CapChange,
+  HistoryEntry,
   PointAccent,
   PointType,
   PointTypeId,
@@ -30,6 +32,7 @@ export type LedgerErrorCode =
   | 'RECIPIENT_NOT_FOUND'
   | 'POINT_TYPE_NOT_FOUND'
   | 'SYMBOL_TAKEN'
+  | 'CAP_BELOW_ISSUED'
 
 /** 겹침은 원장을 봐야 알 수 있다. 시드가 들고 있으면 사용자가 늘 때 거짓이 된다. */
 type SeedUser = Omit<User, 'nameIsShared'>
@@ -137,6 +140,8 @@ interface State {
   createdByKey: Map<string, PointTypeId>
   /** 최신순 */
   order: TransferId[]
+  /** 최신순. 이체와 섞여 내역이 된다 */
+  capChanges: CapChange[]
   recent: Map<PointTypeId, UserId[]>
 }
 
@@ -149,6 +154,7 @@ function initialState(): State {
     byKey: new Map(),
     createdByKey: new Map(),
     order: [],
+    capChanges: [],
     recent: seedRecent(),
   }
 }
@@ -250,14 +256,32 @@ export function findTransfer(id: TransferId, meId: UserId): Transfer | undefined
   return transfer && involves(transfer, meId) ? transfer : undefined
 }
 
-/** 내가 관여한 것만. 남의 이체가 내 내역에 보이면 안 된다 */
-export function history(meId: UserId, pointTypeId: PointTypeId | null, limit: number): Transfer[] {
-  return state.order
+/**
+ * 이체는 관여한 사람만, 상한 변경은 그 포인트를 가진 사람이 본다 — 계약: docs/API.md.
+ * 서버가 섞어서 준다. 두 목록을 클라이언트가 합치면 각 limit 경계에서 항목이 사라진다.
+ */
+export function history(meId: UserId, pointTypeId: PointTypeId | null, limit: number): HistoryEntry[] {
+  const transfers: HistoryEntry[] = state.order
     .map((id) => state.transfers.get(id)!)
     .filter((transfer) => involves(transfer, meId))
-    .filter((transfer) => !pointTypeId || transfer.pointTypeId === pointTypeId)
+    .map((transfer) => ({ type: 'transfer', transfer }))
+
+  const held = new Set(balancesOf(meId).map(({ pointType }) => pointType.id))
+  const caps: HistoryEntry[] = state.capChanges
+    .filter((capChange) => held.has(capChange.pointTypeId))
+    .map((capChange) => ({ type: 'capChange', capChange }))
+
+  return [...transfers, ...caps]
+    .filter((entry) => !pointTypeId || pointTypeIdOf(entry) === pointTypeId)
+    .sort((a, b) => timeOf(b).localeCompare(timeOf(a)))
     .slice(0, limit)
 }
+
+const pointTypeIdOf = (entry: HistoryEntry): PointTypeId =>
+  entry.type === 'transfer' ? entry.transfer.pointTypeId : entry.capChange.pointTypeId
+
+const timeOf = (entry: HistoryEntry): string =>
+  entry.type === 'transfer' ? entry.transfer.confirmedAt : entry.capChange.changedAt
 
 export interface CreatePointTypeInput {
   idempotencyKey: string
@@ -296,6 +320,42 @@ export function createPointType(meId: UserId, input: CreatePointTypeInput): Poin
   state.pointTypes.set(created.id, created)
   state.createdByKey.set(input.idempotencyKey, created.id)
   return viewOf(created, meId)
+}
+
+/**
+ * 상한을 바꾼다. 취소가 아니라 또 하나의 변경이다 — 올려 둔 동안 발행된 것은
+ * 이미 남의 지갑에 있다. 근거: docs/JOURNEY.md 여정 9
+ */
+export function findCapChangeByKey(key: string): CapChange | undefined {
+  return state.capChanges.find((change) => change.idempotencyKey === key)
+}
+
+export function changeCap(
+  meId: UserId,
+  pointTypeId: PointTypeId,
+  issueCap: Points,
+  idempotencyKey: string,
+): PointType {
+  const existing = findCapChangeByKey(idempotencyKey)
+  if (existing) return viewOf(requirePointType(existing.pointTypeId), meId)
+
+  const pointType = requirePointType(pointTypeId)
+  if (pointType.issuerId !== meId) throw new LedgerError('NOT_ISSUER')
+  // 유통량이 상한을 넘은 상태가 되면 상한이 뜻을 잃는다.
+  if (issueCap < pointType.totalIssued) throw new LedgerError('CAP_BELOW_ISSUED')
+
+  const changed: SeedPoint = { ...pointType, issueCap }
+  state.pointTypes.set(pointType.id, changed)
+  state.capChanges.unshift({
+    id: `cc_${state.capChanges.length + 1}_${idempotencyKey.slice(0, 8)}`,
+    idempotencyKey,
+    pointTypeId: pointType.id,
+    byId: meId,
+    previousCap: pointType.issueCap,
+    issueCap,
+    changedAt: new Date().toISOString(),
+  })
+  return viewOf(changed, meId)
 }
 
 export interface CommitInput {

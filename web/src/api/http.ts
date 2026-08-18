@@ -93,7 +93,7 @@ async function refreshTokens(): Promise<boolean> {
 }
 
 export interface RequestOptions {
-  method?: 'GET' | 'POST'
+  method?: 'GET' | 'POST' | 'PATCH'
   body?: unknown
   /** `Idempotency-Key` 헤더로 나간다. */
   idempotencyKey?: string
