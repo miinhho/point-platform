@@ -128,7 +128,7 @@ interface State {
   pointTypes: Map<PointTypeId, SeedPoint>
   balances: Map<BalanceKey, Points>
   transfers: Map<TransferId, Transfer>
-  /** 멱등성 키 → 이체 id */
+  /** `${요청자}:${멱등성 키}` → 이체 id. 남의 키로 남의 이체를 꺼낼 수 없다 */
   byKey: Map<string, TransferId>
   /** 멱등성 키 → 창설된 포인트 id. 창설도 되돌릴 수 없으므로 두 번 만들지 않는다 */
   createdByKey: Map<string, PointTypeId>
@@ -216,20 +216,28 @@ export function recentFor(pointTypeId: PointTypeId, limit: number): User[] {
     .filter((user): user is User => user !== undefined)
 }
 
-export function findByIdempotencyKey(key: string): Transfer | undefined {
-  const id = state.byKey.get(key)
+/** 이체는 관여한 사람만 읽는다 — 계약: docs/API.md */
+const involves = (transfer: Transfer, meId: UserId): boolean =>
+  transfer.fromId === meId || transfer.toId === meId
+
+const idempotencyScope = (meId: UserId, key: string): string => `${meId}:${key}`
+
+export function findByIdempotencyKey(key: string, meId: UserId): Transfer | undefined {
+  const id = state.byKey.get(idempotencyScope(meId, key))
   return id ? state.transfers.get(id) : undefined
 }
 
-export function findTransfer(id: TransferId): Transfer | undefined {
-  return state.transfers.get(id)
+/** 남의 것은 없는 것과 같다. 있다고 알려 주면 그 id 가 존재한다는 답이 된다. */
+export function findTransfer(id: TransferId, meId: UserId): Transfer | undefined {
+  const transfer = state.transfers.get(id)
+  return transfer && involves(transfer, meId) ? transfer : undefined
 }
 
 /** 내가 관여한 것만. 남의 이체가 내 내역에 보이면 안 된다 */
 export function history(meId: UserId, pointTypeId: PointTypeId | null, limit: number): Transfer[] {
   return state.order
     .map((id) => state.transfers.get(id)!)
-    .filter((transfer) => transfer.fromId === meId || transfer.toId === meId)
+    .filter((transfer) => involves(transfer, meId))
     .filter((transfer) => !pointTypeId || transfer.pointTypeId === pointTypeId)
     .slice(0, limit)
 }
@@ -291,7 +299,7 @@ export function commitTransfer(meId: UserId, input: CommitInput): Transfer {
 
   move(pointType.id, meId, -input.amount)
   move(pointType.id, recipient.id, input.amount)
-  return record('transfer', pointType.id, meId, recipient.id, input)
+  return record(meId, 'transfer', pointType.id, meId, recipient.id, input)
 }
 
 /** 발행한다. 무에서 만들고 총 유통량이 늘어난다. */
@@ -309,7 +317,7 @@ export function commitIssue(meId: UserId, input: CommitInput): Transfer {
     totalIssued: pointType.totalIssued + input.amount,
   })
   move(pointType.id, recipient.id, input.amount)
-  return record('issue', pointType.id, null, recipient.id, input)
+  return record(meId, 'issue', pointType.id, null, recipient.id, input)
 }
 
 function requirePointType(pointTypeId: PointTypeId): SeedPoint {
@@ -329,6 +337,7 @@ function move(pointTypeId: PointTypeId, userId: UserId, delta: Points): void {
 }
 
 function record(
+  meId: UserId,
   kind: 'transfer' | 'issue',
   pointTypeId: PointTypeId,
   fromId: UserId | null,
@@ -349,7 +358,7 @@ function record(
   }
 
   state.transfers.set(transfer.id, transfer)
-  state.byKey.set(input.idempotencyKey, transfer.id)
+  state.byKey.set(idempotencyScope(meId, input.idempotencyKey), transfer.id)
   state.order.unshift(transfer.id)
 
   const previous = state.recent.get(pointTypeId) ?? []

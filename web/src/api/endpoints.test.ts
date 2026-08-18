@@ -364,6 +364,89 @@ describe('결과를 알 수 없는 실패', () => {
   })
 })
 
+describe('이체는 관여한 사람만 읽는다', () => {
+  // 계약: docs/API.md. 이체 id 는 내역에서 새어 나갈 수 있으므로 403 으로 가르지 않는다.
+  const OUTSIDER = { handle: '@jisoo', password: 'point' }
+
+  async function switchTo(credentials: typeof OUTSIDER) {
+    setTokens(await endpoints.login(credentials))
+  }
+
+  /** `@minho` 가 `@taeyun` 에게 보낸다. `@jisoo` 는 어느 쪽도 아니다. */
+  async function transferBetweenOthers() {
+    const idempotencyKey = key()
+    const created = await endpoints.createTransfer(
+      { pointTypeId: 'pt_on', toId: 'u_taeyun', amount: 1_000 },
+      idempotencyKey,
+    )
+    return { created, idempotencyKey }
+  }
+
+  async function refusalOf(id: string): Promise<ApiError> {
+    const error: unknown = await endpoints.transfer(id).then(() => null, (thrown: unknown) => thrown)
+    expect(error).toBeInstanceOf(ApiError)
+    return error as ApiError
+  }
+
+  it('남의 이체는 404 다 — 없는 id 와 같은 답이다', async () => {
+    const { created } = await transferBetweenOthers()
+    await switchTo(OUTSIDER)
+
+    const theirs = await refusalOf(created.id)
+    const nothing = await refusalOf('t_nope')
+    // 응답이 다르면 그 차이가 곧 "그 id 는 존재한다" 는 답이 된다.
+    expect([theirs.status, theirs.code, theirs.message]).toEqual([
+      nothing.status,
+      nothing.code,
+      nothing.message,
+    ])
+    expect(theirs.status).toBe(404)
+  })
+
+  it('남의 멱등성 키는 null 이다 — 없을 때와 구별되지 않는다', async () => {
+    const { idempotencyKey } = await transferBetweenOthers()
+    await switchTo(OUTSIDER)
+
+    await expect(endpoints.transferByKey(idempotencyKey)).resolves.toBeNull()
+    await expect(endpoints.transferByKey('k_never')).resolves.toBeNull()
+  })
+
+  it('남의 이체는 내역에도 없다', async () => {
+    await transferBetweenOthers()
+    await switchTo(OUTSIDER)
+    await expect(endpoints.history()).resolves.toEqual([])
+  })
+
+  it('보낸 쪽은 자기 이체를 그대로 읽는다', async () => {
+    const { created, idempotencyKey } = await transferBetweenOthers()
+    await expect(endpoints.transfer(created.id)).resolves.toMatchObject({ id: created.id })
+    await expect(endpoints.transferByKey(idempotencyKey)).resolves.toMatchObject({ id: created.id })
+  })
+
+  // 받은 쪽에게도 "돈이 어디 있는가" 를 답해야 한다 — docs/JOURNEY.md 여정 6
+  it('받은 쪽도 읽는다', async () => {
+    const created = await endpoints.createTransfer(
+      { pointTypeId: 'pt_on', toId: 'u_jisoo', amount: 1_000 },
+      key(),
+    )
+    await switchTo(OUTSIDER)
+    await expect(endpoints.transfer(created.id)).resolves.toMatchObject({ id: created.id })
+  })
+
+  // 남의 키로 내 요청을 보내도 남의 이체가 돌아오지 않는다.
+  it('멱등성 재사용 판정도 요청자별이다', async () => {
+    const { created, idempotencyKey } = await transferBetweenOthers()
+    await switchTo(OUTSIDER)
+
+    const own = await endpoints.createTransfer(
+      { pointTypeId: 'pt_on', toId: 'u_taeyun', amount: 500 },
+      idempotencyKey,
+    )
+    expect(own.id).not.toBe(created.id)
+    expect(own.fromId).toBe('u_jisoo')
+  })
+})
+
 describe('내역', () => {
   it('최신순으로 주고 포인트로 걸러진다', async () => {
     const on = await endpoints.createTransfer(

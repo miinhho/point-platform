@@ -88,7 +88,7 @@ async function commit(
   // 키 없는 쓰기를 받아 주면 이중 이체가 조용히 가능해진다.
   if (!key) return HttpResponse.json({ code: 'SERVER', message: 'Idempotency-Key 없음' }, { status: 400 })
 
-  const existing = ledger.findByIdempotencyKey(key)
+  const existing = ledger.findByIdempotencyKey(key, auth.userId)
   if (existing) return HttpResponse.json(existing)
 
   const input = readCommitBody((await request.json()) as TransferBody, auth.userId, selfOnly)
@@ -229,11 +229,12 @@ export const handlers = [
 
   http.get(
     '*/api/transfers/by-key',
-    authed((_userId, request) => {
+    authed((userId, request) => {
       const key = new URL(request.url).searchParams.get('idempotencyKey')
       if (!key) return HttpResponse.json({ code: 'SERVER' }, { status: 400 })
       // 없으면 404 가 아니라 null 이다. "안 일어났다" 는 정상적인 답이다.
-      return ledger.findByIdempotencyKey(key) ?? null
+      // 남의 것도 null 이다 — 없을 때와 구별되면 그것이 곧 존재한다는 답이 된다.
+      return ledger.findByIdempotencyKey(key, userId) ?? null
     }),
   ),
 
@@ -242,8 +243,9 @@ export const handlers = [
     if (blocked) return blocked
     const auth = requireUser(request)
     if (auth instanceof Response) return auth
-    const transfer = ledger.findTransfer(String(params.id))
-    // 없다는 것은 일어나지 않았다는 뜻이다.
+    const transfer = ledger.findTransfer(String(params.id), auth.userId)
+    // 없다는 것은 일어나지 않았다는 뜻이다. 남의 것도 같은 답이다 —
+    // 403 으로 가르면 그 id 가 존재한다는 것을 알려 주는 셈이다.
     if (!transfer) return HttpResponse.json({ code: 'SERVER', message: '없음' }, { status: 404 })
     return HttpResponse.json(transfer)
   }),
