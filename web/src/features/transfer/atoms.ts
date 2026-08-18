@@ -70,6 +70,12 @@ export const failAtom = atom(null, (_get, set, failure: Failure) => {
   set(goAtom, { name: 'failure' })
 })
 
+/** 확정됨. 초안은 남겨 둔다 — 결과 화면이 무엇을 보냈는지 말해야 한다 */
+export const succeedAtom = atom(null, (_get, set, transferId: string) => {
+  set(failureAtom, null)
+  set(goAtom, { name: 'result', transferId })
+})
+
 /** 실패 화면에서 다시 시도. 확정 화면으로 돌아간다 — 키는 그대로다 */
 export const retryAtom = atom(null, (get, set) => {
   set(failureAtom, null)

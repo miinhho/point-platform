@@ -1,6 +1,11 @@
-import { queryOptions } from '@tanstack/react-query'
-import type { PointTypeId } from '@/domain/types'
-import { endpoints } from './endpoints'
+import {
+  queryOptions,
+  useMutation,
+  useQueryClient,
+  type UseMutationResult,
+} from '@tanstack/react-query'
+import type { PointTypeId, Transfer, TransferKind } from '@/domain/types'
+import { endpoints, type CreateTransferInput } from './endpoints'
 
 export const queryKeys = {
   wallet: ['wallet'] as const,
@@ -24,3 +29,33 @@ export const recentQuery = (pointTypeId: PointTypeId) =>
     queryKey: queryKeys.recent(pointTypeId),
     queryFn: () => endpoints.recent(pointTypeId),
   })
+
+export interface SubmitVariables {
+  kind: TransferKind
+  input: CreateTransferInput
+  /** 확정 화면에서 만든 키. 뮤테이션이 만들지 않는다 — 재시도가 같은 키여야 한다 */
+  idempotencyKey: string
+}
+
+/** 낙관적 업데이트를 쓰지 않는다. 송금에서 그것은 거짓 완료가 된다. */
+export function useSubmitTransfer(): UseMutationResult<Transfer, Error, SubmitVariables> {
+  const client = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({ kind, input, idempotencyKey }: SubmitVariables) =>
+      kind === 'issue'
+        ? endpoints.createIssue(
+            { pointTypeId: input.pointTypeId, amount: input.amount },
+            idempotencyKey,
+          )
+        : endpoints.createTransfer(input, idempotencyKey),
+
+    // 재시도는 사용자가 화면을 보고 내리는 결정이어야 한다.
+    retry: false,
+
+    onSuccess: (transfer) => {
+      void client.invalidateQueries({ queryKey: queryKeys.wallet })
+      void client.invalidateQueries({ queryKey: queryKeys.recent(transfer.pointTypeId) })
+    },
+  })
+}

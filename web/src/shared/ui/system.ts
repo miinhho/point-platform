@@ -20,6 +20,11 @@ const config = defineConfig({
 
     semanticTokens: {
       colors: {
+        /** 확정되지 않은 것. 완료와 같은 색일 수 없다. */
+        pending: {
+          fg: { value: { base: '{colors.gray.500}', _dark: '{colors.gray.400}' } },
+          subtle: { value: { base: '{colors.gray.100}', _dark: '{colors.gray.900}' } },
+        },
         /** 검증해야 하는 것. 색만으로 구분하지 않으므로 크기·굵기와 함께 쓴다. */
         verify: {
           fg: { value: { base: '{colors.orange.700}', _dark: '{colors.orange.300}' } },
@@ -66,6 +71,15 @@ const config = defineConfig({
       /** 키패드의 글자 키 */
       keyGlyph: { value: { fontSize: 'sm', fontWeight: 'medium' } },
       button: { value: { fontSize: 'md', fontWeight: 'medium' } },
+      /** 표의 값 */
+      line: { value: { fontSize: 'sm', fontWeight: 'normal', fontVariantNumeric: 'tabular-nums' } },
+      /** 표에서 가장 중요한 값 */
+      lineStrong: {
+        value: { fontSize: 'md', fontWeight: 'medium', fontVariantNumeric: 'tabular-nums' },
+      },
+      /** 결과 화면의 큰 한 줄 */
+      headline: { value: { fontSize: 'xl', fontWeight: 'semibold', letterSpacing: '-0.01em' } },
+      body: { value: { fontSize: 'md', fontWeight: 'normal' } },
       /** 기호 배지 */
       badge: { value: { fontSize: 'xs', fontWeight: 'bold', letterSpacing: '0.02em' } },
       /** 가장 작은 것. 이보다 작은 글자를 만들지 않는다 */

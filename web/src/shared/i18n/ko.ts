@@ -5,6 +5,7 @@ export const ko = {
     loading: '불러오는 중',
     retry: '다시 시도',
     back: '뒤로',
+    ok: '확인',
   },
 
   home: {
@@ -40,7 +41,38 @@ export const ko = {
     backspace: '한 자 지우기',
   },
 
+  confirm: {
+    titleTransfer: '이렇게 보낼까요?',
+    titleIssue: '이렇게 발행할까요?',
+    holdTransfer: '꾹 눌러서 보내기',
+    holdIssue: '꾹 눌러서 발행',
+    sending: '보내는 중',
+    to: '받는 사람',
+    balanceNow: '지금 잔액',
+    balanceAfter: '보낸 뒤 남는 잔액',
+    /** 받는 사람이 이 포인트를 처음 받는다. 경고가 아니라 사실이다 */
+    firstTime: '이 포인트를 처음 받아요',
+  },
+
+  result: {
+    titleTransfer: '보냈어요',
+    titleIssue: '발행했어요',
+    remaining: '남은 잔액',
+    /** 상태 변화를 소리로도 알린다 */
+    announceTransfer: '보냈어요. 남은 잔액 {{balance}}',
+  },
+
   failure: {
+    heading: '보내지 못했어요',
+    whereLabel: '포인트는 여기 있어요',
+    /** 결과를 모를 때. 단정하지 않는다는 뜻이다 */
+    unknownLabel: '지금 확실한 것',
+    draftLabel: '보내려던 것',
+    /** 결과를 모를 때는 "다시 보내기" 가 아니다 */
+    check: '확인하기',
+    editAmount: '금액 고치기',
+    repick: '받는 사람 다시 고르기',
+    home: '홈으로',
     INSUFFICIENT_BALANCE: {
       title: '잔액이 부족해요',
       whereTransfer: '아무것도 나가지 않았어요',
