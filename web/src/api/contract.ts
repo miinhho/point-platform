@@ -25,6 +25,8 @@ export interface PointType {
   issuerId: UserId
   /** 이름이 겹치는 포인트를 가르는 부제. 화면이 사용자 목록을 뒤지지 않게 서버가 준다. */
   issuerName: string
+  /** 발행자의 핸들. 이름·기호·색과 달리 흉내낼 수 없어 사칭 판단의 근거가 된다. */
+  issuerHandle: string
   /** 원장 전체에서 이 이름을 쓰는 포인트가 둘 이상인가. 내 지갑에는 한쪽만 올 수 있다. */
   nameIsShared: boolean
   /** 내가 이 포인트를 발행할 수 있는가. 클라이언트가 판정하지 않는다. */
@@ -35,7 +37,14 @@ export interface PointType {
   accent: PointAccent
   totalIssued: Points
   issueCap: Points
+  /** 만들어진 시각. 오래된 것은 흉내낼 수 없다. */
+  createdAt: string
+  /** 창설 시 정해지고 나중에 바꿀 수 없다 — 바꾸는 것은 설정 변경이 아니라 사람에게 일어나는 일이다. */
+  visibility: PointVisibility
 }
+
+/** `public` 에는 회원이 없다. 관문이 없는데 통과 기록을 두면 그것은 공개가 아니다. */
+export type PointVisibility = 'public' | 'private'
 
 export type PointAccent = 'blue' | 'green' | 'purple' | 'orange' | 'pink' | 'teal'
 

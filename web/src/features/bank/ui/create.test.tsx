@@ -38,11 +38,9 @@ describe('포인트를 만든다', () => {
     await user.click(screen.getByRole('button', { name: '홈으로' }))
 
     expect(await screen.findByText('동네빵집', {}, { timeout: 5000 })).toBeTruthy()
-    // 잔액 0 이라도 발행 진입점이 붙는다. 없으면 발행하러 갈 길이 없다.
-    // 시드의 금머니에 하나, 방금 만든 것에 하나.
-    await waitFor(() =>
-      expect(screen.getAllByRole('button', { name: '발행 관리' })).toHaveLength(2),
-    )
+    // 잔액 0 이라도 은행 페이지로 갈 수 있다. 없으면 발행하러 갈 길이 없다.
+    await user.click(await screen.findByRole('button', { name: '동네빵집 자세히' }))
+    await waitFor(() => expect(screen.getByRole('button', { name: '발행하기' })).toBeTruthy())
   })
 
   it('겹친 기호는 그 자리에서 말한다 — 실패 화면으로 보내지 않는다', async () => {

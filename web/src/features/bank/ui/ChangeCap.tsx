@@ -67,7 +67,7 @@ export function ChangeCap({ pointTypeId, onBack, onChanged }: Props) {
       <Body>
         <Gutter paddingTop="4" display="flex" flexDirection="column" gap="5">
           <Box display="flex" flexDirection="column" gap="2">
-            <Line label={t('issuer.supply')} value={toGrouped(pointType.totalIssued)} />
+            <Line label={t('bank.supply')} value={toGrouped(pointType.totalIssued)} />
             <Line label={t('cap.now')} value={toGrouped(pointType.issueCap)} />
           </Box>
 

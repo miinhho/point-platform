@@ -1,5 +1,5 @@
 import { delay, http, HttpResponse } from 'msw'
-import type { FailureCode, FailureOutcome, PointAccent } from '@/api/contract'
+import type { FailureCode, FailureOutcome, PointAccent, PointVisibility } from '@/api/contract'
 import * as ledger from './ledger'
 import { authenticate, burnFamily, issueTokens, rotate, userIdFromHeader } from './sessions'
 import { drawFailure, drawResponseLoss, simulatedLatency } from './sim'
@@ -120,22 +120,35 @@ interface CreatePointTypeBody {
   symbol?: unknown
   accent?: unknown
   issueCap?: unknown
+  visibility?: unknown
 }
 
 const ACCENTS: readonly PointAccent[] = ['blue', 'green', 'purple', 'orange', 'pink', 'teal']
+const VISIBILITIES: readonly PointVisibility[] = ['public', 'private']
 
 /**
  * 형식은 HTTP 경계가 본다 — 계약: docs/API.md 여정 9 절.
  * 통과하지 못하면 원장을 부르지 않는다.
  */
 function readCreateBody(body: CreatePointTypeBody): ledger.CreatePointTypeInput | null {
-  const { name, symbol, accent, issueCap } = body
+  const { name, symbol, accent, issueCap, visibility } = body
   if (typeof name !== 'string' || typeof symbol !== 'string') return null
   if (name.trim().length < 1 || name.trim().length > 12) return null
   if (!/^[A-Za-z]{2,3}$/.test(symbol)) return null
   if (typeof accent !== 'string' || !ACCENTS.includes(accent as PointAccent)) return null
   if (typeof issueCap !== 'number' || !Number.isSafeInteger(issueCap) || issueCap <= 0) return null
-  return { idempotencyKey: '', name, symbol, accent: accent as PointAccent, issueCap }
+  // 나중에 바꿀 수 없는 값이다. 빠지면 기본값을 정하지 않고 거절한다.
+  if (typeof visibility !== 'string' || !VISIBILITIES.includes(visibility as PointVisibility)) {
+    return null
+  }
+  return {
+    idempotencyKey: '',
+    name,
+    symbol,
+    accent: accent as PointAccent,
+    issueCap,
+    visibility: visibility as PointVisibility,
+  }
 }
 
 /** 인증이 필요한 읽기. 한 곳에서만 토큰을 확인한다 */
@@ -210,6 +223,15 @@ export const handlers = [
   ),
 
   http.get('*/api/point-types', authed((userId) => ledger.pointTypesFor(userId))),
+
+  // 은행 페이지. 내 지갑에 없는 포인트도 소개는 보인다 — 계약: docs/API.md
+  http.get(
+    '*/api/point-types/:id',
+    authed((userId, request) => {
+      const id = new URL(request.url).pathname.split('/').pop()!
+      return ledger.findPointType(id, userId) ?? fail('POINT_TYPE_NOT_FOUND')
+    }),
+  ),
 
   http.get(
     '*/api/users',

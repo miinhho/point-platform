@@ -6,7 +6,7 @@ import { meQuery, queryKeys } from '@/api/queries'
 import { setUnauthenticatedHandler } from '@/api/http'
 import { SignIn } from '@/features/auth'
 import { History, HistoryDetail } from '@/features/history'
-import { ChangeCap, CreatePoint, Issuer, PointCreated } from '@/features/issuer'
+import { Bank, ChangeCap, CreatePoint, PointCreated } from '@/features/bank'
 import { Settings } from '@/features/settings'
 import {
   Confirm,
@@ -22,7 +22,6 @@ import { ScreenTransition } from '@/shared/ui/ScreenTransition'
 import type { ReactElement } from 'react'
 import { TabBar } from './TabBar'
 import { currentScreenAtom, goAtom, leaveFlowAtom, navAtom, resetNavAtom } from './atoms'
-import { depthOf } from './depth'
 import { useAppBack } from './useAppBack'
 import type { Screen, TabName } from './navigation'
 
@@ -71,8 +70,8 @@ function CurrentScreen({
       return <Failure onCheck={actions.check} />
     case 'historyDetail':
       return <HistoryDetail transferId={screen.transferId} onBack={actions.back} />
-    case 'issuer':
-      return <Issuer onBack={actions.back} />
+    case 'bank':
+      return <Bank pointTypeId={screen.pointTypeId} onBack={actions.back} />
     case 'createPoint':
       return (
         <CreatePoint
@@ -141,7 +140,7 @@ export default function App() {
       <Box flex={1} css={{ minHeight: 0 }}>
         <ScreenTransition
           screenKey={screen?.name ?? `tab:${nav.tab}`}
-          depth={depthOf(screen)}
+          depth={nav.stack.length}
           morphGroup={
             screen?.name === 'historyDetail' || nav.tab === 'history' ? 'history' : undefined
           }

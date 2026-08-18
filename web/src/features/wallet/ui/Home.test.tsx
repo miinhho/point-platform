@@ -13,6 +13,13 @@ beforeEach(async () => {
 /** 확인 방법: docs/JOURNEY.md 여정 1 */
 const SYMBOL = /^(ON|SL|GM|OP|ZZ)$/
 
+/** 카드와 그 옆의 진입점은 이름이 겹친다 — 카드는 `aria-label` 이 없는 쪽이다 */
+function cardOf(name: string): HTMLElement {
+  return screen
+    .getAllByRole('button', { name: new RegExp(name) })
+    .filter((button) => !button.getAttribute('aria-label'))[0]
+}
+
 /** 카드가 흐려졌는지. 아무 조상도 opacity 를 정하지 않으면 죽지 않은 것이다 */
 function cardOpacity(name: string): string {
   let node: HTMLElement | null = screen.getByText(name)
@@ -88,7 +95,7 @@ describe('홈', () => {
     // 다음에 할 일은 받기를 기다리는 것이 아니라 발행이다.
     expect(screen.getByText('발행해서 채울 수 있어요')).toBeTruthy()
     expect(screen.queryByText('보낼 잔액이 없어요')).toBeNull()
-    expect(screen.getByRole('button', { name: '발행 관리' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: '동네빵집 자세히' })).toBeTruthy()
   })
 
   it('이름이 겹치는 포인트에만 발행자 부제가 붙는다', async () => {
@@ -115,18 +122,20 @@ describe('홈', () => {
     expect(screen.getByText('온마트 발행')).toBeTruthy()
   })
 
-  // 여정 8 — 발행자 화면의 진입점은 그 포인트 카드의 배지다.
-  it('내가 발행하는 포인트에만 발행 진입점이 붙는다', async () => {
+  // 판단할 것은 발행자에게만 있는 것이 아니다 — docs/JOURNEY.md 여정 10
+  it('발행자가 아닌 포인트에도 은행 페이지 진입점이 붙는다', async () => {
     renderApp(<Home />)
-    const entries = await screen.findAllByRole('button', { name: '발행 관리' })
-    expect(entries).toHaveLength(1)
+    await screen.findByText('금머니')
+    // 시드의 네 카드 전부.
+    expect(screen.getAllByRole('button', { name: /자세히$/ })).toHaveLength(4)
   })
 
   // 카드는 이체로 가는 버튼이다. 이름에 다른 행동이 섞이면 스크린리더가 거짓을 읽는다.
-  it('카드의 접근성 이름에 발행 관리가 섞이지 않는다', async () => {
+  it('카드의 접근성 이름에 진입점 글자가 섞이지 않는다', async () => {
     renderApp(<Home />)
-    const card = await screen.findByRole('button', { name: /금머니/ })
-    expect(card.textContent).not.toContain('발행 관리')
+    await screen.findByText('금머니')
+    const card = cardOf('금머니')
+    expect(card.textContent).not.toContain('자세히')
     expect(card.querySelector('button')).toBeNull()
   })
 

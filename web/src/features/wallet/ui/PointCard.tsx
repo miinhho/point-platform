@@ -10,14 +10,14 @@ import { Row, RowButton } from '@/shared/ui/Screen'
 interface Props {
   /** 잔액 0 이면 주지 않는다. 들어가면 첫 글자부터 잠긴 금액 화면이 된다 */
   onOpen?: () => void
-  /** 발행 권한이 있을 때만. 여정 8 — 카드의 발행자 배지가 진입점이다 */
-  onIssue?: () => void
+  /** 은행 페이지로. 발행자든 아니든 판단할 것이 거기 있다 — 여정 10 */
+  onBank: () => void
   balance: Balance
   isMine: boolean
 }
 
 /** 근거: docs/JOURNEY.md 여정 1 */
-export function PointCard({ balance, isMine, onOpen, onIssue }: Props) {
+export function PointCard({ balance, isMine, onOpen, onBank }: Props) {
   const { t } = useTranslation()
   const { pointType, amount } = balance
   const empty = amount === 0
@@ -26,7 +26,7 @@ export function PointCard({ balance, isMine, onOpen, onIssue }: Props) {
   // 근거: docs/JOURNEY.md 여정 1
   const dimmed = empty && !isMine
   // 카드 안에 버튼을 넣으면 HTML 이 깨지고, 무엇보다 카드의 접근성 이름에
-  // 안쪽 버튼의 글자가 섞인다. 카드는 이체로 가는데 이름이 "발행 관리" 를 말하게 된다.
+  // 안쪽 버튼의 글자가 섞인다. 카드는 이체로 가는데 이름이 다른 행동을 말하게 된다.
   const Main = openable ? RowButton : Row
 
   return (
@@ -57,18 +57,17 @@ export function PointCard({ balance, isMine, onOpen, onIssue }: Props) {
       </Main>
 
       {/* 형제로 둔다. 중첩하면 카드의 접근성 이름이 오염된다. */}
-      {isMine && onIssue ? (
-        // `2xs` 는 높이가 정확히 24px 이라 WCAG 2.5.8 최소치에 걸친다. 여유를 둔다.
-        <Button
-          size="xs"
-          variant="outline"
-          flexShrink={0}
-          marginInlineEnd="gutter"
-          onClick={onIssue}
-        >
-          {t('home.issue')}
-        </Button>
-      ) : null}
+      {/* `2xs` 는 높이가 정확히 24px 이라 WCAG 2.5.8 최소치에 걸친다. 여유를 둔다. */}
+      <Button
+        size="xs"
+        variant="outline"
+        flexShrink={0}
+        marginInlineEnd="gutter"
+        aria-label={t('bank.entryFor', { name: pointType.name })}
+        onClick={onBank}
+      >
+        {t('bank.entry')}
+      </Button>
     </Box>
   )
 }

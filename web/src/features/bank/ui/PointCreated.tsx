@@ -33,9 +33,9 @@ export function PointCreated({
           </Box>
 
           <Box marginTop="6" display="flex" flexDirection="column" gap="2">
-            <Line label={t('issuer.supply')} value={toGrouped(pointType.totalIssued)} />
+            <Line label={t('bank.supply')} value={toGrouped(pointType.totalIssued)} />
             <Line
-              label={t('issuer.cap')}
+              label={t('bank.cap')}
               value={toGrouped(pointType.issueCap)}
               textStyle="lineStrong"
             />

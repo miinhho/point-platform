@@ -36,7 +36,7 @@ export function Home() {
             balance={balance}
             isMine={balance.pointType.canIssue}
             onOpen={() => startTransfer({ pointType: balance.pointType })}
-            onIssue={balance.pointType.canIssue ? () => go({ name: 'issuer' }) : undefined}
+            onBank={() => go({ name: 'bank', pointTypeId: balance.pointType.id })}
           />
         ))}
 

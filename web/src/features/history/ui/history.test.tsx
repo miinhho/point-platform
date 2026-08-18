@@ -103,20 +103,3 @@ describe('설정', () => {
     expect(radios.map((r) => r.textContent)).toEqual(['자동', '밝게', '어둡게'])
   })
 })
-
-describe('발행자 화면', () => {
-  it('유통량·상한·여력을 보여준다', async () => {
-    const user = userEvent.setup()
-    renderApp(<App />)
-    await user.click(await screen.findByRole('button', { name: '발행 관리' }))
-    await screen.findByText('발행 관리')
-    expect(screen.getByText('8,800,000')).toBeTruthy()
-  })
-
-  it('보유자 화면에는 유통량이 나오지 않는다', async () => {
-    renderApp(<App />)
-    await screen.findByText('내 포인트')
-    expect(document.body.textContent).not.toContain('총 유통량')
-    expect(document.body.textContent).not.toContain('발행 상한')
-  })
-})

@@ -18,23 +18,26 @@ async function hold(ms: number) {
   button.dispatchEvent(new PointerEvent('pointerup', { bubbles: true }))
 }
 
-/** 홈 → 금머니 카드의 발행 관리 → 상한 바꾸기 */
+/** 홈 → 금머니 카드의 진입점 → 은행 페이지 → 상한 바꾸기 */
 async function openChangeCap(user: ReturnType<typeof userEvent.setup>) {
   renderApp(<App />)
-  await user.click(await screen.findByRole('button', { name: '발행 관리' }))
+  await user.click(await screen.findByRole('button', { name: '금머니 자세히' }))
   await user.click(await screen.findByRole('button', { name: '상한 바꾸기' }))
   await screen.findByLabelText('새 상한')
 }
 
+/** 은행 페이지로 돌아왔는가. 제목이 포인트 이름이다 */
+const atBank = () => screen.findByRole('heading', { name: '금머니' }, { timeout: 5000 })
+
 describe('상한을 바꾼다', () => {
-  it('꾹 눌러서 바꾸면 발행 관리의 상한이 바뀐다', async () => {
+  it('꾹 눌러서 바꾸면 은행 페이지의 상한이 바뀐다', async () => {
     const user = userEvent.setup()
     await openChangeCap(user)
     await user.type(screen.getByLabelText('새 상한'), '20000000')
     await hold(750)
 
-    // 발행 관리로 돌아오고 그 화면의 상한이 새 값이다.
-    expect(await screen.findByText('발행 관리', {}, { timeout: 5000 })).toBeTruthy()
+    // 은행 페이지로 돌아오고 그 화면의 상한이 새 값이다.
+    expect(await atBank()).toBeTruthy()
     await waitFor(() => expect(screen.getByText('20,000,000')).toBeTruthy())
   })
 
@@ -103,9 +106,9 @@ describe('바뀐 사실은 가진 사람의 내역에 남는다', () => {
     await openChangeCap(user)
     await user.type(screen.getByLabelText('새 상한'), '20000000')
     await hold(750)
-    await screen.findByText('발행 관리', {}, { timeout: 5000 })
+    await atBank()
 
-    // 발행 관리는 플로우가 아니라 탭 바가 보인다.
+    // 은행 페이지는 플로우가 아니라 탭 바가 보인다.
     await user.click(await screen.findByRole('button', { name: '내역' }))
 
     const row = await screen.findByText('금머니 발행 상한이 올랐어요', {}, { timeout: 5000 })
@@ -120,7 +123,7 @@ describe('바뀐 사실은 가진 사람의 내역에 남는다', () => {
     await openChangeCap(user)
     await user.type(screen.getByLabelText('새 상한'), '20000000')
     await hold(750)
-    await screen.findByText('발행 관리', {}, { timeout: 5000 })
+    await atBank()
 
     // @jisu 는 금머니를 가졌지만 발행자가 아니다.
     await signInAs('@jisu')

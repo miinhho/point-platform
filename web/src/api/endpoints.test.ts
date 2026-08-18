@@ -227,7 +227,13 @@ describe('발행', () => {
 })
 
 describe('포인트 창설', () => {
-  const bakery = { name: '동네빵집', symbol: 'BK', accent: 'orange' as const, issueCap: 1_000_000 }
+  const bakery = {
+    name: '동네빵집',
+    symbol: 'BK',
+    accent: 'orange' as const,
+    issueCap: 1_000_000,
+    visibility: 'public' as const,
+  }
 
   it('만든 사람이 발행자이고 유통량은 0 에서 시작한다', async () => {
     const created = await endpoints.createPointType(bakery, key())
@@ -280,6 +286,9 @@ describe('포인트 창설', () => {
     ['상한이 소수다', { issueCap: 1.5 }],
     ['상한이 0 이다', { issueCap: 0 }],
     ['없는 색이다', { accent: 'crimson' as never }],
+    // 나중에 바꿀 수 없는 값이다. 빠지면 서버가 기본값을 정하지 않는다.
+    ['공개 여부가 없다', { visibility: undefined as never }],
+    ['공개 여부가 그 둘이 아니다', { visibility: 'secret' as never }],
   ])('%s 면 400 이다', async (_label, patch) => {
     await expect(
       endpoints.createPointType({ ...bakery, symbol: 'ZZ', ...patch }, key()),

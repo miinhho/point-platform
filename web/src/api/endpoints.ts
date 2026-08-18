@@ -4,6 +4,7 @@ import type {
   PointAccent,
   PointType,
   PointTypeId,
+  PointVisibility,
   Points,
   Transfer,
   TransferId,
@@ -31,6 +32,8 @@ export interface CreatePointTypeInput {
   symbol: string
   accent: PointAccent
   issueCap: Points
+  /** 나중에 바꿀 수 없다 — 계약: docs/API.md */
+  visibility: PointVisibility
 }
 
 export interface HistoryQuery {
@@ -70,6 +73,10 @@ export const endpoints = {
 
   /** 발행 권한은 `issuerId` 로 판단한다. */
   pointTypes: (options?: RequestOptions) => request<PointType[]>('/point-types', options),
+
+  /** 은행 페이지. 내 지갑에 없는 포인트도 소개는 읽을 수 있다 */
+  pointType: (pointTypeId: PointTypeId, options?: RequestOptions) =>
+    request<PointType>(`/point-types/${pointTypeId}`, options),
 
   users: (query?: string, options?: RequestOptions) =>
     request<User[]>('/users', { ...options, query: { q: query || undefined } }),

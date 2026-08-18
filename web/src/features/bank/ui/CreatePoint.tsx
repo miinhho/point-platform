@@ -36,7 +36,8 @@ export function CreatePoint({ onBack, onCreated }: Props) {
   const create = useMutation({
     mutationFn: () =>
       endpoints.createPointType(
-        { name: name.trim(), symbol, accent, issueCap: parseInput(cap) },
+        // 비공개는 초대·회원 없이는 뜻이 없다. 그것이 설 때까지 공개만 만든다.
+        { name: name.trim(), symbol, accent, issueCap: parseInput(cap), visibility: 'public' },
         idempotencyKey,
       ),
     retry: false,

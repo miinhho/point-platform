@@ -2,6 +2,7 @@ import type {
   CapChange,
   HistoryEntry,
   PointAccent,
+  PointVisibility,
   PointType,
   PointTypeId,
   Points,
@@ -63,9 +64,12 @@ function seedPointTypes(): SeedPoint[] {
       symbol: 'ON',
       issuerId: 'u_onmart',
       issuerName: '온마트',
+      issuerHandle: '@onmart',
       accent: 'blue',
       totalIssued: 50_000_000,
       issueCap: 100_000_000,
+      createdAt: '2023-03-14T09:00:00.000Z',
+      visibility: 'public',
     },
     {
       id: 'pt_sol',
@@ -73,9 +77,12 @@ function seedPointTypes(): SeedPoint[] {
       symbol: 'SL',
       issuerId: 'u_solcafe',
       issuerName: '솔카페',
+      issuerHandle: '@solcafe',
       accent: 'green',
       totalIssued: 8_000_000,
       issueCap: 20_000_000,
+      createdAt: '2024-01-08T02:30:00.000Z',
+      visibility: 'public',
     },
     {
       id: 'pt_gm',
@@ -83,9 +90,12 @@ function seedPointTypes(): SeedPoint[] {
       symbol: 'GM',
       issuerId: SEED_ISSUER,
       issuerName: '장민호',
+      issuerHandle: '@minho',
       accent: 'purple',
       totalIssued: 1_200_000,
       issueCap: 10_000_000,
+      createdAt: '2025-06-02T11:20:00.000Z',
+      visibility: 'public',
     },
     // 이름이 겹치는 포인트를 일부러 둔다. 김지수를 둘 심은 것과 같은 이유다.
     {
@@ -94,9 +104,12 @@ function seedPointTypes(): SeedPoint[] {
       symbol: 'OP',
       issuerId: 'u_solcafe',
       issuerName: '솔카페',
+      issuerHandle: '@solcafe',
       accent: 'teal',
       totalIssued: 300_000,
       issueCap: 5_000_000,
+      createdAt: '2026-07-30T05:10:00.000Z',
+      visibility: 'public',
     },
   ]
 }
@@ -194,6 +207,12 @@ export function pointTypesFor(userId: UserId): PointType[] {
   return seedPoints().map((pointType) => viewOf(pointType, userId))
 }
 
+/** 은행 페이지가 읽는다. 내 지갑에 없는 포인트도 소개는 보인다 — 계약: docs/API.md */
+export function findPointType(pointTypeId: PointTypeId, userId: UserId): PointType | undefined {
+  const pointType = state.pointTypes.get(pointTypeId)
+  return pointType && viewOf(pointType, userId)
+}
+
 export function balanceOf(pointTypeId: PointTypeId, userId: UserId): Points {
   return state.balances.get(balanceKey(pointTypeId, userId)) ?? 0
 }
@@ -289,6 +308,7 @@ export interface CreatePointTypeInput {
   symbol: string
   accent: PointAccent
   issueCap: Points
+  visibility: PointVisibility
 }
 
 /**
@@ -313,9 +333,12 @@ export function createPointType(meId: UserId, input: CreatePointTypeInput): Poin
     symbol,
     issuerId: meId,
     issuerName: issuer.name,
+    issuerHandle: issuer.handle,
     accent: input.accent,
     totalIssued: 0,
     issueCap: input.issueCap,
+    createdAt: new Date().toISOString(),
+    visibility: input.visibility,
   }
   state.pointTypes.set(created.id, created)
   state.createdByKey.set(input.idempotencyKey, created.id)

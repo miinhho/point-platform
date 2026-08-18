@@ -107,17 +107,24 @@ export const ko = {
     devNote: 'Mock 서버 전용이에요. 실서버에는 없어요',
   },
 
-  issuer: {
-    title: '발행 관리',
+  bank: {
+    /** 카드 옆 진입점. 발행자가 아닌 사람에게도 보인다 — 여정 10 */
+    entry: '자세히',
+    /** 카드가 여럿이라 보이는 글자만으로는 어느 포인트인지 알 수 없다 */
+    entryFor: '{{name}} 자세히',
+    /** 흉내낼 수 없는 유일한 것 — 이름·기호·색은 전부 고르는 것이다 */
+    issuer: '만든 사람',
+    created: '만든 날',
     supply: '총 유통량',
     cap: '발행 상한',
     headroom: '남은 여력',
     issue: '발행하기',
+    myBalance: '내 잔액',
+    send: '보내기',
   },
 
   home: {
     title: '내 포인트',
-    issue: '발행 관리',
     empty: '아직 받은 포인트가 없어요',
     /** 발행 권한이 있는 포인트에만 붙는다 */
     issuerBadge: '내가 발행',

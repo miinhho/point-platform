@@ -4,7 +4,7 @@ import {
   useQueryClient,
   type UseMutationResult,
 } from '@tanstack/react-query'
-import type { PointTypeId, Transfer, TransferKind, User } from '@/api/contract'
+import type { PointType, PointTypeId, Transfer, TransferKind, User } from '@/api/contract'
 import { endpoints, type CreateTransferInput } from './endpoints'
 
 export const queryKeys = {
@@ -12,6 +12,7 @@ export const queryKeys = {
   wallet: ['wallet'] as const,
   users: (query: string) => ['users', query] as const,
   recent: (pointTypeId: PointTypeId) => ['recent', pointTypeId] as const,
+  pointType: (pointTypeId: PointTypeId) => ['pointType', pointTypeId] as const,
   history: ['history'] as const,
 }
 
@@ -44,6 +45,13 @@ export const recentQuery = (pointTypeId: PointTypeId) =>
   queryOptions({
     queryKey: queryKeys.recent(pointTypeId),
     queryFn: () => endpoints.recent(pointTypeId),
+  })
+
+/** 은행 페이지가 읽는다. 지갑에 없는 포인트도 소개는 온다 — 계약: docs/API.md */
+export const pointTypeQuery = (pointTypeId: PointTypeId) =>
+  queryOptions({
+    queryKey: queryKeys.pointType(pointTypeId),
+    queryFn: (): Promise<PointType> => endpoints.pointType(pointTypeId),
   })
 
 export const historyQuery = () =>

@@ -61,7 +61,11 @@ describe('여정 2 — 홈 카드로 들어간다', () => {
     )
     renderApp(<App />)
     await screen.findByText('영포인트')
-    expect(screen.queryByRole('button', { name: /영포인트/ })).toBeNull()
+    // 옆의 은행 페이지 진입점은 살아 있다 — 누를 수 없는 것은 카드다.
+    const cards = screen
+      .queryAllByRole('button', { name: /영포인트/ })
+      .filter((button) => !button.getAttribute('aria-label'))
+    expect(cards).toEqual([])
   })
 })
 
