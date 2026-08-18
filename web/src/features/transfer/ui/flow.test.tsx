@@ -65,6 +65,53 @@ describe('여정 2 — 홈 카드로 들어간다', () => {
   })
 })
 
+/*
+ * 여정 2 — 이름이 겹치는 포인트를 골랐으면 발행자가 함께 따라다닌다.
+ * 온포인트는 원장에 둘이다(온마트/솔카페). 이름만으로는 무엇인지 말하지 못한다.
+ */
+describe('여정 2 — 겹치는 이름은 발행자가 따라다닌다', () => {
+  async function toConfirmWithSharedName() {
+    const user = userEvent.setup()
+    renderApp(<App />)
+    await user.click(await screen.findByRole('button', { name: /온포인트.*3,240,000/ }))
+    await screen.findByText('누구에게 보낼까요?')
+    await settle()
+    return user
+  }
+
+  it('대상 선택 화면에 발행자가 붙는다', async () => {
+    await toConfirmWithSharedName()
+    expect(currentHeader()).toContain('온마트 발행')
+  })
+
+  it('금액 화면과 확정 화면까지 따라간다', async () => {
+    const user = await toConfirmWithSharedName()
+    await user.click(await screen.findByRole('button', { name: /@jisoo/ }))
+    await screen.findByText(/만큼 보낼 수 있어요/)
+    await settle()
+    expect(screen.getByText('온마트 발행')).toBeTruthy()
+
+    for (const digit of '30000') await user.click(screen.getByRole('button', { name: digit }))
+    await screen.findByText('30,000')
+    await user.click(screen.getByRole('button', { name: '보내기 확인' }))
+
+    // 마지막 방어선이다. 여기서 어느 온포인트인지 말하지 못하면 다른 방어선이 없다.
+    await screen.findByText('이렇게 보낼까요?')
+    await settle()
+    expect(screen.getByText('온마트 발행')).toBeTruthy()
+  })
+
+  // 항상 붙이면 배경이 되어 정작 겹칠 때 눈에 띄지 않는다.
+  it('겹치지 않는 포인트에는 안 붙는다', async () => {
+    const user = userEvent.setup()
+    renderApp(<App />)
+    await user.click(await screen.findByRole('button', { name: /금머니.*620,000/ }))
+    await screen.findByText('누구에게 보낼까요?')
+    await settle()
+    expect(screen.queryByText('장민호 발행')).toBeNull()
+  })
+})
+
 describe('여정 3 — 받는 사람', () => {
   // 안내 문구는 뺐다. 나란히 놓인 두 줄과 강조된 핸들이 그 일을 한다.
   it('동명이인 두 명이 나란히 온다', async () => {

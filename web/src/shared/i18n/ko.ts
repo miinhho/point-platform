@@ -6,6 +6,8 @@ export const ko = {
     retry: '다시 시도',
     back: '뒤로',
     ok: '확인',
+    /** 이름이 겹칠 때만 붙는 부제 — 홈 카드와 보내기 플로우가 같이 쓴다 */
+    issuedBy: '{{name}} 발행',
   },
 
   auth: {
@@ -119,8 +121,6 @@ export const ko = {
     empty: '아직 받은 포인트가 없어요',
     /** 발행 권한이 있는 포인트에만 붙는다 */
     issuerBadge: '내가 발행',
-    /** 이름이 겹칠 때만 붙는 부제 */
-    issuedBy: '{{name}} 발행',
     zeroBalance: '보낼 잔액이 없어요',
     /** 발행할 수 있는 사람에게는 다음 할 일이 기다리기가 아니라 발행이다 */
     zeroBalanceIssuer: '발행해서 채울 수 있어요',

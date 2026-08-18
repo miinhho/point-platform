@@ -7,6 +7,7 @@ import { toGrouped } from '@/shared/format'
 import { BackButton } from '@/shared/ui/BackButton'
 import { IssueBanner } from '@/shared/ui/IssueBanner'
 import { Body, Gutter, Header, Screen, Title } from '@/shared/ui/Screen'
+import { IssuerSuffix } from '@/shared/ui/IssuerSuffix'
 import { Amount } from './Amount'
 import { Keypad } from './Keypad'
 import { draftAtom, editDraftAtom, toConfirmAtom } from '../model/atoms'
@@ -43,6 +44,7 @@ export function EnterAmount({ onBack }: { onBack: () => void }) {
             </Text>
           )}
         </Title>
+        {issuing ? <IssuerSuffix pointType={draft.pointType} /> : null}
       </Header>
 
       <Body>

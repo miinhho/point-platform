@@ -34,8 +34,6 @@ export function Home() {
           <PointCard
             key={balance.pointType.id}
             balance={balance}
-            nameIsShared={balance.pointType.nameIsShared}
-            issuerName={balance.pointType.issuerName}
             isMine={balance.pointType.canIssue}
             onOpen={() => startTransfer({ pointType: balance.pointType })}
             onIssue={balance.pointType.canIssue ? () => go({ name: 'issuer' }) : undefined}

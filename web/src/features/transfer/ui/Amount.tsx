@@ -2,6 +2,7 @@ import { Box, Text } from '@chakra-ui/react'
 import { label } from '@/shared/format'
 import type { PointType, Points } from '@/api/contract'
 import { amountFontSize } from '@/shared/ui/amountFit'
+import { IssuerSuffix } from '@/shared/ui/IssuerSuffix'
 
 interface Props {
   pointType: PointType
@@ -17,9 +18,13 @@ export function Amount({ pointType, amount, over }: Props) {
 
   return (
     <Box colorPalette={pointType.accent}>
-      <Text textStyle="label" color="colorPalette.fg">
-        {pointType.name}
-      </Text>
+      {/* 이름이 겹치면 그것만으로 무엇인지 말하지 못한다 — docs/JOURNEY.md 여정 2 */}
+      <Box display="flex" alignItems="baseline" gap="1.5" flexWrap="wrap">
+        <Text textStyle="label" color="colorPalette.fg">
+          {pointType.name}
+        </Text>
+        <IssuerSuffix pointType={pointType} />
+      </Box>
 
       <Text
         textStyle="amount"

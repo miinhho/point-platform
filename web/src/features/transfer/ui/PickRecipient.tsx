@@ -5,6 +5,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { recentQuery, usersQuery } from '@/api/queries'
 import { BackButton } from '@/shared/ui/BackButton'
+import { IssuerSuffix } from '@/shared/ui/IssuerSuffix'
 import { Body, Gutter, Header, RowButton, Screen, Title } from '@/shared/ui/Screen'
 import { draftAtom, pickRecipientAtom } from '../model/atoms'
 import { buildRecipientList, buildSearchList, type RecipientEntry } from '../model/recipientList'
@@ -32,9 +33,12 @@ export function PickRecipient({ onBack }: { onBack: () => void }) {
         <BackButton onClick={onBack} />
         <Title>{t('pick.titleTransfer')}</Title>
         {draft ? (
-          <Text textStyle="caption" colorPalette={draft.pointType.accent} color="colorPalette.fg">
-            {draft.pointType.name}
-          </Text>
+          <Box display="flex" alignItems="baseline" gap="1.5" flexWrap="wrap">
+            <Text textStyle="caption" colorPalette={draft.pointType.accent} color="colorPalette.fg">
+              {draft.pointType.name}
+            </Text>
+            <IssuerSuffix pointType={draft.pointType} />
+          </Box>
         ) : null}
       </Header>
 

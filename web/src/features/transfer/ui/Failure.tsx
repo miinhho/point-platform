@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { failureTitleKey, failureWhereKey } from '@/shared/i18n/keys'
 import { toGrouped } from '@/shared/format'
 import { IssueBanner } from '@/shared/ui/IssueBanner'
+import { IssuerSuffix } from '@/shared/ui/IssuerSuffix'
 import { Body, Gutter, Header, Screen, Title } from '@/shared/ui/Screen'
 import {
   draftAtom,
@@ -65,9 +66,10 @@ export function Failure({ onCheck }: { onCheck: () => void }) {
               <Text textStyle="name">{draft.to.name}</Text>
               <Text textStyle="handle">{draft.to.handle}</Text>
             </Box>
-            <Text textStyle="caption" marginTop="2">
-              {draft.pointType.name}
-            </Text>
+            <Box display="flex" alignItems="baseline" gap="1.5" marginTop="2" flexWrap="wrap">
+              <Text textStyle="caption">{draft.pointType.name}</Text>
+              <IssuerSuffix pointType={draft.pointType} />
+            </Box>
             <Text textStyle="balance">{toGrouped(amountOf(draft))}</Text>
           </Box>
         </Gutter>
