@@ -74,8 +74,6 @@ export const ko = {
 
   cap: {
     title: '발행 상한 바꾸기',
-    entry: '상한 바꾸기',
-    now: '지금 상한',
     next: '새 상한',
     floor: '{{amount}}보다 낮출 수 없어요',
     holdersLabel: '가진 사람에게는',
@@ -84,6 +82,8 @@ export const ko = {
     holdersLowered: '{{amount}}까지만 늘어나요',
     irreversible: '바꾼 뒤에는 취소할 수 없어요',
     hold: '꾹 눌러서 바꾸기',
+    /** 바뀐 값은 같은 페이지의 표에 나온다. 화면을 못 보는 사람에게는 그것이 닿지 않는다 */
+    changed: '상한을 바꿨어요',
   },
 
   settings: {

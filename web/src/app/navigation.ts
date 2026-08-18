@@ -16,7 +16,6 @@ export type Screen =
   /** 포인트 하나에 페이지 하나. 보는 사람에 따라 내용이 늘 뿐이다 */
   | { name: 'bank'; pointTypeId: PointTypeId }
   | { name: 'createPoint' }
-  | { name: 'changeCap'; pointTypeId: PointTypeId }
   /** 서버가 돌려준 포인트를 그대로 싣는다 — 다시 읽으면 그 사이 빈 프레임이 생긴다 */
   | { name: 'pointCreated'; pointType: PointType }
 

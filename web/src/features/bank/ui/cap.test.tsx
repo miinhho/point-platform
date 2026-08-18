@@ -18,16 +18,14 @@ async function hold(ms: number) {
   button.dispatchEvent(new PointerEvent('pointerup', { bubbles: true }))
 }
 
-/** 홈 → 금머니 카드의 진입점 → 은행 페이지 → 상한 바꾸기 */
+/** 홈 → 금머니 카드의 진입점 → 은행 페이지. 상한 폼이 그 안에 있다 */
 async function openChangeCap(user: ReturnType<typeof userEvent.setup>) {
   renderApp(<App />)
   await user.click(await screen.findByRole('button', { name: '금머니 자세히' }))
-  await user.click(await screen.findByRole('button', { name: '상한 바꾸기' }))
   await screen.findByLabelText('새 상한')
+  // 전환 중에는 홈도 함께 떠 있다. 그쪽 값이 이 페이지의 것으로 읽힌다.
+  await waitFor(() => expect(screen.getAllByRole('banner')).toHaveLength(1))
 }
-
-/** 은행 페이지로 돌아왔는가. 제목이 포인트 이름이다 */
-const atBank = () => screen.findByRole('heading', { name: '금머니' }, { timeout: 5000 })
 
 describe('상한을 바꾼다', () => {
   it('꾹 눌러서 바꾸면 은행 페이지의 상한이 바뀐다', async () => {
@@ -36,9 +34,9 @@ describe('상한을 바꾼다', () => {
     await user.type(screen.getByLabelText('새 상한'), '20000000')
     await hold(750)
 
-    // 은행 페이지로 돌아오고 그 화면의 상한이 새 값이다.
-    expect(await atBank()).toBeTruthy()
-    await waitFor(() => expect(screen.getByText('20,000,000')).toBeTruthy())
+    // 화면을 떠나지 않는다. 같은 페이지의 상한이 새 값이 된다.
+    await waitFor(() => expect(screen.getByText('20,000,000')).toBeTruthy(), { timeout: 5000 })
+    expect(screen.getByLabelText('새 상한')).toHaveProperty('value', '')
   })
 
   // 만들기·발행과 같은 손동작이다. 다른 손동작을 요구하면 어느 것이 무거운지 알 수 없다.
@@ -48,7 +46,24 @@ describe('상한을 바꾼다', () => {
     await user.type(screen.getByLabelText('새 상한'), '20000000')
     await hold(200)
     await new Promise((resolve) => setTimeout(resolve, 700))
-    expect(screen.getByLabelText('새 상한')).toBeTruthy()
+    expect(screen.getByText('10,000,000')).toBeTruthy()
+    expect(screen.getByLabelText('새 상한')).toHaveProperty('value', '20,000,000')
+  })
+
+  /*
+   * 화면을 떠나지 않으므로 멱등성 키가 그 자리에 남는다. 물려주면 두 번째 변경이
+   * 첫 번째의 재시도로 취급돼 조용히 아무 일도 일어나지 않는다.
+   */
+  it('한 화면에서 두 번 바꾸면 두 번 다 바뀐다', async () => {
+    const user = userEvent.setup()
+    await openChangeCap(user)
+    await user.type(screen.getByLabelText('새 상한'), '20000000')
+    await hold(750)
+    await waitFor(() => expect(screen.getByText('20,000,000')).toBeTruthy(), { timeout: 5000 })
+
+    await user.type(screen.getByLabelText('새 상한'), '30000000')
+    await hold(750)
+    await waitFor(() => expect(screen.getByText('30,000,000')).toBeTruthy(), { timeout: 5000 })
   })
 
   it('지금과 같은 값으로는 확정할 수 없다', async () => {
@@ -106,7 +121,7 @@ describe('바뀐 사실은 가진 사람의 내역에 남는다', () => {
     await openChangeCap(user)
     await user.type(screen.getByLabelText('새 상한'), '20000000')
     await hold(750)
-    await atBank()
+    await waitFor(() => expect(screen.getByText('20,000,000')).toBeTruthy(), { timeout: 5000 })
 
     // 은행 페이지는 플로우가 아니라 탭 바가 보인다.
     await user.click(await screen.findByRole('button', { name: '내역' }))
@@ -123,7 +138,7 @@ describe('바뀐 사실은 가진 사람의 내역에 남는다', () => {
     await openChangeCap(user)
     await user.type(screen.getByLabelText('새 상한'), '20000000')
     await hold(750)
-    await atBank()
+    await waitFor(() => expect(screen.getByText('20,000,000')).toBeTruthy(), { timeout: 5000 })
 
     // @jisu 는 금머니를 가졌지만 발행자가 아니다.
     await signInAs('@jisu')

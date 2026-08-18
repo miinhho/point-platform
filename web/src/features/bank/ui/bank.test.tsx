@@ -44,7 +44,8 @@ describe('은행 페이지', () => {
     expect(screen.getByText('10,000,000')).toBeTruthy()
     expect(screen.getByText('8,800,000')).toBeTruthy()
     expect(screen.getByRole('button', { name: '발행하기' })).toBeTruthy()
-    expect(screen.getByRole('button', { name: '상한 바꾸기' })).toBeTruthy()
+    // 상한 변경도 이 페이지 안에 있다. 화면을 하나 더 만들면 같은 은행을 두 곳에서 설명한다.
+    expect(screen.getByLabelText('새 상한')).toBeTruthy()
   })
 
   // 처음 만나는 순간에는 유통량이 판단을 가른다 — 여정 8 의 「소음」은 이미 쓰는 포인트 이야기다.
@@ -56,7 +57,7 @@ describe('은행 페이지', () => {
     expect(screen.getByText('1,200,000')).toBeTruthy()
     // 발행 도구는 오지 않는다.
     expect(screen.queryByRole('button', { name: '발행하기' })).toBeNull()
-    expect(screen.queryByRole('button', { name: '상한 바꾸기' })).toBeNull()
+    expect(screen.queryByLabelText('새 상한')).toBeNull()
   })
 
   it('가진 사람에게는 내 잔액과 보내기가 붙는다', async () => {

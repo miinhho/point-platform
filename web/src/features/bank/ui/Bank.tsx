@@ -3,7 +3,6 @@ import { useQuery } from '@tanstack/react-query'
 import { useSetAtom } from 'jotai'
 import { useTranslation } from 'react-i18next'
 import { pointTypeQuery, walletQuery } from '@/api/queries'
-import { goAtom } from '@/app/atoms'
 import { toGrouped } from '@/shared/format'
 import { startIssueAtom, startTransferAtom } from '@/features/transfer'
 import { BackButton } from '@/shared/ui/BackButton'
@@ -13,6 +12,7 @@ import { PointBadge } from '@/shared/ui/PointBadge'
 import { Body, Gutter, Header, Screen, Title } from '@/shared/ui/Screen'
 import type { PointType, PointTypeId } from '@/api/contract'
 import { formatCreated } from '../model/created'
+import { CapForm } from './CapForm'
 
 /**
  * 포인트 하나에 페이지 하나다. 보는 사람에 따라 내용이 늘어날 뿐 다른 페이지가
@@ -24,7 +24,6 @@ export function Bank({ pointTypeId, onBack }: { pointTypeId: PointTypeId; onBack
   const wallet = useQuery(walletQuery())
   const startTransfer = useSetAtom(startTransferAtom)
   const startIssue = useSetAtom(startIssueAtom)
-  const go = useSetAtom(goAtom)
 
   const balance = wallet.data?.balances.find((b) => b.pointType.id === pointTypeId)
 
@@ -77,14 +76,9 @@ export function Bank({ pointTypeId, onBack }: { pointTypeId: PointTypeId; onBack
                 {t('bank.issue')}
               </Button>
               {/* 상한도 발행과 같은 무게다. 그래서 같은 자리에 둔다 — 여정 9 */}
-              <Button
-                size="lg"
-                width="full"
-                variant="outline"
-                onClick={() => go({ name: 'changeCap', pointTypeId: pointType.id })}
-              >
-                {t('cap.entry')}
-              </Button>
+              <Box marginTop="4">
+                <CapForm pointType={pointType} />
+              </Box>
             </Box>
           ) : null}
         </Gutter>
