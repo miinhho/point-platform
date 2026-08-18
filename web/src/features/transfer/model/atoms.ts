@@ -1,7 +1,7 @@
 import { atom } from 'jotai'
 import { newIdempotencyKey } from '@/api/http'
 import { goAtom, leaveFlowAtom, navAtom } from '@/app/atoms'
-import { popTo } from '@/app/navigation'
+import { currentScreen, popTo } from '@/app/navigation'
 import type { Failure, PointType, Transfer, TransferKind, User } from '@/api/contract'
 import { seal, startDraft, withRecipient, type Draft } from './draft'
 
@@ -55,8 +55,10 @@ export const toConfirmAtom = atom(null, (get, set) => {
 })
 
 /** 초안을 버리지 않는다. 재시도가 같은 멱등성 키를 쓸 수 있어야 한다. */
-export const failAtom = atom(null, (_get, set, failure: Failure) => {
+export const failAtom = atom(null, (get, set, failure: Failure) => {
   set(failureAtom, failure)
+  // 실패 화면에서 확인하다 또 실패하면 같은 화면이 자기 위에 쌓인다.
+  if (currentScreen(get(navAtom))?.name === 'failure') return
   set(goAtom, { name: 'failure' })
 })
 
@@ -64,12 +66,6 @@ export const failAtom = atom(null, (_get, set, failure: Failure) => {
 export const succeedAtom = atom(null, (_get, set, transfer: Transfer) => {
   set(failureAtom, null)
   set(goAtom, { name: 'result', transfer })
-})
-
-/** 실패 화면에서 다시 시도. 확정 화면으로 돌아간다 — 키는 그대로다 */
-export const retryAtom = atom(null, (get, set) => {
-  set(failureAtom, null)
-  set(navAtom, popTo(get(navAtom), 'confirm'))
 })
 
 /** 금액을 고치러 돌아간다. 키가 버려지는 것은 `draft` 가 정한다 */

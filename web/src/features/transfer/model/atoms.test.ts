@@ -9,7 +9,6 @@ import {
   failAtom,
   failureAtom,
   pickRecipientAtom,
-  retryAtom,
   startTransferAtom,
   toConfirmAtom,
 } from './atoms'
@@ -78,7 +77,7 @@ describe('플로우', () => {
   })
 })
 
-describe('실패와 재시도', () => {
+describe('실패', () => {
   function atFailure() {
     const store = createStore()
     store.set(startTransferAtom, { pointType: ON, to: JISOO })
@@ -96,21 +95,6 @@ describe('실패와 재시도', () => {
     expect(amountOf(store.get(draftAtom)!)).toBe(30_000)
   })
 
-  it('재시도는 같은 멱등성 키로 확정 화면에 돌아간다', () => {
-    const { store, key } = atFailure()
-    store.set(retryAtom)
-    expect(at(store)).toBe('confirm')
-    expect(store.get(draftAtom)?.idempotencyKey).toBe(key)
-    expect(store.get(failureAtom)).toBeNull()
-  })
-
-  it('재시도 뒤에도 확정 화면에서 금액으로 돌아갈 수 있다', () => {
-    const { store } = atFailure()
-    store.set(retryAtom)
-    // 스택을 새로 만들면 여기서 홈으로 나가 버린다.
-    expect(store.get(navAtom).stack.map((s) => s.name)).toEqual(['enterAmount', 'confirm'])
-  })
-
   it('금액을 고치면 키를 버린다 — 다른 금액은 다른 이체다', () => {
     const { store, key } = atFailure()
     store.set(editAmountAtom)
@@ -121,17 +105,21 @@ describe('실패와 재시도', () => {
     expect(amountOf(store.get(draftAtom)!)).toBe(300_000)
   })
 
+  // 실패 화면의 「확인하기」 가 또 실패하는 경로다. 결과를 모를 때 사용자가
+  // 여러 번 누르는 것이 정상이므로 그때마다 화면이 쌓이면 안 된다.
   it('실패를 반복해도 스택이 자라지 않는다', () => {
     const { store } = atFailure()
     const afterFirst = store.get(navAtom).stack.map((s) => s.name)
     expect(afterFirst).toEqual(['enterAmount', 'confirm', 'failure'])
 
-    for (let i = 0; i < 3; i++) {
-      store.set(retryAtom)
-      store.set(failAtom, { code: 'NETWORK', message: '' })
-    }
-    // 재시도는 스택을 되감는 것이 아니라 되돌아가는 것이므로 길이 유지된다.
+    for (let i = 0; i < 3; i++) store.set(failAtom, { code: 'NETWORK', message: '' })
     expect(store.get(navAtom).stack.map((s) => s.name)).toEqual(afterFirst)
+  })
+
+  it('마지막 실패가 화면에 남는다 — 앞의 것을 보여주지 않는다', () => {
+    const { store } = atFailure()
+    store.set(failAtom, { code: 'INSUFFICIENT_BALANCE', message: '' })
+    expect(store.get(failureAtom)?.code).toBe('INSUFFICIENT_BALANCE')
   })
 })
 

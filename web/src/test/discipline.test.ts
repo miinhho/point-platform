@@ -33,6 +33,38 @@ function code(path: string): string {
     .replace(/^\s*\/\/.*$/gm, '')
 }
 
+/** 배럴을 통과하는 것은 사용이 아니다 — 아무도 안 쓰는 것도 배럴에는 실린다 */
+function sourceFiles(dir: string): string[] {
+  const out: string[] = []
+  for (const entry of readdirSync(dir)) {
+    const path = join(dir, entry)
+    if (statSync(path).isDirectory()) out.push(...sourceFiles(path))
+    else if (/\.tsx?$/.test(entry) && !entry.includes('.test.') && entry !== 'index.ts') {
+      out.push(path)
+    }
+  }
+  return out
+}
+
+describe('상태 규율', () => {
+  // T1 이 호출부 0개인 쿼리 6개를 만들었고, 그 뒤 atom 하나가 또 그랬다 — CLAUDE.md F3
+  it('export 된 atom 과 query 는 쓰는 곳이 있다', () => {
+    const files = sourceFiles('src')
+    const bodies = new Map(files.map((path) => [path, readFileSync(path, 'utf8')]))
+
+    const orphans: string[] = []
+    for (const [path, body] of bodies) {
+      for (const [, name] of body.matchAll(/export const (\w+(?:Atom|Query))\b/g)) {
+        const used = [...bodies].some(
+          ([other, text]) => other !== path && new RegExp(`\\b${name}\\b`).test(text),
+        )
+        if (!used) orphans.push(`${path}: ${name}`)
+      }
+    }
+    expect(orphans).toEqual([])
+  })
+})
+
 describe('화면 규율', () => {
   it('검사할 화면이 있다', () => {
     expect(FILES.length).toBeGreaterThan(0)
