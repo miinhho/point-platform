@@ -11,6 +11,7 @@ export const queryKeys = {
   wallet: ['wallet'] as const,
   users: (query: string) => ['users', query] as const,
   recent: (pointTypeId: PointTypeId) => ['recent', pointTypeId] as const,
+  history: ['history'] as const,
 }
 
 export const walletQuery = () =>
@@ -29,6 +30,9 @@ export const recentQuery = (pointTypeId: PointTypeId) =>
     queryKey: queryKeys.recent(pointTypeId),
     queryFn: () => endpoints.recent(pointTypeId),
   })
+
+export const historyQuery = () =>
+  queryOptions({ queryKey: queryKeys.history, queryFn: () => endpoints.history() })
 
 export interface SubmitVariables {
   kind: TransferKind
@@ -56,6 +60,7 @@ export function useSubmitTransfer(): UseMutationResult<Transfer, Error, SubmitVa
     onSuccess: (transfer) => {
       void client.invalidateQueries({ queryKey: queryKeys.wallet })
       void client.invalidateQueries({ queryKey: queryKeys.recent(transfer.pointTypeId) })
+      void client.invalidateQueries({ queryKey: queryKeys.history })
     },
   })
 }

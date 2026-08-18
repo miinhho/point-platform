@@ -72,7 +72,7 @@ describe('홈', () => {
   // 여정 8 — 발행자 화면의 진입점은 그 포인트 카드의 배지다.
   it('내가 발행하는 포인트에만 발행 진입점이 붙는다', async () => {
     renderApp(<Home />)
-    const entries = await screen.findAllByRole('button', { name: '발행하기' })
+    const entries = await screen.findAllByRole('button', { name: '발행 관리' })
     expect(entries).toHaveLength(1)
   })
 

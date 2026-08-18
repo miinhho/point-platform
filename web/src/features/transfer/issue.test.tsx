@@ -17,6 +17,8 @@ async function settle() {
 async function atAmount() {
   const user = userEvent.setup()
   renderApp(<App />)
+  // 카드 배지 → 발행자 화면 → 발행하기 (여정 8 — 도구는 그 안에 모인다)
+  await user.click(await screen.findByRole('button', { name: '발행 관리' }))
   await user.click(await screen.findByRole('button', { name: '발행하기' }))
   await screen.findByText(/발행할 수 있어요/)
   await settle()

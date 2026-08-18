@@ -81,6 +81,8 @@ const config = defineConfig({
       /** 결과 화면의 큰 한 줄 */
       headline: { value: { fontSize: 'xl', fontWeight: 'semibold', letterSpacing: '-0.01em' } },
       body: { value: { fontSize: 'md', fontWeight: 'normal' } },
+      /** 사람이 대조하는 문자열 */
+      mono: { value: { fontSize: 'sm', fontFamily: 'mono', wordBreak: 'break-all' } },
       /** 기호 배지 */
       badge: { value: { fontSize: 'xs', fontWeight: 'bold', letterSpacing: '0.02em' } },
       /** 가장 작은 것. 이보다 작은 글자를 만들지 않는다 */

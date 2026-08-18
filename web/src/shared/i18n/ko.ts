@@ -8,9 +8,45 @@ export const ko = {
     ok: '확인',
   },
 
+  tab: {
+    home: '홈',
+    history: '내역',
+    settings: '설정',
+  },
+
+  history: {
+    title: '내역',
+    empty: '아직 보낸 것이 없어요',
+    issued: '발행',
+    detailTitleTransfer: '이체 내역',
+    detailTitleIssue: '발행 내역',
+    from: '보낸 사람',
+    fromIssue: '발행 (무에서)',
+    to: '받은 사람',
+    at: '보낸 시각',
+    requestKey: '요청 키',
+    me: '나',
+  },
+
+  settings: {
+    title: '설정',
+    colorMode: '화면 밝기',
+    colorModeSystem: '자동',
+    colorModeLight: '밝게',
+    colorModeDark: '어둡게',
+  },
+
+  issuer: {
+    title: '발행 관리',
+    supply: '총 유통량',
+    cap: '발행 상한',
+    headroom: '남은 여력',
+    issue: '발행하기',
+  },
+
   home: {
     title: '내 포인트',
-    issue: '발행하기',
+    issue: '발행 관리',
     empty: '아직 받은 포인트가 없어요',
     /** 발행 권한이 있는 포인트에만 붙는다 */
     issuerBadge: '내가 발행',
