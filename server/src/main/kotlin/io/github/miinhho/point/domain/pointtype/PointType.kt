@@ -34,6 +34,11 @@ class PointType(
     @Column(nullable = false, length = 10)
     var accent: PointAccent,
 
+    // 창설 시 정해진다. 화면에 선택지가 붙는 것은 멤버십 슬라이스에서다.
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 10)
+    var visibility: PointVisibility = PointVisibility.PUBLIC,
+
     @Column(name = "issue_cap", nullable = false)
     var issueCap: Long,
 
