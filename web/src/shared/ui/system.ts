@@ -1,6 +1,18 @@
 import { createSystem, defaultConfig, defineConfig } from '@chakra-ui/react'
 
 // 규칙: CLAUDE.md 「디자인은 토큰 이름만 쓴다」
+
+/**
+ * 포커스 링. Chakra 기본값은 밝은 모드에서 배경 대비 3:1(WCAG 1.4.11)에 미달한다 —
+ * gray 2.56 · green 2.28 · teal 2.49 · orange 2.80. 모드별로 한 단계씩 옮긴다.
+ */
+const focusRings = Object.fromEntries(
+  ['gray', 'red', 'blue', 'green', 'purple', 'orange', 'pink', 'teal'].map((palette) => [
+    palette,
+    { focusRing: { value: { _light: `{colors.${palette}.600}`, _dark: `{colors.${palette}.400}` } } },
+  ]),
+)
+
 const config = defineConfig({
   theme: {
     tokens: {
@@ -20,6 +32,7 @@ const config = defineConfig({
 
     semanticTokens: {
       colors: {
+        ...focusRings,
         /** 확정되지 않은 것. 완료와 같은 색일 수 없다. */
         pending: {
           fg: { value: { base: '{colors.gray.500}', _dark: '{colors.gray.400}' } },
