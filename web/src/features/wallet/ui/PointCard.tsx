@@ -69,8 +69,9 @@ export function PointCard({ balance, ambiguous, issuerName, isMine, onOpen, onIs
 
       {/* 형제로 둔다. 중첩하면 카드의 접근성 이름이 오염된다. */}
       {isMine && onIssue ? (
+        // `2xs` 는 높이가 정확히 24px 이라 WCAG 2.5.8 최소치에 걸친다. 여유를 둔다.
         <Button
-          size="2xs"
+          size="xs"
           variant="outline"
           flexShrink={0}
           marginInlineEnd="gutter"
