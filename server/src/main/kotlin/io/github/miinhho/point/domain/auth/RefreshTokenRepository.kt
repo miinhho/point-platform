@@ -17,4 +17,13 @@ interface RefreshTokenRepository : JpaRepository<RefreshToken, Long> {
     @Modifying
     @Query("update RefreshToken t set t.revokedAt = :now where t.familyId = :familyId and t.revokedAt is null")
     fun revokeFamily(familyId: UUID, now: Instant): Int
+
+    // 조건부 UPDATE 로 회전을 원자화한다 — 읽고 나서 쓰면 동시 요청 둘 다 revokedAt==null 을
+    // 보고 통과해 같은 토큰에서 유효한 토큰이 두 벌 나갈 수 있다. 영향 행 0 은 레이스 패배다.
+    @Modifying
+    @Query(
+        "update RefreshToken t set t.revokedAt = :now, t.replacedByHash = :nextHash " +
+            "where t.tokenHash = :tokenHash and t.revokedAt is null",
+    )
+    fun markRotated(tokenHash: String, nextHash: String, now: Instant): Int
 }

@@ -16,9 +16,13 @@ import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpMethod
 import org.springframework.http.HttpStatus
 import org.springframework.security.crypto.password.PasswordEncoder
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 import kotlin.test.assertEquals
 import kotlin.test.assertNotEquals
 import kotlin.test.assertNotNull
+import kotlin.test.assertTrue
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @AutoConfigureTestRestTemplate
@@ -126,6 +130,34 @@ class AuthIntegrationTest {
         )
         assertEquals(HttpStatus.UNAUTHORIZED, afterReuse.statusCode)
         assertEquals("UNAUTHENTICATED", afterReuse.body?.code)
+    }
+
+    @Test
+    fun `같은 refresh 토큰으로 동시에 회전을 시도하면 하나만 이기고 나머지는 사슬째 죽는다`() {
+        val login = login()
+        val pool = Executors.newFixedThreadPool(2)
+        val ready = CountDownLatch(2)
+        val go = CountDownLatch(1)
+
+        val calls = List(2) {
+            pool.submit<org.springframework.http.HttpStatusCode> {
+                ready.countDown()
+                go.await()
+                // 승자는 TokenPairResponse, 패자는 FailureResponse 모양이라 상태 코드만 본다.
+                restTemplate.postForEntity(
+                    "/api/auth/refresh",
+                    RefreshRequest(login.refreshToken),
+                    String::class.java,
+                ).statusCode
+            }
+        }
+        assertTrue(ready.await(5, TimeUnit.SECONDS))
+        go.countDown()
+        val results = calls.map { it.get(10, TimeUnit.SECONDS) }
+        pool.shutdown()
+
+        assertEquals(1, results.count { it == HttpStatus.OK }, "정확히 하나만 회전에 성공해야 한다")
+        assertEquals(1, results.count { it == HttpStatus.UNAUTHORIZED })
     }
 
     @Test
