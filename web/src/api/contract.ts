@@ -83,8 +83,12 @@ export const FAILURE_CODES = [
   'NOT_ISSUER',
   /** 은행장은 나가거나 내보내질 수 없다. 발행할 사람이 없는 은행이 된다 */
   'ISSUER_CANNOT_LEAVE',
-  /** 비공개 은행의 회원이 아니어서 보낼 수 없다. 받는 쪽의 코드와 가려야 할 것이 다르다 */
+  /** 비공개 은행의 회원이 아니다. 받는 쪽의 코드와 가려야 할 것이 다르다 */
   'NOT_MEMBER',
+  /** 공개 은행이라 회원 명부가 없다. 비어 있는 것이 아니라 개념이 없는 것이다 */
+  'NOT_A_PRIVATE_BANK',
+  /** 이 서버에 없는 경로. 고칠 입력이 없으므로 형식 오류가 아니다 */
+  'UNKNOWN_ENDPOINT',
   'RECIPIENT_NOT_FOUND',
   'POINT_TYPE_NOT_FOUND',
   /** 그 기호를 이미 쓰는 포인트가 있다 */

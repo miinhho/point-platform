@@ -35,6 +35,14 @@ export function handleFailure(code: FailureCode, kind: TransferKind): FailureHan
       // 금액을 고쳐도 대상을 바꿔도 풀리지 않는다. 다시 초대받아야 한다.
       return { retryable: false, editable: false, repickable: false, aboutSupply }
 
+    case 'NOT_A_PRIVATE_BANK':
+      // 회원 명부를 물었을 때의 답이다. 이체 실패 화면으로는 오지 않는다.
+      return { retryable: false, editable: false, repickable: false, aboutSupply }
+
+    case 'UNKNOWN_ENDPOINT':
+      // 사용자가 고칠 것이 없다. 다시 눌러도 같은 경로로 간다.
+      return { retryable: false, editable: false, repickable: false, aboutSupply }
+
     case 'RECIPIENT_NOT_FOUND':
       return { retryable: false, editable: false, repickable: true, aboutSupply }
 

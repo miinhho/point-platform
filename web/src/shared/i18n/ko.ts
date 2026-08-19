@@ -256,6 +256,18 @@ export const ko = {
       whereTransfer: '아무것도 나가지 않았어요',
       whereIssue: '발행되지 않았어요',
     },
+    /** 은행 화면 안에서 판정으로만 쓰인다. 실패 화면에 오지 않는다 */
+    NOT_A_PRIVATE_BANK: {
+      title: '공개 은행에는 회원이 없어요',
+      whereTransfer: '아무것도 나가지 않았어요',
+      whereIssue: '발행되지 않았어요',
+    },
+    /** 클라이언트와 서버의 판이 어긋난 것이다. 사용자가 고칠 입력이 없다 */
+    UNKNOWN_ENDPOINT: {
+      title: '앱을 업데이트해야 해요',
+      whereTransfer: '아무것도 나가지 않았어요',
+      whereIssue: '발행되지 않았어요',
+    },
     RECIPIENT_NOT_FOUND: {
       title: '받는 사람을 찾을 수 없어요',
       whereTransfer: '아무것도 나가지 않았어요',

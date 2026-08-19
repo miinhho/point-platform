@@ -13,6 +13,8 @@ const STATUS: Record<FailureCode, number> = {
   NOT_ISSUER: 403,
   ISSUER_CANNOT_LEAVE: 409,
   NOT_MEMBER: 403,
+  NOT_A_PRIVATE_BANK: 404,
+  UNKNOWN_ENDPOINT: 404,
   RECIPIENT_NOT_FOUND: 404,
   POINT_TYPE_NOT_FOUND: 404,
   SYMBOL_TAKEN: 409,
@@ -285,8 +287,12 @@ export const handlers = [
     '*/api/point-types/:id/members',
     authed((userId, request) => {
       const [, pointTypeId] = new URL(request.url).pathname.match(/point-types\/([^/]+)\/members/)!
-      // 회원이 아니면 그 은행이 없는 것과 같다. 명부가 있다는 것도 알려 주지 않는다.
-      return ledger.membersOf(pointTypeId, userId) ?? fail('POINT_TYPE_NOT_FOUND')
+      try {
+        return ledger.membersOf(pointTypeId, userId)
+      } catch (error) {
+        if (error instanceof ledger.LedgerError) return fail(error.code)
+        throw error
+      }
     }),
   ),
 
@@ -382,4 +388,12 @@ export const handlers = [
       throw error
     }
   }),
+
+  /*
+   * 없는 경로도 계약 본문으로 답한다 — 계약: docs/API.md 「실패」. 프레임워크 기본
+   * 404 가 새면 `code` 도 `outcome` 도 없어 화면이 「결과를 알 수 없다」로 읽는다.
+   * 실서버가 실제로 그 상태였다(docs/FIELD.md W7). 반드시 맨 뒤에 둔다 —
+   * MSW 는 먼저 맞는 핸들러를 쓰므로 앞에 두면 모든 경로를 삼킨다.
+   */
+  http.all('*/api/*', () => fail('UNKNOWN_ENDPOINT')),
 ]

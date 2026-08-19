@@ -37,6 +37,7 @@ export type LedgerErrorCode =
   | 'CAP_BELOW_ISSUED'
   | 'ISSUER_CANNOT_LEAVE'
   | 'NOT_MEMBER'
+  | 'NOT_A_PRIVATE_BANK'
 
 /** 겹침은 원장을 봐야 알 수 있다. 시드가 들고 있으면 사용자가 늘 때 거짓이 된다. */
 type SeedUser = Omit<User, 'nameIsShared'>
@@ -595,12 +596,19 @@ export function acceptInvite(meId: UserId, inviteId: string): PointType {
   return viewOf(requirePointType(invite.pointTypeId), meId)
 }
 
-/** 회원 목록. 회원만 읽는다 — 남의 모임 명부가 아니다 */
-export function membersOf(pointTypeId: PointTypeId, meId: UserId): User[] | undefined {
+/**
+ * 회원 목록은 셋으로 답한다 — 계약: docs/API.md 「회원 자격」.
+ *
+ * 비회원에게 `404` 가 아닌 이유는 감출 것이 남아 있지 않아서다. 공개 은행에
+ * 빈 배열을 주지 않는 이유는 그것이 「지금 0명」으로 읽히기 때문이다.
+ */
+export function membersOf(pointTypeId: PointTypeId, meId: UserId): User[] {
   const pointType = state.pointTypes.get(pointTypeId)
-  if (!pointType || pointType.visibility === 'public' || !isMember(pointTypeId, meId)) {
-    return undefined
-  }
+  // 닿지 않는 은행은 없는 은행이다. 감출 것이 남아 있는 사람에게는 여전히 감춘다.
+  if (!pointType || !reachable(pointType, meId)) throw new LedgerError('POINT_TYPE_NOT_FOUND')
+  if (pointType.visibility === 'public') throw new LedgerError('NOT_A_PRIVATE_BANK')
+  if (!isMember(pointTypeId, meId)) throw new LedgerError('NOT_MEMBER')
+
   return [...(state.members.get(pointTypeId) ?? [])]
     .map((id) => userById(id))
     .filter((user): user is User => user !== undefined)

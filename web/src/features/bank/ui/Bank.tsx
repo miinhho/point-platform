@@ -43,15 +43,12 @@ export function Bank({ pointTypeId, onBack }: { pointTypeId: PointTypeId; onBack
     retry: false,
   })
   /*
-   * 「회원이 아니다」는 서버가 그 코드로 말했을 때만이다. 아무 오류나 그렇게 읽으면
-   * 경로가 없거나 서버가 넘어졌을 때 회원에게 「회원이 아니에요」라고 말한다 —
-   * 실서버에서 실제로 그 상태였다(docs/FIELD.md W7).
+   * 회원 명부가 셋으로 답한다 — 계약: docs/API.md. 「회원이 아니다」는 서버가
+   * `NOT_MEMBER` 로 말했을 때만이다. 아무 오류나 그렇게 읽으면 경로가 없거나
+   * 서버가 넘어졌을 때 회원에게 「회원이 아니에요」라고 말한다 (docs/FIELD.md W7).
    */
   const outside =
-    isPrivate &&
-    !invite &&
-    members.error instanceof ApiError &&
-    members.error.code === 'POINT_TYPE_NOT_FOUND'
+    isPrivate && !invite && members.error instanceof ApiError && members.error.code === 'NOT_MEMBER'
 
   const balance = wallet.data?.balances.find((b) => b.pointType.id === pointTypeId)
 

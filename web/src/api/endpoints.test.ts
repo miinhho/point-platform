@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { endpoints } from './endpoints'
-import { ApiError, newIdempotencyKey, setTokens } from './http'
+import { ApiError, newIdempotencyKey, request, setTokens } from './http'
 import { balanceOf, SEED_ISSUER as ME } from '@/mocks/ledger'
 import { expireAccessTokens } from '@/mocks/sessions'
 import { setSim } from '@/mocks/sim'
@@ -700,15 +700,30 @@ describe('나가기와 내보내기', () => {
     setTokens(session)
   }
 
-  it('회원 목록은 회원만 읽는다', async () => {
+  /** 계약: docs/API.md — 명부는 셋으로 답한다 */
+  it('회원에게는 목록을 준다', async () => {
     expect((await endpoints.members('pt_cl')).map((u) => u.handle).sort()).toEqual([
       '@jisoo',
       '@minho',
     ])
+  })
 
+  // 공개 은행에 빈 배열을 주면 「지금 0명」으로 읽히고 클라이언트가 늘어나기를 기다린다.
+  it('공개 은행에는 명부가 없다 — 비어 있는 것이 아니다', async () => {
+    await expect(endpoints.members('pt_on')).rejects.toMatchObject({
+      code: 'NOT_A_PRIVATE_BANK',
+      status: 404,
+    })
+  })
+
+  // 감출 것이 남아 있는 사람에게는 여전히 감춘다. 잔액도 회원 자격도 없는 사람이다.
+  it('아무 관계 없는 사람에게는 그 은행이 없는 것과 같다', async () => {
     const session = await endpoints.login({ handle: '@jisu', password: 'point' })
     setTokens(session)
-    await expect(endpoints.members('pt_cl')).rejects.toMatchObject({ status: 404 })
+    await expect(endpoints.members('pt_cl')).rejects.toMatchObject({
+      code: 'POINT_TYPE_NOT_FOUND',
+      status: 404,
+    })
   })
 
   it('나가도 잔액은 그대로 남고 쓸 수 없게 된다', async () => {
@@ -723,8 +738,11 @@ describe('나가기와 내보내기', () => {
     expect(held).toMatchObject({ amount: 30_000, sendable: 0 })
     // 잔액이 남아 있으면 은행 페이지는 계속 보인다 — 물으러 갈 곳이 필요하다.
     expect(await endpoints.pointType('pt_cl')).toMatchObject({ id: 'pt_cl' })
-    // 명부와 초대 도구는 오지 않는다.
-    await expect(endpoints.members('pt_cl')).rejects.toMatchObject({ status: 404 })
+    // 명부는 오지 않는다. 감출 것이 남아 있지 않으므로 404 가 아니라 403 이다.
+    await expect(endpoints.members('pt_cl')).rejects.toMatchObject({
+      code: 'NOT_MEMBER',
+      status: 403,
+    })
   })
 
   /*
@@ -939,6 +957,29 @@ describe('상한 변경', () => {
     // @jisoo 는 온포인트만 가진다.
     await signInAs('@jisoo')
     await expect(endpoints.history()).resolves.toEqual([])
+  })
+})
+
+/*
+ * 없는 경로가 프레임워크 기본 404 로 새면 `code` 도 `outcome` 도 없고, 화면은
+ * 그것을 「결과를 알 수 없다」로 읽는다 — 아무 일도 없던 요청을 두고 돈이 어디
+ * 있는지 모른다고 말하게 된다. 관측: docs/FIELD.md W7 · 계약: docs/API.md
+ */
+describe('없는 경로', () => {
+  it('계약 본문으로 답한다 — 형식 오류가 아니다', async () => {
+    await expect(request('/totally-not-a-real-route')).rejects.toMatchObject({
+      code: 'UNKNOWN_ENDPOINT',
+      status: 404,
+    })
+  })
+
+  it('결과를 안다고 답한다 — 단정하지 못하게 두지 않는다', async () => {
+    const thrown = await request('/nope').then(
+      () => null,
+      (error: unknown) => error,
+    )
+    expect(thrown).toBeInstanceOf(ApiError)
+    expect((thrown as ApiError).outcomeUnknown).toBe(false)
   })
 })
 
