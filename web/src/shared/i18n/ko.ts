@@ -37,15 +37,12 @@ export const ko = {
     empty: '아직 보낸 것이 없어요',
     loadFailed: '내역을 불러오지 못했어요',
     detailFailed: '이 내역을 불러오지 못했어요',
-    issued: '발행',
+    /** 발행 줄. 상대 자리를 비우고 무엇을 발행했는지만 말한다 */
+    issuedTo: '{{name}} 발행',
     detailTitleTransfer: '이체 내역',
     detailTitleIssue: '발행 내역',
-    from: '보낸 사람',
-    fromIssue: '발행 (무에서)',
-    to: '받은 사람',
     at: '보낸 시각',
-    requestKey: '요청 키',
-    me: '나',
+    issuedAt: '발행한 시각',
     /** 상한 변경 줄. 이체 줄의 위계를 빌려 쓰지 않는다 — 여정 8 */
     capRaised: '{{name}} 발행 상한이 올랐어요',
     capLowered: '{{name}} 발행 상한이 내렸어요',

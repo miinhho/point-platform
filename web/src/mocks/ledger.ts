@@ -705,6 +705,7 @@ function record(
   input: CommitInput,
 ): Transfer {
   const now = new Date().toISOString()
+  const other = kind === 'issue' ? null : userById(toId)
   const transfer: Transfer = {
     id: `t_${state.order.length + 1}_${input.idempotencyKey.slice(0, 8)}`,
     idempotencyKey: input.idempotencyKey,
@@ -713,6 +714,10 @@ function record(
     fromId,
     toId,
     amount: input.amount,
+    // 누구인지는 원장의 성질이다. 화면이 목록을 뒤지면 목록에 없는 순간 틀린다.
+    counterparty: other
+      ? { name: other.name, handle: other.handle, nameIsShared: other.nameIsShared }
+      : null,
     createdAt: now,
     confirmedAt: now,
   }

@@ -62,8 +62,14 @@ describe('내역', () => {
     const row = await screen.findByRole('button', { name: /30,000/ })
     await user.click(row)
     expect(await screen.findByText('이체 내역')).toBeTruthy()
-    // 두 번 보내지지 않았다를 확인할 수 있는 근거다
-    expect(screen.getByText('요청 키')).toBeTruthy()
+    // 받는 사람은 서버가 실어 준다 — 목록에서 맞추면 목록에 없는 순간 조용히 틀린다.
+    expect(screen.getAllByText('김지수').length).toBeGreaterThan(0)
+    /*
+     * 요청 키를 내보내지 않는다. 요청자별로만 뜻이 있어서 남에게 말해도 아무도
+     * 못 찾고, 두 번 보내지지 않았다는 것은 줄이 하나인 것으로 보여야 한다.
+     */
+    expect(screen.queryByText('요청 키')).toBeNull()
+    expect(document.body.textContent).not.toContain('k_')
   })
 
   // 되돌리는 버튼이 있으면 앱 전체가 "사실 되돌릴 수 있다" 는 전제 위에 선다.
@@ -82,12 +88,29 @@ describe('내역', () => {
     }
   })
 
-  it('발행 내역에는 발행 띠가 붙고 보낸 사람이 무에서다', async () => {
+  /*
+   * 발행에는 상대가 없다. 이체 상세의 「누구에게」·「보낸 사람」 칸을 빌려 쓰면 빈 칸을
+   * 채우려고 「나」와 「무에서」가 나온다 — 화면이 뜻 없는 말을 하게 된다.
+   */
+  it('발행 목록 줄에 사람이 없다', async () => {
+    await endpoints.createIssue({ pointTypeId: 'pt_gm', amount: 5_000 }, newIdempotencyKey())
+    await openHistory()
+
+    expect(await screen.findByText('금머니 발행')).toBeTruthy()
+    expect(screen.queryByText('나')).toBeNull()
+  })
+
+  it('발행 상세는 유통량과 여력을 말한다 — 상대도 띠도 없다', async () => {
     await endpoints.createIssue({ pointTypeId: 'pt_gm', amount: 5_000 }, newIdempotencyKey())
     const user = await openHistory()
     await user.click(await screen.findByRole('button', { name: /5,000/ }))
     await screen.findByText('발행 내역')
-    expect(screen.getByText('발행 (무에서)')).toBeTruthy()
+
+    expect(screen.getByText('총 유통량')).toBeTruthy()
+    expect(screen.getByText('남은 여력')).toBeTruthy()
+    // 「발행」이 제목 하나로 족하다. 색 띠가 화면 맨 위 주의를 먹지 않는다.
+    expect(screen.getAllByText(/발행/).length).toBeLessThan(4)
+    expect(document.body.textContent).not.toContain('무에서')
   })
 })
 

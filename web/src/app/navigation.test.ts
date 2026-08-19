@@ -23,6 +23,7 @@ const TRANSFER: Transfer = {
   fromId: 'u_minho',
   toId: 'u_jisoo',
   amount: 1_000,
+  counterparty: null,
   createdAt: '2026-08-19T00:00:00Z',
   confirmedAt: '2026-08-19T00:00:00Z',
 }

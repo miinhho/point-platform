@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useSetAtom } from 'jotai'
 import { motion } from 'motion/react'
 import { useTranslation } from 'react-i18next'
-import { historyQuery, usersQuery, walletQuery } from '@/api/queries'
+import { historyQuery, walletQuery } from '@/api/queries'
 import { toGrouped } from '@/shared/format'
 import { goAtom } from '@/app/atoms'
 import { Loadable, RowsSkeleton } from '@/shared/ui/Loadable'
@@ -17,15 +17,9 @@ export function History() {
   const go = useSetAtom(goAtom)
   const { data, isPending, isError, refetch } = useQuery(historyQuery())
   const wallet = useQuery(walletQuery())
-  const users = useQuery(usersQuery(''))
 
   const pointOf = (pointTypeId: string) =>
     wallet.data?.balances.find((b) => b.pointType.id === pointTypeId)?.pointType
-  /** 발행은 내 지갑으로 들어온 것이므로 상대가 없다 */
-  const toOf = (transfer: Transfer) =>
-    transfer.kind === 'issue'
-      ? t('history.me')
-      : (users.data?.find((user) => user.id === transfer.toId)?.name ?? t('history.me'))
 
   return (
     <Screen>
@@ -55,7 +49,6 @@ export function History() {
               <TransferRow
                 key={entry.transfer.id}
                 transfer={entry.transfer}
-                to={toOf(entry.transfer)}
                 pointName={pointOf(entry.transfer.pointTypeId)?.name ?? ''}
                 onOpen={() => go({ name: 'historyDetail', transferId: entry.transfer.id })}
               />
@@ -75,13 +68,17 @@ export function History() {
 
 interface TransferRowProps {
   transfer: Transfer
-  to: string
   pointName: string
   onOpen: () => void
 }
 
-function TransferRow({ transfer, to, pointName, onOpen }: TransferRowProps) {
+/**
+ * 발행은 「누구에게」 자리를 비운다. 없는 상대를 「나」로 메우면 일어나지 않은 이체가
+ * 일어난 것처럼 읽힌다 — `CapChangeRow` 와 같은 판단이다.
+ */
+function TransferRow({ transfer, pointName, onOpen }: TransferRowProps) {
   const { t } = useTranslation()
+  const other = transfer.counterparty
 
   return (
     <RowButton type="button" onClick={onOpen}>
@@ -91,11 +88,13 @@ function TransferRow({ transfer, to, pointName, onOpen }: TransferRowProps) {
           `layout="position"` 이 아니면 크기가 다른 두 요소를 이을 때 글자가 늘어난다.
         */}
         <motion.div layoutId={`t-${transfer.id}-to`} layout="position">
-          <Text textStyle="name">{to}</Text>
+          <Text textStyle={other ? 'name' : 'label'}>
+            {other ? other.name : t('history.issuedTo', { name: pointName })}
+          </Text>
         </motion.div>
         <Text textStyle="caption">
-          {transfer.kind === 'issue' ? `${t('history.issued')} · ` : ''}
-          {pointName} · {formatTime(transfer.confirmedAt)}
+          {other ? `${pointName} · ` : ''}
+          {formatTime(transfer.confirmedAt)}
         </Text>
       </Box>
       <motion.div layoutId={`t-${transfer.id}-amount`} layout="position">
