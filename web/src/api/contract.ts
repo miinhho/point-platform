@@ -289,13 +289,16 @@ export interface CapChange {
  *
  */
 /**
- * 내역 줄이 가리키는 포인트. 지갑에서 찾으면 안 된다 — **모수가 다르다.** 지갑은
+ * 그 줄이 어느 포인트인가. **지갑에서 찾으면 안 된다** — 모수가 다르다. 지갑은
  * 「잔액 > 0 이거나 내가 발행자」로 거르고 내역은 관여 여부로 거른다. 받은 포인트를
  * 전액 보내면 그 순간 지갑에서 빠지고 방금 만든 이체 줄만 내역에 남는다.
  *
+ * 목록만이 아니라 **단건 조회도 싣는다.** 목록만 고치면 한 화면에서 확인한 것이 다음
+ * 화면에서 부정된다 — 내역에서 「솔카페」라고 읽고 눌렀는데 상세에는 이름이 없다.
+ *
  * 표기라 「일어난 때의 값」이 아니라 지금 값이다 — 수가 아니다. 계약: docs/API.md
  */
-export interface HistoryPoint {
+export interface PointMark {
   name: string
   emoji: string
   accent: PointAccent
@@ -304,6 +307,17 @@ export interface HistoryPoint {
 }
 
 export type HistoryEntry =
-  | { type: 'transfer'; transfer: Transfer; point: HistoryPoint }
-  | { type: 'issue'; issue: Issue; point: HistoryPoint }
-  | { type: 'capChange'; capChange: CapChange; point: HistoryPoint }
+  | { type: 'transfer'; transfer: Transfer; point: PointMark }
+  | { type: 'issue'; issue: Issue; point: PointMark }
+  | { type: 'capChange'; capChange: CapChange; point: PointMark }
+
+/** 단건 조회의 응답. 상세도 일어난 일이지 지금 가진 것이 아니다 */
+export interface TransferDetail {
+  transfer: Transfer
+  point: PointMark
+}
+
+export interface IssueDetail {
+  issue: Issue
+  point: PointMark
+}

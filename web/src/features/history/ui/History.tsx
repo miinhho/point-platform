@@ -8,7 +8,7 @@ import { toGrouped } from '@/shared/format'
 import { goAtom } from '@/app/atoms'
 import { Loadable, RowSkeleton } from '@/shared/ui/Loadable'
 import { Body, Gutter, Header, Row, RowButton, Screen, Title } from '@/shared/ui/Screen'
-import type { CapChange, HistoryPoint, Issue, Transfer } from '@/api/contract'
+import type { CapChange, PointMark, Issue, Transfer } from '@/api/contract'
 import { formatTime } from '../model/time'
 
 /** 근거: docs/JOURNEY.md 여정 8 */
@@ -78,7 +78,7 @@ export function History() {
 
 interface TransferRowProps {
   transfer: Transfer
-  point: HistoryPoint
+  point: PointMark
   onOpen: () => void
 }
 
@@ -114,7 +114,7 @@ function IssueRow({
   onOpen,
 }: {
   issue: Issue
-  point: HistoryPoint
+  point: PointMark
   onOpen: () => void
 }) {
   const { t } = useTranslation()
@@ -139,7 +139,7 @@ function IssueRow({
  * 「누구에게 → 무엇을 → 얼마」 자리에 사람도 금액도 넣지 않는다. 위계를 빌려 쓰면
  * 이체 목록으로 읽힌다.
  */
-function CapChangeRow({ capChange, point }: { capChange: CapChange; point: HistoryPoint }) {
+function CapChangeRow({ capChange, point }: { capChange: CapChange; point: PointMark }) {
   const { t } = useTranslation()
   const raised = capChange.issueCap > capChange.previousCap
 

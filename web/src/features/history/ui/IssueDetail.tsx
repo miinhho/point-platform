@@ -3,7 +3,6 @@ import { useQuery } from '@tanstack/react-query'
 import { motion } from 'motion/react'
 import { useTranslation } from 'react-i18next'
 import { endpoints } from '@/api/endpoints'
-import { walletQuery } from '@/api/queries'
 import { toGrouped } from '@/shared/format'
 import { BackButton } from '@/shared/ui/BackButton'
 import { Line } from '@/shared/ui/Line'
@@ -32,9 +31,7 @@ export function IssueDetail({ issueId, onBack }: Props) {
     queryKey: ['issue', issueId],
     queryFn: () => endpoints.issue(issueId),
   })
-  const wallet = useQuery(walletQuery())
-  const issue = one.data
-  const point = wallet.data?.balances.find((b) => b.pointType.id === issue?.pointTypeId)?.pointType
+  const detail = one.data
 
   return (
     <Screen>
@@ -64,14 +61,14 @@ export function IssueDetail({ issueId, onBack }: Props) {
               </Box>
             }
           >
-            {issue ? (
+            {detail ? (
               <>
-                <Box colorPalette={point?.accent ?? 'blue'}>
-                  <motion.div layoutId={`i-${issue.id}-name`} layout="position">
-                    <Text textStyle="caption">{point?.name ?? ''}</Text>
+                <Box colorPalette={detail.point.accent}>
+                  <motion.div layoutId={`i-${detail.issue.id}-name`} layout="position">
+                    <Text textStyle="caption">{detail.point.name}</Text>
                   </motion.div>
-                  <motion.div layoutId={`i-${issue.id}-amount`} layout="position">
-                    <Text textStyle="balance">{toGrouped(issue.amount)}</Text>
+                  <motion.div layoutId={`i-${detail.issue.id}-amount`} layout="position">
+                    <Text textStyle="balance">{toGrouped(detail.issue.amount)}</Text>
                   </motion.div>
                 </Box>
 
@@ -79,13 +76,17 @@ export function IssueDetail({ issueId, onBack }: Props) {
                   <Line
                     divided
                     label={t('history.supplyAfter')}
-                    value={toGrouped(issue.totalIssuedAfter)}
+                    value={toGrouped(detail.issue.totalIssuedAfter)}
                   />
-                  <Line divided label={t('history.capAt')} value={toGrouped(issue.issueCapAt)} />
+                  <Line
+                    divided
+                    label={t('history.capAt')}
+                    value={toGrouped(detail.issue.issueCapAt)}
+                  />
                   <Line
                     divided
                     label={t('history.issuedAt')}
-                    value={formatTime(issue.confirmedAt)}
+                    value={formatTime(detail.issue.confirmedAt)}
                   />
                 </Box>
               </>

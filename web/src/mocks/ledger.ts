@@ -1,9 +1,10 @@
 import type {
   CapChange,
   HistoryEntry,
-  HistoryPoint,
+  PointMark,
   Invite,
   Issue,
+  IssueDetail,
   IssueId,
   PointAccent,
   PointVisibility,
@@ -11,6 +12,7 @@ import type {
   PointTypeId,
   Points,
   Transfer,
+  TransferDetail,
   TransferId,
   User,
   UserId,
@@ -422,9 +424,11 @@ export function findByIdempotencyKey(key: string, meId: UserId): Transfer | unde
 }
 
 /** 남의 것은 없는 것과 같다. 있다고 알려 주면 그 id 가 존재한다는 답이 된다. */
-export function findTransfer(id: TransferId, meId: UserId): Transfer | undefined {
+export function findTransfer(id: TransferId, meId: UserId): TransferDetail | undefined {
   const transfer = state.transfers.get(id)
-  return transfer && involves(transfer, meId) ? transfer : undefined
+  if (!transfer || !involves(transfer, meId)) return undefined
+  // 상세도 일어난 일이지 지금 가진 것이 아니다 — 지갑을 뒤지는 길을 남기지 않는다.
+  return { transfer, point: pointOf(transfer.pointTypeId) }
 }
 
 /**
@@ -457,7 +461,7 @@ export function history(meId: UserId, pointTypeId: PointTypeId | null, limit: nu
  * 내역 줄이 가리키는 포인트. **지갑으로 거르지 않는다** — 전액을 보내면 지갑에서
  * 빠지지만 그 이체 줄은 내역에 남는다. 계약: docs/API.md
  */
-function pointOf(pointTypeId: PointTypeId): HistoryPoint {
+function pointOf(pointTypeId: PointTypeId): PointMark {
   const pointType = state.pointTypes.get(pointTypeId)!
   return {
     name: pointType.name,
@@ -743,9 +747,10 @@ export function findIssueByKey(key: string, meId: UserId): Issue | undefined {
 }
 
 /** 남의 것은 없는 것과 같다 */
-export function findIssue(id: IssueId, meId: UserId): Issue | undefined {
+export function findIssue(id: IssueId, meId: UserId): IssueDetail | undefined {
   const issue = state.issues.get(id)
-  return issue && issue.issuerId === meId ? issue : undefined
+  if (!issue || issue.issuerId !== meId) return undefined
+  return { issue, point: pointOf(issue.pointTypeId) }
 }
 
 /**

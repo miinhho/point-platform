@@ -3,13 +3,12 @@ import { useQuery } from '@tanstack/react-query'
 import { motion } from 'motion/react'
 import { useTranslation } from 'react-i18next'
 import { endpoints } from '@/api/endpoints'
-import { walletQuery } from '@/api/queries'
 import { toGrouped } from '@/shared/format'
 import { BackButton } from '@/shared/ui/BackButton'
 import { Line } from '@/shared/ui/Line'
 import { AmountSkeleton, LineSkeleton, Loadable, NameSkeleton } from '@/shared/ui/Loadable'
 import { Body, Gutter, Header, Screen, Title } from '@/shared/ui/Screen'
-import type { PointType, Transfer } from '@/api/contract'
+import type { PointMark, Transfer } from '@/api/contract'
 import { formatTime } from '../model/time'
 
 interface Props {
@@ -27,11 +26,10 @@ export function HistoryDetail({ transferId, onBack }: Props) {
     queryKey: ['transfer', transferId],
     queryFn: () => endpoints.transfer(transferId),
   })
-  const transfer = one.data
-  const wallet = useQuery(walletQuery())
+  const detail = one.data
 
   // 못 불러온 것을 빈 화면으로 두지 않는다. 헤더는 남겨야 돌아갈 길이 보인다.
-  if (!transfer) {
+  if (!detail) {
     return (
       <Screen>
         <Header>
@@ -72,8 +70,6 @@ export function HistoryDetail({ transferId, onBack }: Props) {
     )
   }
 
-  const point = wallet.data?.balances.find((b) => b.pointType.id === transfer.pointTypeId)?.pointType
-
   return (
     <Screen>
       <Header>
@@ -83,7 +79,7 @@ export function HistoryDetail({ transferId, onBack }: Props) {
 
       <Body>
         <Gutter paddingTop="4">
-          <Sent transfer={transfer} point={point} />
+          <Sent transfer={detail.transfer} point={detail.point} />
         </Gutter>
       </Body>
     </Screen>
@@ -92,7 +88,7 @@ export function HistoryDetail({ transferId, onBack }: Props) {
 
 interface PartProps {
   transfer: Transfer
-  point: PointType | undefined
+  point: PointMark
 }
 
 /**
@@ -119,9 +115,9 @@ function Sent({ transfer, point }: PartProps) {
         {other.handle}
       </Text>
 
-      <Box marginTop="5" colorPalette={point?.accent ?? 'blue'}>
+      <Box marginTop="5" colorPalette={point.accent}>
         <Text textStyle="label" color="colorPalette.fg">
-          {point?.name ?? ''}
+          {point.name}
         </Text>
         <motion.div layoutId={`t-${transfer.id}-amount`} layout="position">
           <Text textStyle="balance">{toGrouped(transfer.amount)}</Text>

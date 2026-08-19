@@ -211,8 +211,7 @@ describe('발행', () => {
     await endpoints.changeCap('pt_gm', 20_000_000, key())
 
     expect(await endpoints.issue(first.id)).toMatchObject({
-      totalIssuedAfter: 1_300_000,
-      issueCapAt: 10_000_000,
+      issue: { totalIssuedAfter: 1_300_000, issueCapAt: 10_000_000 },
     })
   })
 
@@ -501,7 +500,11 @@ describe('이체는 관여한 사람만 읽는다', () => {
 
   it('보낸 쪽은 자기 이체를 그대로 읽는다', async () => {
     const { created, idempotencyKey } = await transferBetweenOthers()
-    await expect(endpoints.transfer(created.id)).resolves.toMatchObject({ id: created.id })
+    // 상세는 그 줄이 어느 포인트인지 함께 준다 — 화면이 지갑을 뒤지지 않게.
+    await expect(endpoints.transfer(created.id)).resolves.toMatchObject({
+      transfer: { id: created.id },
+      point: { name: '온포인트' },
+    })
     await expect(endpoints.transferByKey(idempotencyKey)).resolves.toMatchObject({ id: created.id })
   })
 
@@ -512,7 +515,9 @@ describe('이체는 관여한 사람만 읽는다', () => {
       key(),
     )
     await switchTo(OUTSIDER)
-    await expect(endpoints.transfer(created.id)).resolves.toMatchObject({ id: created.id })
+    await expect(endpoints.transfer(created.id)).resolves.toMatchObject({
+      transfer: { id: created.id },
+    })
   })
 
   // 남의 키로 내 요청을 보내도 남의 이체가 돌아오지 않는다.

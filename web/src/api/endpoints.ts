@@ -3,6 +3,7 @@ import type {
   HistoryEntry,
   Invite,
   Issue,
+  IssueDetail,
   IssueId,
   PointAccent,
   PointType,
@@ -10,6 +11,7 @@ import type {
   PointVisibility,
   Points,
   Transfer,
+  TransferDetail,
   TransferId,
   User,
   UserId,
@@ -104,7 +106,7 @@ export const endpoints = {
   createIssue: (input: CreateIssueInput, idempotencyKey: string) =>
     request<Issue>('/issues', { method: 'POST', body: input, idempotencyKey }),
 
-  issue: (id: IssueId, options?: RequestOptions) => request<Issue>(`/issues/${id}`, options),
+  issue: (id: IssueId, options?: RequestOptions) => request<IssueDetail>(`/issues/${id}`, options),
 
   issueByKey: (idempotencyKey: string, options?: RequestOptions) =>
     request<Issue | null>('/issues/by-key', { ...options, query: { idempotencyKey } }),
@@ -145,7 +147,7 @@ export const endpoints = {
     request<PointType>(`/invites/${inviteId}/accept`, { method: 'POST' }),
 
   transfer: (id: TransferId, options?: RequestOptions) =>
-    request<Transfer>(`/transfers/${id}`, options),
+    request<TransferDetail>(`/transfers/${id}`, options),
 
   /**
    * 결과를 알 수 없는 실패 뒤에 "정말 안 일어났나" 를 확인한다.

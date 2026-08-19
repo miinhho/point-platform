@@ -166,4 +166,25 @@ describe('전액을 보낸 포인트도 내역이 무엇인지 말한다', () =>
     // 그래도 내역 줄은 어느 은행인지 말한다.
     expect(await screen.findByText(/온포인트/)).toBeTruthy()
   })
+
+  /*
+   * 목록만 고치면 한 화면에서 확인한 것이 다음 화면에서 부정된다 — 내역에서
+   * 「온포인트」라고 읽고 눌렀는데 상세에는 이름이 없고 화면이 기본색이 된다.
+   * 되돌릴 수 없는 이체를 확인하러 들어간 자리다. 계약: docs/API.md
+   */
+  it('상세에서도 이름이 남는다', async () => {
+    const before = balanceOf('pt_on2', SEED_ISSUER)
+    await endpoints.createTransfer(
+      { pointTypeId: 'pt_on2', toId: 'u_jisoo', amount: before },
+      newIdempotencyKey(),
+    )
+
+    const user = await openHistory()
+    await user.click(await screen.findByRole('button', { name: /12,000/ }))
+    await screen.findByText('이체 내역')
+    // 전환 중에는 목록이 함께 떠 있다. 그쪽 이름이 상세의 것으로 읽히면 안 된다.
+    await settle()
+
+    expect(screen.getByText('온포인트')).toBeTruthy()
+  })
 })
