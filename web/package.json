@@ -11,7 +11,8 @@
     "preview": "vite preview",
     "dev:lan": "vite --host",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "dev:server": "VITE_API_ORIGIN=http://localhost:8080 vite"
   },
   "dependencies": {
     "@chakra-ui/react": "^3.36.1",
