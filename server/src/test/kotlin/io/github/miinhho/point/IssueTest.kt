@@ -3,6 +3,7 @@ package io.github.miinhho.point
 import io.github.miinhho.point.auth.LoginRequest
 import io.github.miinhho.point.auth.LoginResponse
 import io.github.miinhho.point.issue.IssueRequest
+import io.github.miinhho.point.transfer.TransferRequest
 import io.github.miinhho.point.pointtype.ChangeCapRequest
 import io.github.miinhho.point.pointtype.PointAccent
 import io.github.miinhho.point.pointtype.PointType
@@ -139,6 +140,34 @@ class IssueTest {
         val history = assertNotNull(get(issuer, "/api/history").body)
         assertTrue(history.contains("\"type\":\"issue\""), history)
         assertTrue(history.contains("\"issue\":{"), history)
+    }
+
+    @Test
+    fun `지갑에서 빠진 포인트의 내역 줄도 표기를 갖는다`() {
+        issue(1_000)
+        // 전액 보내면 그 순간 지갑에서 빠진다 — 클라이언트가 지갑에서 찾으면 이 줄이 빈다.
+        assertEquals(
+            HttpStatus.CREATED,
+            post(
+                issuer,
+                "/api/transfers",
+                TransferRequest(point.publicId.toString(), publicId(other), BigDecimal(1_000)),
+            ).statusCode,
+        )
+        assertTrue(assertNotNull(get(issuer, "/api/wallet").body).let { !it.contains("\"name\":\"온포인트\"") } ||
+            assertNotNull(get(issuer, "/api/wallet").body).contains("\"amount\":0"), "지갑에서 빠지거나 0 이다")
+
+        val history = assertNotNull(get(issuer, "/api/history").body)
+        Regex("\"point\":\\{[^}]*}").findAll(history).toList().let { points ->
+            assertTrue(points.isNotEmpty(), "모든 줄에 표기가 붙는다: $history")
+            points.forEach {
+                assertTrue(it.value.contains("\"name\":\"온포인트\""), it.value)
+                assertTrue(it.value.contains("\"emoji\":\"🔵\""), it.value)
+                assertTrue(it.value.contains("\"accent\":\"blue\""), it.value)
+                assertTrue(it.value.contains("\"issuerHandle\":\"@onmart\""), it.value)
+                assertTrue(it.value.contains("\"nameIsShared\":false"), it.value)
+            }
+        }
     }
 
     private fun issue(amount: Long) =

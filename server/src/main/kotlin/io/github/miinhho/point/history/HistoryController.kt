@@ -19,9 +19,22 @@ data class CapChangeResponse(
     val changedAt: Instant,
 )
 
+/**
+ * 내역 줄에 붙는 포인트의 표기. 지갑과 모수가 달라 클라이언트가 지갑에서 찾으면 없는 줄이 생긴다 —
+ * 받은 것을 전액 보내면 그 순간 지갑에서 빠지고 방금 만든 이체 줄만 내역에 남는다.
+ */
+data class HistoryPointResponse(
+    val name: String,
+    val emoji: String,
+    val accent: String,
+    val nameIsShared: Boolean,
+    val issuerHandle: String,
+)
+
 // 셋은 서로 다른 모양이어야 한다 — 위계를 빌려 쓰면 셋이 한 종류로 읽힌다.
 data class HistoryEntryResponse(
     val type: String,
+    val point: HistoryPointResponse,
     val transfer: TransferResponse? = null,
     val issue: IssueResponse? = null,
     val capChange: CapChangeResponse? = null,
