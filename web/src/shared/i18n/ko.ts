@@ -239,6 +239,8 @@ export const ko = {
     titleTransfer: '보냈어요',
     titleIssue: '발행했어요',
     remaining: '남은 잔액',
+    /** 잔액 0 과 구별한다. 전액을 보내면 목록에서 빠지므로 둘이 겹치기 쉽다 */
+    balanceUnknown: '잔액을 못 불러왔어요',
     supply: '총 유통량',
     /** 상태 변화를 소리로도 알린다 */
     announceTransfer: '보냈어요. 남은 잔액 {{balance}}',

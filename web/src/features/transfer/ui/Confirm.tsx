@@ -8,6 +8,7 @@ import { BackButton } from '@/shared/ui/BackButton'
 import { IssueBanner } from '@/shared/ui/IssueBanner'
 import { HoldButton } from '@/shared/ui/HoldButton'
 import { Line } from '@/shared/ui/Line'
+import { LineSkeleton, Loadable } from '@/shared/ui/Loadable'
 import { Body, Gutter, Header, Screen, Title } from '@/shared/ui/Screen'
 import { Amount } from './Amount'
 import { draftAtom } from '../model/atoms'
@@ -44,7 +45,11 @@ export function Confirm({ onBack, onConfirm, busy }: Props) {
   const issuing = draft.kind === 'issue'
   const amount = amountOf(draft)
   const held = wallet.data?.balances.find((b) => b.pointType.id === draft.pointType.id)
-  const balance = held?.amount ?? 0
+  /*
+   * 못 불러온 잔액을 0 으로 접으면 「보낸 뒤 남는 잔액」이 음수가 된다 — 되돌릴 수
+   * 없는 것 직전에 화면이 거짓을 말한다. 답하지 못하는 동안은 숫자를 쓰지 않는다.
+   */
+  const balance = wallet.isSuccess ? (held?.amount ?? 0) : null
   // 상한 판정은 서버가 한다. 여기서는 보낸 뒤의 값을 보여주기만 한다.
   // 처음 받는 사람인가. 경고가 아니라 사실로 한 줄 적는다.
   const firstTime =
@@ -86,12 +91,31 @@ export function Confirm({ onBack, onConfirm, busy }: Props) {
                 <Supply pointType={draft.pointType} amount={amount} />
               ) : (
                 <>
-                  <Line label={t('confirm.balanceNow')} value={toGrouped(balance)} />
-                  <Line
-                    label={t('confirm.balanceAfter')}
-                    value={toGrouped(balance - amount)}
-                    textStyle="lineStrong"
-                  />
+                  {balance === null ? (
+                    <Loadable
+                      pending={wallet.isPending}
+                      failed={wallet.isError}
+                      onRetry={() => void wallet.refetch()}
+                      label={t('home.loadFailed')}
+                      skeleton={
+                        <Box display="flex" flexDirection="column" gap="3">
+                          <LineSkeleton />
+                          <LineSkeleton />
+                        </Box>
+                      }
+                    >
+                      {null}
+                    </Loadable>
+                  ) : (
+                    <>
+                      <Line label={t('confirm.balanceNow')} value={toGrouped(balance)} />
+                      <Line
+                        label={t('confirm.balanceAfter')}
+                        value={toGrouped(balance - amount)}
+                        textStyle="lineStrong"
+                      />
+                    </>
+                  )}
                   {firstTime ? <Text textStyle="caption">{t('confirm.firstTime')}</Text> : null}
                 </>
               )}

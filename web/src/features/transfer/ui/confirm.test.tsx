@@ -3,6 +3,8 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { screen, waitFor } from '@testing-library/react'
 import { userEvent } from '@testing-library/user-event'
 import { balanceOf, SEED_ISSUER as ME } from '@/mocks/ledger'
+import { http, HttpResponse } from 'msw'
+import { server } from '@/mocks/node'
 import { setSim } from '@/mocks/sim'
 import { renderApp, signInAs } from '@/test/render'
 import App from '@/app/App'
@@ -215,5 +217,58 @@ describe('처음 쓰는 포인트', () => {
   it('이미 써 본 포인트에는 나오지 않는다', async () => {
     await atConfirm()
     expect(screen.queryByText('이 포인트를 처음 써요')).toBeNull()
+  })
+})
+
+/*
+ * 잔액 0 이면서 발행자가 아닌 포인트는 지갑 목록에서 빠진다. **전액을 보내면 정확히
+ * 그 상태가 된다** — 두 종류의 0 중 하나가 실제로 만들어지는 유일한 순간이고, 그때
+ * 화면이 「남은 잔액」이라 써 놓고 옆을 비우면 못 불러온 것과 구별되지 않는다.
+ * 규칙: CLAUDE.md · 근거: docs/JOURNEY.md 여정 1
+ */
+describe('전액을 보내면 남은 잔액이 0 이다', () => {
+  it('빈칸이 아니라 0 이라고 쓴다', async () => {
+    const user = userEvent.setup()
+    renderApp(<App />)
+    await user.click(await screen.findByRole('button', { name: /온포인트.*3,240,000/ }))
+    await user.click(await screen.findByRole('button', { name: /@jisoo/ }))
+    await screen.findByText(/만큼 보낼 수 있어요/)
+
+    for (const digit of '3240000') await user.click(screen.getByRole('button', { name: digit }))
+    await user.click(screen.getByRole('button', { name: '보내기 확인' }))
+    await screen.findByText('이렇게 보낼까요?')
+    await settle()
+    await hold(750)
+
+    await screen.findByText('보냈어요', {}, { timeout: 5000 })
+    const label = await screen.findByText('남은 잔액')
+    const row = label.parentElement!
+    await waitFor(() => expect(row.textContent).toContain('0'))
+  })
+
+  // 못 불러온 것과 0 이 같아 보이면 안 된다.
+  it('잔액을 못 불러오면 0 이라고 쓰지 않는다', async () => {
+    const user = await atConfirm()
+    server.use(http.get('*/api/wallet', () => HttpResponse.error()))
+    await hold(750)
+
+    await screen.findByText('보냈어요', {}, { timeout: 5000 })
+    expect(await screen.findByText('잔액을 못 불러왔어요')).toBeTruthy()
+  })
+})
+
+/*
+ * 못 불러온 잔액을 0 으로 접으면 「보낸 뒤 남는 잔액」이 음수가 된다 — 되돌릴 수 없는
+ * 것 직전에 화면이 거짓을 말한다.
+ */
+describe('확정 화면은 모르는 잔액을 0 으로 쓰지 않는다', () => {
+  it('지갑을 못 불러오면 숫자를 쓰지 않는다', async () => {
+    server.use(http.get('*/api/wallet', () => HttpResponse.error()))
+    const user = userEvent.setup()
+    renderApp(<App />)
+    await screen.findByRole('alert')
+
+    expect(user).toBeTruthy()
+    expect(screen.queryByText('보낸 뒤 남는 잔액')).toBeNull()
   })
 })
