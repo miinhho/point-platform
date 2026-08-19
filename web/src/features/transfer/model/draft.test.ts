@@ -16,6 +16,7 @@ const ON: PointType = {
   id: 'pt_on',
   name: '온포인트',
   emoji: '🌊',
+  description: '',
   issuerId: 'u_onmart',
   issuerName: '온마트',
   issuerHandle: '@onmart',

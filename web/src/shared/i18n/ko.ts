@@ -56,6 +56,9 @@ export const ko = {
     namePlaceholder: '동네빵집',
     emoji: '표식',
     emojiHint: '좁은 자리에서 이름 대신 보여요. 겹쳐도 괜찮아요',
+    description: '소개',
+    descriptionPlaceholder: '골목 끝 빵집이에요. 빵 사면 쌓여요',
+    descriptionHint: '안 적어도 만들어져요. 나중에 바꿀 수 있어요',
     accent: '색',
     /** 기본값을 두지 않는다. 바꿀 수 없는 값에 기본값을 두면 고른 적 없는 상태가 남는다 */
     visibility: '누가 쓸 수 있나요?',
@@ -127,6 +130,8 @@ export const ko = {
     title: '은행',
     loadFailed: '이 은행을 불러오지 못했어요',
     membersFailed: '회원을 불러오지 못했어요',
+    /** 앱이 보증한 글이 아니라는 것을 라벨이 말한다 — 여정 10 */
+    descriptionLabel: '발행자가 쓴 소개',
     /** 카드 옆 진입점. 발행자가 아닌 사람에게도 보인다 — 여정 10 */
     entry: '자세히',
     /** 카드가 여럿이라 보이는 글자만으로는 어느 포인트인지 알 수 없다 */

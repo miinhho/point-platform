@@ -68,6 +68,7 @@ function seedPointTypes(): SeedPoint[] {
       id: 'pt_on',
       name: '온포인트',
       emoji: '🌊',
+      description: '온마트에서 쓰는 포인트예요. 장 보면 쌓여요',
       issuerId: 'u_onmart',
       issuerName: '온마트',
       issuerHandle: '@onmart',
@@ -81,6 +82,7 @@ function seedPointTypes(): SeedPoint[] {
       id: 'pt_sol',
       name: '솔포인트',
       emoji: '🍵',
+      description: '솔카페 단골 적립이에요',
       issuerId: 'u_solcafe',
       issuerName: '솔카페',
       issuerHandle: '@solcafe',
@@ -94,6 +96,7 @@ function seedPointTypes(): SeedPoint[] {
       id: 'pt_gm',
       name: '금머니',
       emoji: '💎',
+      description: '',
       issuerId: SEED_ISSUER,
       issuerName: '장민호',
       issuerHandle: '@minho',
@@ -108,6 +111,7 @@ function seedPointTypes(): SeedPoint[] {
       id: 'pt_cl',
       name: '동아리회비',
       emoji: '🎵',
+      description: '월 회비로 모으는 동아리 포인트예요',
       issuerId: SEED_ISSUER,
       issuerName: '장민호',
       issuerHandle: '@minho',
@@ -121,6 +125,7 @@ function seedPointTypes(): SeedPoint[] {
       id: 'pt_hd',
       name: '한동네',
       emoji: '🏠',
+      description: '',
       issuerId: 'u_solcafe',
       issuerName: '솔카페',
       issuerHandle: '@solcafe',
@@ -135,6 +140,7 @@ function seedPointTypes(): SeedPoint[] {
       id: 'pt_on2',
       name: '온포인트',
       emoji: '🌸',
+      description: '',
       issuerId: 'u_solcafe',
       issuerName: '솔카페',
       issuerHandle: '@solcafe',
@@ -435,6 +441,7 @@ export interface CreatePointTypeInput {
   idempotencyKey: string
   name: string
   emoji: string
+  description: string
   accent: PointAccent
   issueCap: Points
   visibility: PointVisibility
@@ -455,6 +462,7 @@ export function createPointType(meId: UserId, input: CreatePointTypeInput): Poin
     id: `pt_${state.pointTypes.size + 1}_${input.idempotencyKey.slice(0, 6)}`,
     name: input.name.trim(),
     emoji: input.emoji,
+    description: input.description,
     issuerId: meId,
     issuerName: issuer.name,
     issuerHandle: issuer.handle,

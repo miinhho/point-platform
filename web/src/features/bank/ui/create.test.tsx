@@ -158,6 +158,8 @@ describe('색 고르기는 진짜 라디오그룹이다', () => {
     await user.tab()
     expect(document.activeElement).toBe(screen.getByRole('radio', { name: '파랑' }))
     await user.tab()
+    expect(document.activeElement).toBe(screen.getByLabelText('소개'))
+    await user.tab()
     expect(document.activeElement).toBe(screen.getByRole('radio', { name: /^공개/ }))
     await user.tab()
     expect(document.activeElement).toBe(screen.getByLabelText('발행 상한'))

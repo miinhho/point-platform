@@ -301,8 +301,21 @@ function Intro({ pointType }: { pointType: PointType }) {
         <Line label={t('bank.supply')} value={toGrouped(pointType.totalIssued)} />
         {/* 상한은 발행자의 설정이 아니라 보유자에게 하는 약속이다 — 계약: docs/API.md */}
         <Line label={t('bank.cap')} value={toGrouped(pointType.issueCap)} />
-        {/* 공개 은행에는 회원 개념이 없어 `null` 이다. 0 명과 구별된다 */}
       </Box>
+
+      {/*
+        사실 뒤에 온다. 여기는 「공식 계정입니다」라고 적을 수 있는 자리이고 앱은
+        그것을 판정하지 않는다 — 판단 근거인 사실이 먼저 읽혀야 하고, 발행자가 쓴
+        글이 앱이 보증한 글처럼 보이면 안 된다. 근거: docs/JOURNEY.md 여정 10
+      */}
+      {pointType.description ? (
+        <Box marginTop="4" padding="4" borderRadius="l2" bg="bg.panel">
+          <Text textStyle="caption">{t('bank.descriptionLabel')}</Text>
+          <Text textStyle="support" marginTop="1">
+            {pointType.description}
+          </Text>
+        </Box>
+      ) : null}
     </>
   )
 }

@@ -31,6 +31,8 @@ export interface CreateIssueInput {
 export interface CreatePointTypeInput {
   name: string
   emoji: string
+  /** 없어도 만들어진다. 약속이 아니라 소개다 */
+  description: string
   accent: PointAccent
   issueCap: Points
   /** 나중에 바꿀 수 없다 — 계약: docs/API.md */

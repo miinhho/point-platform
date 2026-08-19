@@ -230,6 +230,7 @@ describe('포인트 창설', () => {
   const bakery = {
     name: '동네빵집',
     emoji: '🍞',
+    description: '골목 끝 빵집이에요',
     accent: 'orange' as const,
     issueCap: 1_000_000,
     visibility: 'public' as const,
@@ -289,6 +290,7 @@ describe('포인트 창설', () => {
     ['이름이 13자다', { name: '가나다라마바사아자차카타파' }],
     ['표식이 목록에 없다', { emoji: '🦄' }],
     ['표식이 빈 문자열이다', { emoji: '' }],
+    ['소개가 61자다', { description: '가'.repeat(61) }],
     ['상한이 소수다', { issueCap: 1.5 }],
     ['상한이 0 이다', { issueCap: 0 }],
     ['없는 색이다', { accent: 'crimson' as never }],
@@ -556,7 +558,7 @@ describe('비공개 은행은 회원이 아니면 없는 것과 같다', () => {
 
   it('만든 사람은 자기 비공개 은행에 닿는다', async () => {
     const created = await endpoints.createPointType(
-      { name: '모임', emoji: '🎵', accent: 'teal', issueCap: 1_000, visibility: 'private' },
+      { name: '모임', emoji: '🎵', description: '', accent: 'teal', issueCap: 1_000, visibility: 'private' },
       key(),
     )
     expect(await endpoints.pointType(created.id)).toMatchObject({ id: created.id })
@@ -842,7 +844,7 @@ describe('아직 쓰지 않은 포인트', () => {
   // 발행은 쓰는 것이 아니다. 자기 지갑으로 들어올 뿐이다.
   it('발행으로는 꺼지지 않는다', async () => {
     const created = await endpoints.createPointType(
-      { name: '빵집', emoji: '🍞', accent: 'orange', issueCap: 1_000, visibility: 'public' },
+      { name: '빵집', emoji: '🍞', description: '', accent: 'orange', issueCap: 1_000, visibility: 'public' },
       key(),
     )
     await endpoints.createIssue({ pointTypeId: created.id, amount: 500 }, key())

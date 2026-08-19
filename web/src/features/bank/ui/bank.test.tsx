@@ -126,3 +126,45 @@ describe('위계는 역할마다 다르다', () => {
     ])
   })
 })
+
+/*
+ * 소개는 발행자가 쓰는 글이다. 여기는 「공식 계정입니다」라고 적을 수 있는 자리고
+ * 앱은 그것을 판정하지 않는다 — 판단 근거인 사실이 먼저 읽혀야 한다.
+ * 근거: docs/JOURNEY.md 여정 10
+ */
+describe('발행자가 쓴 소개', () => {
+  function orderOf(...texts: string[]): string[] {
+    const found = texts
+      .map((text) => ({ text, node: screen.queryAllByText(text)[0] }))
+      .filter((entry) => entry.node)
+    return found
+      .sort((a, b) =>
+        a.node.compareDocumentPosition(b.node) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1,
+      )
+      .map((entry) => entry.text)
+  }
+
+  it('사실이 소개보다 먼저 읽힌다', async () => {
+    await openBank('동아리회비')
+
+    expect(await screen.findByText('월 회비로 모으는 동아리 포인트예요')).toBeTruthy()
+    expect(orderOf('만든 사람', '총 유통량', '월 회비로 모으는 동아리 포인트예요')).toEqual([
+      '만든 사람',
+      '총 유통량',
+      '월 회비로 모으는 동아리 포인트예요',
+    ])
+  })
+
+  // 앱이 쓴 글처럼 보이면 안 된다. 누가 썼는지를 라벨이 말한다.
+  it('누가 쓴 글인지 라벨이 말한다', async () => {
+    await openBank('동아리회비')
+
+    expect(await screen.findByText('발행자가 쓴 소개')).toBeTruthy()
+  })
+
+  it('안 적은 은행에는 그 자리가 없다', async () => {
+    await openBank('금머니')
+
+    expect(screen.queryByText('발행자가 쓴 소개')).toBeNull()
+  })
+})

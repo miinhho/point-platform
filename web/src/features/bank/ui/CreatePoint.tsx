@@ -38,6 +38,7 @@ export function CreatePoint({ onBack, onCreated }: Props) {
   const client = useQueryClient()
   const [name, setName] = useState('')
   const [emoji, setEmoji] = useState<string | null>(null)
+  const [description, setDescription] = useState('')
   const [accent, setAccent] = useState<PointAccent>('blue')
   // 미리 골라 두지 않는다. 바꿀 수 없는 값의 기본값은 고른 적 없는 상태를 영구히 남긴다.
   const [visibility, setVisibility] = useState<PointVisibility | null>(null)
@@ -49,7 +50,14 @@ export function CreatePoint({ onBack, onCreated }: Props) {
   const create = useMutation({
     mutationFn: (chosen: PointVisibility) =>
       endpoints.createPointType(
-        { name: name.trim(), emoji: emoji!, accent, issueCap: parseInput(cap), visibility: chosen },
+        {
+          name: name.trim(),
+          emoji: emoji!,
+          description: description.trim(),
+          accent,
+          issueCap: parseInput(cap),
+          visibility: chosen,
+        },
         idempotencyKey,
       ),
     retry: false,
@@ -86,6 +94,19 @@ export function CreatePoint({ onBack, onCreated }: Props) {
           <EmojiPicker value={emoji} onChange={setEmoji} />
 
           <AccentPicker value={accent} onChange={setAccent} />
+
+          <Field.Root>
+            <Field.Label>{t('create.description')}</Field.Label>
+            <Input
+              value={description}
+              onChange={(event) => setDescription(event.target.value)}
+              placeholder={t('create.descriptionPlaceholder')}
+              maxLength={60}
+              size="lg"
+            />
+            {/* 없어도 만들어진다. 약속이 아니라 소개다 */}
+            <Field.HelperText>{t('create.descriptionHint')}</Field.HelperText>
+          </Field.Root>
 
           <VisibilityPicker value={visibility} onChange={setVisibility} />
 

@@ -42,6 +42,11 @@ export interface PointType {
   issueCap: Points
   /** 만들어진 시각. 오래된 것은 흉내낼 수 없다. */
   createdAt: string
+  /**
+   * 발행자가 적는 소개. 상한과 달리 바꿀 수 있다 — 약속이 아니라 소개다.
+   * **앱이 보증하지 않는다.** 화면은 이 글이 사실보다 먼저 읽히지 않게 한다.
+   */
+  description: string
   /** 비공개 은행의 회원 수. 공개면 `null` — 공개 은행에는 회원 개념이 없다. */
   memberCount: number | null
   /** 창설 시 정해지고 나중에 바꿀 수 없다 — 바꾸는 것은 설정 변경이 아니라 사람에게 일어나는 일이다. */
