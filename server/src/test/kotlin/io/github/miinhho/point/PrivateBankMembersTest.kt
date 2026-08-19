@@ -130,10 +130,38 @@ class PrivateBankMembersTest {
     @Test
     fun `나온 사람의 잔액은 남지만 보낼 수 없다고 실려 온다`() {
         val wallet = assertNotNull(get(leftBehind, "/api/wallet").body)
-        assertTrue(wallet.contains("\"amount\":100000,\"sendable\":0"), "쓸 수 없는 채로 남는다: $wallet")
+        assertTrue(wallet.contains("\"amount\":100000,\"neverSpent\":true,\"sendable\":0"), "쓸 수 없는 채로 남는다: $wallet")
 
         val mine = assertNotNull(get(member, "/api/wallet").body)
-        assertTrue(mine.contains("\"amount\":100000,\"sendable\":100000"), "회원의 잔액은 그대로다: $mine")
+        assertTrue(mine.contains("\"amount\":100000,\"neverSpent\":true,\"sendable\":100000"), "회원의 잔액은 그대로다: $mine")
+    }
+
+    @Test
+    fun `서버가 못 한다고 답한 것을 서버가 해 주지 않는다`() {
+        // sendable 이 0 인데 같은 이체가 성사되면 그 사이로 돈이 실제로 움직인다.
+        val wallet = assertNotNull(get(leftBehind, "/api/wallet").body)
+        assertTrue(wallet.contains("\"sendable\":0"), wallet)
+
+        val blocked = send(leftBehind, closed, member)
+        assertEquals(HttpStatus.FORBIDDEN, blocked.statusCode, blocked.body)
+        assertTrue(assertNotNull(blocked.body).contains("\"code\":\"NOT_MEMBER\""), blocked.body)
+
+        // 받는 쪽 코드를 재사용하지 않는다 — 그러면 받는 사람 핸들을 다시 확인하게 된다.
+        assertFalse(assertNotNull(blocked.body).contains("RECIPIENT_NOT_FOUND"), blocked.body)
+    }
+
+    @Test
+    fun `neverSpent 는 그 포인트로 보내면 꺼진다`() {
+        assertTrue(assertNotNull(get(issuer, "/api/wallet").body).contains("\"neverSpent\":true"))
+
+        assertEquals(HttpStatus.CREATED, send(issuer, closed, member).statusCode)
+
+        val after = assertNotNull(get(issuer, "/api/wallet").body)
+        val closedCard = assertNotNull(Regex("\\{\"pointType\":\\{[^}]*\"symbol\":\"CL\".*?\"sendable\":\\d+}").find(after)).value
+        assertTrue(closedCard.contains("\"neverSpent\":false"), "보냈으면 꺼진다: $closedCard")
+
+        // 받기만 한 사람은 켜져 있다 — 아직 판단하지 않은 것이 맞다.
+        assertTrue(assertNotNull(get(member, "/api/wallet").body).contains("\"neverSpent\":true"))
     }
 
     private fun send(from: User, pointType: PointType, to: User) = post(

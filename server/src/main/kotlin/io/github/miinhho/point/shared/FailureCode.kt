@@ -17,6 +17,10 @@ enum class FailureCode(val status: HttpStatus) {
     CAP_EXCEEDED(HttpStatus.UNPROCESSABLE_ENTITY),
     CAP_BELOW_ISSUED(HttpStatus.UNPROCESSABLE_ENTITY),
     NOT_ISSUER(HttpStatus.FORBIDDEN),
+
+    // 받는 쪽의 RECIPIENT_NOT_FOUND 를 재사용하지 않는다 — 보내는 사람은 자기가 나온 것을
+    // 이미 알고, 「대상이 없어요」는 받는 사람 핸들을 다시 확인하게 만든다.
+    NOT_MEMBER(HttpStatus.FORBIDDEN),
     RECIPIENT_NOT_FOUND(HttpStatus.NOT_FOUND),
     POINT_TYPE_NOT_FOUND(HttpStatus.NOT_FOUND),
     SYMBOL_TAKEN(HttpStatus.CONFLICT),

@@ -35,6 +35,10 @@ class TransferService(
     @Transactional
     fun commitTransfer(meId: Long, idempotencyKey: String, pointTypeId: String, toId: String, amount: Long): TransferResponse {
         val pointType = requirePointType(pointTypeId, meId)
+        // sendable 이 0 이라고 답해 놓고 같은 이체를 성사시키면 그 사이로 돈이 실제로 움직인다.
+        if (!bankAccess.isMember(pointType, meId)) {
+            throw DomainFailureException(FailureCode.NOT_MEMBER, "회원이 아님")
+        }
         val recipient = requireRecipient(toId)
         if (recipient.id == meId) throw malformed("자기 자신에게는 보낼 수 없음")
         // 비공개 은행에서 회원이 아닌 사람은 없는 사람과 구별되지 않아야 한다 — 새 코드를 두지 않는다.
