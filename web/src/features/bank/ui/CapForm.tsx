@@ -87,7 +87,13 @@ export function CapForm({ pointType }: { pointType: PointType }) {
       {/* 바뀐 값은 위의 표에 그대로 나온다. 화면을 못 보는 사람에게는 그것이 닿지 않는다 */}
       <VisuallyHidden aria-live="polite">{changed ? t('cap.changed') : ''}</VisuallyHidden>
 
-      <Box>
+      {/*
+        다른 화면의 확정 버튼은 `Body` 밖에 있어 늘 바닥에 있다. 이 폼은 페이지
+        안에 있어 그럴 수 없고, 값을 입력하면 위의 미리보기가 늘어나면서 버튼이
+        접힌 곳으로 밀렸다 — 관측: docs/FIELD.md W5-2. 되돌릴 수 없는 조작의
+        확정 버튼이 소리 없이 사라지면 사용자는 그것이 있는 줄도 모른다.
+      */}
+      <Box position="sticky" bottom="0" bg="bg" paddingTop="3" paddingBottom="2">
         <Text textStyle="caption" textAlign="center" marginBottom="2">
           {t('cap.irreversible')}
         </Text>

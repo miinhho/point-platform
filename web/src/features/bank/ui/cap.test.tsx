@@ -106,6 +106,25 @@ describe('상한을 바꾼다', () => {
     expect(screen.getByText(/까지 늘어날 수 있게 돼요/)).toBeTruthy()
   })
 
+  /*
+   * 관측: docs/FIELD.md W5-2 — 값을 입력하면 미리보기 박스가 생기면서 확정 버튼이
+   * 접힌 곳으로 밀렸다. 다른 화면은 확정 버튼이 `Body` 밖에 있어 늘 바닥에 있는데
+   * 이 폼만 페이지 안에 있어 스크롤을 탔다.
+   */
+  it('확정 버튼은 스크롤로 밀려나지 않는다', async () => {
+    const user = userEvent.setup()
+    await openChangeCap(user)
+    const block = screen.getByRole('button', { name: '꾹 눌러서 바꾸기' }).parentElement!
+
+    expect(getComputedStyle(block).position).toBe('sticky')
+    expect(getComputedStyle(block).bottom).toBe('0px')
+
+    // 미리보기가 생겨도 같은 자리다.
+    await user.type(screen.getByLabelText('새 상한'), '20000000')
+    expect(screen.getByText('가진 사람에게는')).toBeTruthy()
+    expect(getComputedStyle(block).position).toBe('sticky')
+  })
+
   // 낮추는 것은 다시 바꾸는 것이지 취소가 아니다 — docs/JOURNEY.md 여정 9
   it('되돌린다는 말이 없다', async () => {
     const user = userEvent.setup()
