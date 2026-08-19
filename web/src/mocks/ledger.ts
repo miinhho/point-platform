@@ -2,6 +2,8 @@ import type {
   CapChange,
   HistoryEntry,
   Invite,
+  Issue,
+  IssueId,
   PointAccent,
   PointVisibility,
   PointType,
@@ -219,6 +221,12 @@ interface State {
   createdByKey: Map<string, PointTypeId>
   /** 최신순 */
   order: TransferId[]
+  /** 발행. 이체와 다른 타입이라 다른 자리에 산다 — 계약: docs/API.md */
+  issues: Map<IssueId, Issue>
+  /** 최신순 */
+  issueOrder: IssueId[]
+  /** `${요청자}:${멱등성 키}` → 발행 id */
+  issuedByKey: Map<string, IssueId>
   /** 최신순. 이체와 섞여 내역이 된다 */
   capChanges: CapChange[]
   /** 비공개 은행의 회원. 은행장은 언제나 여기 있다 */
@@ -240,6 +248,9 @@ function initialState(): State {
     byKey: new Map(),
     createdByKey: new Map(),
     order: [],
+    issues: new Map(),
+    issueOrder: [],
+    issuedByKey: new Map(),
     capChanges: [],
     members: seedMembers(),
     invites: new Map(),
@@ -420,22 +431,43 @@ export function history(meId: UserId, pointTypeId: PointTypeId | null, limit: nu
     .filter((transfer) => involves(transfer, meId))
     .map((transfer) => ({ type: 'transfer', transfer }))
 
+  const issues: HistoryEntry[] = state.issueOrder
+    .map((id) => state.issues.get(id)!)
+    .filter((issue) => issue.issuerId === meId)
+    .map((issue) => ({ type: 'issue', issue }))
+
   const held = new Set(balancesOf(meId).map(({ pointType }) => pointType.id))
   const caps: HistoryEntry[] = state.capChanges
     .filter((capChange) => held.has(capChange.pointTypeId))
     .map((capChange) => ({ type: 'capChange', capChange }))
 
-  return [...transfers, ...caps]
+  return [...transfers, ...issues, ...caps]
     .filter((entry) => !pointTypeId || pointTypeIdOf(entry) === pointTypeId)
     .sort((a, b) => timeOf(b).localeCompare(timeOf(a)))
     .slice(0, limit)
 }
 
-const pointTypeIdOf = (entry: HistoryEntry): PointTypeId =>
-  entry.type === 'transfer' ? entry.transfer.pointTypeId : entry.capChange.pointTypeId
+function pointTypeIdOf(entry: HistoryEntry): PointTypeId {
+  switch (entry.type) {
+    case 'transfer':
+      return entry.transfer.pointTypeId
+    case 'issue':
+      return entry.issue.pointTypeId
+    case 'capChange':
+      return entry.capChange.pointTypeId
+  }
+}
 
-const timeOf = (entry: HistoryEntry): string =>
-  entry.type === 'transfer' ? entry.transfer.confirmedAt : entry.capChange.changedAt
+function timeOf(entry: HistoryEntry): string {
+  switch (entry.type) {
+    case 'transfer':
+      return entry.transfer.confirmedAt
+    case 'issue':
+      return entry.issue.confirmedAt
+    case 'capChange':
+      return entry.capChange.changedAt
+  }
+}
 
 export interface CreatePointTypeInput {
   idempotencyKey: string
@@ -661,25 +693,57 @@ export function commitTransfer(meId: UserId, input: CommitInput): Transfer {
   move(pointType.id, recipient.id, input.amount)
   // 판단이 실제로 필요한 순간이 여기였다. 지나고 나면 판단은 끝난 것이다.
   state.spent.add(balanceKey(pointType.id, meId))
-  return record(meId, 'transfer', pointType.id, meId, recipient.id, input)
+  return record(meId, pointType.id, recipient, input)
 }
 
-/** 발행한다. 무에서 만들고 총 유통량이 늘어난다. */
-export function commitIssue(meId: UserId, input: CommitInput): Transfer {
-  const pointType = requirePointType(input.pointTypeId)
-  const recipient = requireRecipient(input.toId)
+export interface IssueInput {
+  idempotencyKey: string
+  pointTypeId: PointTypeId
+  amount: Points
+}
 
+export function findIssueByKey(key: string, meId: UserId): Issue | undefined {
+  const id = state.issuedByKey.get(idempotencyScope(meId, key))
+  return id ? state.issues.get(id) : undefined
+}
+
+/** 남의 것은 없는 것과 같다 */
+export function findIssue(id: IssueId, meId: UserId): Issue | undefined {
+  const issue = state.issues.get(id)
+  return issue && issue.issuerId === meId ? issue : undefined
+}
+
+/**
+ * 발행한다. 무에서 만들고 총 유통량이 늘어난다.
+ *
+ * 그때의 유통량과 상한을 함께 잠가 둔다 — 나중에 계산하면 그 사이 발행이 끼어
+ * 틀리고, 상한이 바뀌었으면 여력도 틀린다. 계약: docs/API.md
+ */
+export function commitIssue(meId: UserId, input: IssueInput): Issue {
+  const pointType = requirePointType(input.pointTypeId)
   if (pointType.issuerId !== meId) throw new LedgerError('NOT_ISSUER')
   if (pointType.totalIssued + input.amount > pointType.issueCap) {
     throw new LedgerError('CAP_EXCEEDED')
   }
 
-  state.pointTypes.set(pointType.id, {
-    ...pointType,
-    totalIssued: pointType.totalIssued + input.amount,
-  })
-  move(pointType.id, recipient.id, input.amount)
-  return record(meId, 'issue', pointType.id, null, recipient.id, input)
+  const totalIssuedAfter = pointType.totalIssued + input.amount
+  state.pointTypes.set(pointType.id, { ...pointType, totalIssued: totalIssuedAfter })
+  move(pointType.id, meId, input.amount)
+
+  const issue: Issue = {
+    id: `i_${state.issueOrder.length + 1}_${input.idempotencyKey.slice(0, 8)}`,
+    idempotencyKey: input.idempotencyKey,
+    pointTypeId: pointType.id,
+    issuerId: meId,
+    amount: input.amount,
+    totalIssuedAfter,
+    issueCapAt: pointType.issueCap,
+    confirmedAt: new Date().toISOString(),
+  }
+  state.issues.set(issue.id, issue)
+  state.issueOrder.unshift(issue.id)
+  state.issuedByKey.set(idempotencyScope(meId, input.idempotencyKey), issue.id)
+  return issue
 }
 
 function requirePointType(pointTypeId: PointTypeId): SeedPoint {
@@ -700,26 +764,21 @@ function move(pointTypeId: PointTypeId, userId: UserId, delta: Points): void {
 
 function record(
   meId: UserId,
-  kind: 'transfer' | 'issue',
   pointTypeId: PointTypeId,
-  fromId: UserId | null,
-  toId: UserId,
+  recipient: SeedUser,
   input: CommitInput,
 ): Transfer {
   const now = new Date().toISOString()
-  const other = kind === 'issue' ? null : userById(toId)
+  const other = userById(recipient.id)!
   const transfer: Transfer = {
     id: `t_${state.order.length + 1}_${input.idempotencyKey.slice(0, 8)}`,
     idempotencyKey: input.idempotencyKey,
-    kind,
     pointTypeId,
-    fromId,
-    toId,
+    fromId: meId,
+    toId: recipient.id,
     amount: input.amount,
     // 누구인지는 원장의 성질이다. 화면이 목록을 뒤지면 목록에 없는 순간 틀린다.
-    counterparty: other
-      ? { name: other.name, handle: other.handle, nameIsShared: other.nameIsShared }
-      : null,
+    counterparty: { name: other.name, handle: other.handle, nameIsShared: other.nameIsShared },
     createdAt: now,
     confirmedAt: now,
   }
@@ -729,7 +788,10 @@ function record(
   state.order.unshift(transfer.id)
 
   const previous = state.recent.get(pointTypeId) ?? []
-  state.recent.set(pointTypeId, [toId, ...previous.filter((id) => id !== toId)])
+  state.recent.set(pointTypeId, [
+    recipient.id,
+    ...previous.filter((id) => id !== recipient.id),
+  ])
 
   return transfer
 }

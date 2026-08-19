@@ -1,4 +1,4 @@
-import type { PointType, PointTypeId, Transfer, TransferId } from '@/api/contract'
+import type { Issue, IssueId, PointType, PointTypeId, Transfer, TransferId } from '@/api/contract'
 
 // 근거: docs/JOURNEY.md · 탭 하나에 스택 하나
 export type TabName = 'home' | 'history' | 'settings'
@@ -9,10 +9,12 @@ export type Screen =
   | { name: 'pickRecipient' }
   | { name: 'enterAmount' }
   | { name: 'confirm' }
-  /** 서버가 돌려준 이체를 그대로 싣는다. 다시 읽으면 그 사이 빈 프레임이 생긴다 */
-  | { name: 'result'; transfer: Transfer }
+  /** 서버가 돌려준 것을 그대로 싣는다. 다시 읽으면 그 사이 빈 프레임이 생긴다 */
+  | { name: 'result'; result: Transfer | Issue }
   | { name: 'failure' }
   | { name: 'historyDetail'; transferId: TransferId }
+  /** 발행은 이체가 아니다. 상세도 다른 화면이다 — 계약: docs/API.md */
+  | { name: 'issueDetail'; issueId: IssueId }
   /** 포인트 하나에 페이지 하나. 보는 사람에 따라 내용이 늘 뿐이다 */
   | { name: 'bank'; pointTypeId: PointTypeId }
   | { name: 'invite'; pointTypeId: PointTypeId }

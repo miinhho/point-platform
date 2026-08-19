@@ -2,8 +2,8 @@ import { atom } from 'jotai'
 import { newIdempotencyKey } from '@/api/http'
 import { goAtom, leaveFlowAtom, navAtom } from '@/app/atoms'
 import { currentScreen, popTo } from '@/app/navigation'
-import type { Failure, PointType, Transfer, TransferKind, User } from '@/api/contract'
-import { seal, startDraft, withRecipient, type Draft } from './draft'
+import type { Failure, Issue, PointType, Transfer, User } from '@/api/contract'
+import { seal, startDraft, withRecipient, type Draft, type DraftKind } from './draft'
 
 // 초안과 내비게이션을 여기서 묶는다. 쓰기 아톰 하나가 곧 사용자 행동 하나다.
 export const draftAtom = atom<Draft | null>(null)
@@ -13,7 +13,7 @@ export const failureAtom = atom<Failure | null>(null)
 
 export interface StartInput {
   pointType: PointType
-  kind?: TransferKind
+  kind?: DraftKind
   /** 주어지면 대상 선택을 건너뛴다. */
   to?: User
 }
@@ -63,9 +63,9 @@ export const failAtom = atom(null, (get, set, failure: Failure) => {
 })
 
 /** 확정됨. 초안은 남겨 둔다 — 결과 화면이 무엇을 보냈는지 말해야 한다 */
-export const succeedAtom = atom(null, (_get, set, transfer: Transfer) => {
+export const succeedAtom = atom(null, (_get, set, result: Transfer | Issue) => {
   set(failureAtom, null)
-  set(goAtom, { name: 'result', transfer })
+  set(goAtom, { name: 'result', result })
 })
 
 /**

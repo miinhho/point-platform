@@ -100,17 +100,32 @@ describe('내역', () => {
     expect(screen.queryByText('나')).toBeNull()
   })
 
-  it('발행 상세는 유통량과 여력을 말한다 — 상대도 띠도 없다', async () => {
+  /*
+   * 일어난 일은 일어난 때의 값을 갖는다. 지금 `PointType` 에서 읽으면 지난주 발행의
+   * 상세에 오늘 유통량이 뜬다. 계약: docs/API.md 「발행은 이체가 아니다」
+   */
+  it('발행 상세는 그때의 유통량과 상한을 말한다 — 상대도 띠도 없다', async () => {
     await endpoints.createIssue({ pointTypeId: 'pt_gm', amount: 5_000 }, newIdempotencyKey())
     const user = await openHistory()
     await user.click(await screen.findByRole('button', { name: /5,000/ }))
     await screen.findByText('발행 내역')
 
-    expect(screen.getByText('총 유통량')).toBeTruthy()
-    expect(screen.getByText('남은 여력')).toBeTruthy()
-    // 「발행」이 제목 하나로 족하다. 색 띠가 화면 맨 위 주의를 먹지 않는다.
-    expect(screen.getAllByText(/발행/).length).toBeLessThan(4)
+    expect(screen.getByText('발행 뒤 총 유통량')).toBeTruthy()
+    expect(screen.getByText('그때의 발행 상한')).toBeTruthy()
+    expect(screen.getByText('1,205,000')).toBeTruthy()
+    // 색 띠가 화면 맨 위 주의를 먹지 않는다.
     expect(document.body.textContent).not.toContain('무에서')
+  })
+
+  // 그 뒤에 더 발행해도 앞의 상세는 그대로다.
+  it('나중 발행이 앞 발행의 상세를 바꾸지 않는다', async () => {
+    await endpoints.createIssue({ pointTypeId: 'pt_gm', amount: 5_000 }, newIdempotencyKey())
+    await endpoints.createIssue({ pointTypeId: 'pt_gm', amount: 7_000 }, newIdempotencyKey())
+    const user = await openHistory()
+
+    await user.click(await screen.findByRole('button', { name: /5,000/ }))
+    await screen.findByText('발행 내역')
+    expect(screen.getByText('1,205,000')).toBeTruthy()
   })
 })
 

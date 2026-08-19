@@ -1,4 +1,5 @@
-import type { FailureCode, TransferKind } from '@/api/contract'
+import type { FailureCode } from '@/api/contract'
+import type { DraftKind } from './draft'
 
 // 실패에서 사용자가 무엇을 할 수 있는가 — docs/JOURNEY.md 여정 6
 export interface FailureHandling {
@@ -12,7 +13,7 @@ export interface FailureHandling {
   aboutSupply: boolean
 }
 
-export function handleFailure(code: FailureCode, kind: TransferKind): FailureHandling {
+export function handleFailure(code: FailureCode, kind: DraftKind): FailureHandling {
   const aboutSupply = kind === 'issue'
 
   switch (code) {

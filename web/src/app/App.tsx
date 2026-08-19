@@ -5,7 +5,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { meQuery, queryKeys } from '@/api/queries'
 import { setUnauthenticatedHandler } from '@/api/http'
 import { SignIn } from '@/features/auth'
-import { History, HistoryDetail } from '@/features/history'
+import { History, HistoryDetail, IssueDetail } from '@/features/history'
 import { Bank, CreatePoint, Invite, Members, PointCreated } from '@/features/bank'
 import { Settings } from '@/features/settings'
 import {
@@ -66,11 +66,13 @@ function CurrentScreen({
     case 'confirm':
       return <Confirm onBack={actions.back} onConfirm={actions.submit} busy={actions.busy} />
     case 'result':
-      return <Result transfer={screen.transfer} />
+      return <Result result={screen.result} />
     case 'failure':
       return <Failure onCheck={actions.check} />
     case 'historyDetail':
       return <HistoryDetail transferId={screen.transferId} onBack={actions.back} />
+    case 'issueDetail':
+      return <IssueDetail issueId={screen.issueId} onBack={actions.back} />
     case 'bank':
       return <Bank pointTypeId={screen.pointTypeId} onBack={actions.back} />
     case 'invite':
@@ -142,7 +144,11 @@ export default function App() {
           screenKey={screen?.name ?? `tab:${nav.tab}`}
           depth={nav.stack.length}
           morphGroup={
-            screen?.name === 'historyDetail' || nav.tab === 'history' ? 'history' : undefined
+            screen?.name === 'historyDetail' ||
+            screen?.name === 'issueDetail' ||
+            nav.tab === 'history'
+              ? 'history'
+              : undefined
           }
         >
           {screen ? (

@@ -8,7 +8,7 @@ import { toGrouped } from '@/shared/format'
 import { goAtom } from '@/app/atoms'
 import { Loadable, RowSkeleton } from '@/shared/ui/Loadable'
 import { Body, Gutter, Header, Row, RowButton, Screen, Title } from '@/shared/ui/Screen'
-import type { CapChange, Transfer } from '@/api/contract'
+import type { CapChange, Issue, Transfer } from '@/api/contract'
 import { formatTime } from '../model/time'
 
 /** 근거: docs/JOURNEY.md 여정 8 */
@@ -51,12 +51,19 @@ export function History() {
           ) : null}
 
           {data?.map((entry) =>
-          entry.type === 'transfer' ? (
+            entry.type === 'transfer' ? (
               <TransferRow
                 key={entry.transfer.id}
                 transfer={entry.transfer}
                 pointName={pointOf(entry.transfer.pointTypeId)?.name ?? ''}
                 onOpen={() => go({ name: 'historyDetail', transferId: entry.transfer.id })}
+              />
+            ) : entry.type === 'issue' ? (
+              <IssueRow
+                key={entry.issue.id}
+                issue={entry.issue}
+                pointName={pointOf(entry.issue.pointTypeId)?.name ?? ''}
+                onOpen={() => go({ name: 'issueDetail', issueId: entry.issue.id })}
               />
             ) : (
               <CapChangeRow
@@ -78,14 +85,7 @@ interface TransferRowProps {
   onOpen: () => void
 }
 
-/**
- * 발행은 「누구에게」 자리를 비운다. 없는 상대를 「나」로 메우면 일어나지 않은 이체가
- * 일어난 것처럼 읽힌다 — `CapChangeRow` 와 같은 판단이다.
- */
 function TransferRow({ transfer, pointName, onOpen }: TransferRowProps) {
-  const { t } = useTranslation()
-  const other = transfer.counterparty
-
   return (
     <RowButton type="button" onClick={onOpen}>
       <Box flex={1} minW={0}>
@@ -94,17 +94,44 @@ function TransferRow({ transfer, pointName, onOpen }: TransferRowProps) {
           `layout="position"` 이 아니면 크기가 다른 두 요소를 이을 때 글자가 늘어난다.
         */}
         <motion.div layoutId={`t-${transfer.id}-to`} layout="position">
-          <Text textStyle={other ? 'name' : 'label'}>
-            {other ? other.name : t('history.issuedTo', { name: pointName })}
-          </Text>
+          <Text textStyle="name">{transfer.counterparty.name}</Text>
         </motion.div>
         <Text textStyle="caption">
-          {other ? `${pointName} · ` : ''}
-          {formatTime(transfer.confirmedAt)}
+          {pointName} · {formatTime(transfer.confirmedAt)}
         </Text>
       </Box>
       <motion.div layoutId={`t-${transfer.id}-amount`} layout="position">
         <Text textStyle="line">{toGrouped(transfer.amount)}</Text>
+      </motion.div>
+    </RowButton>
+  )
+}
+
+/**
+ * 발행에는 「누구에게」가 없다. 이체 줄의 위계를 빌려 쓰면 셋이 한 종류로 읽힌다 —
+ * `CapChangeRow` 와 같은 판단이다.
+ */
+function IssueRow({
+  issue,
+  pointName,
+  onOpen,
+}: {
+  issue: Issue
+  pointName: string
+  onOpen: () => void
+}) {
+  const { t } = useTranslation()
+
+  return (
+    <RowButton type="button" onClick={onOpen}>
+      <Box flex={1} minW={0}>
+        <motion.div layoutId={`i-${issue.id}-name`} layout="position">
+          <Text textStyle="label">{t('history.issuedTo', { name: pointName })}</Text>
+        </motion.div>
+        <Text textStyle="caption">{formatTime(issue.confirmedAt)}</Text>
+      </Box>
+      <motion.div layoutId={`i-${issue.id}-amount`} layout="position">
+        <Text textStyle="line">{toGrouped(issue.amount)}</Text>
       </motion.div>
     </RowButton>
   )

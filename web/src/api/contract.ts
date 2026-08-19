@@ -6,6 +6,7 @@ export type Points = number
 export type UserId = string
 export type PointTypeId = string
 export type TransferId = string
+export type IssueId = string
 
 export interface User {
   id: UserId
@@ -119,8 +120,6 @@ export interface Wallet {
   balances: Balance[]
 }
 
-export type TransferKind = 'transfer' | 'issue'
-
 /**
  * 런타임 목록이 진실이고 타입은 여기서 파생된다. 둘을 따로 두면 코드를 추가할 때
  * 한쪽을 빠뜨리고, 그러면 서버가 보낸 코드가 조용히 `SERVER` 로 떨어진다.
@@ -183,15 +182,32 @@ export interface Counterparty {
 export interface Transfer {
   id: TransferId
   idempotencyKey: string
-  kind: TransferKind
   pointTypeId: PointTypeId
-  /** issue 는 null. */
-  fromId: UserId | null
+  fromId: UserId
   toId: UserId
   amount: Points
-  /** 발행이면 `null` — 발행에는 상대가 없다. 빈 칸을 채우면 없는 말이 나온다 */
-  counterparty: Counterparty | null
+  /** 누구인지는 원장의 성질이다. 화면이 목록을 뒤져 맞추면 조용히 틀린다 */
+  counterparty: Counterparty
   createdAt: string
+  confirmedAt: string
+}
+
+/**
+ * 발행. **이체가 아니다** — 중심 필드인 「누구에게」가 없다. 한동안 `Transfer.kind` 로
+ * 갈랐는데 그러면 빈 칸이 생기고, 빈 칸은 채워지려 한다: 「보낸 사람: 발행(무에서)」과
+ * 「나」가 그 결과였다. 계약: docs/API.md 「발행은 이체가 아니다」
+ */
+export interface Issue {
+  id: IssueId
+  idempotencyKey: string
+  pointTypeId: PointTypeId
+  /** 발행자. 받는 사람이기도 하다 — 한 사람이라 칸이 하나다 */
+  issuerId: UserId
+  amount: Points
+  /** 이 발행 **직후**의 유통량. 지금 값이 아니다 — 일어난 일은 일어난 때의 값을 갖는다 */
+  totalIssuedAfter: Points
+  /** 그때의 상한. 나중에 바뀌어도 이 값은 안 바뀐다 */
+  issueCapAt: Points
   confirmedAt: string
 }
 
@@ -229,8 +245,8 @@ export interface CapChange {
  * 내역 한 줄. 서버가 두 종류를 시간순으로 섞어 준다 — 클라이언트가 두 목록을
  * 받아 합치면 각 목록의 `limit` 경계에서 항목이 사라진다.
  *
- * `Transfer.kind` 와는 다른 것이다. 그쪽은 이체냐 발행이냐를 가른다.
  */
 export type HistoryEntry =
   | { type: 'transfer'; transfer: Transfer }
+  | { type: 'issue'; issue: Issue }
   | { type: 'capChange'; capChange: CapChange }

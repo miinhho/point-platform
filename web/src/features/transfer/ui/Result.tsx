@@ -4,37 +4,34 @@ import { useAtomValue, useSetAtom } from 'jotai'
 import { useTranslation } from 'react-i18next'
 import { walletQuery } from '@/api/queries'
 import { toGrouped } from '@/shared/format'
-import type { Transfer } from '@/api/contract'
-import { IssueBanner } from '@/shared/ui/IssueBanner'
+import type { Issue, Transfer } from '@/api/contract'
 import { Body, Gutter, Screen } from '@/shared/ui/Screen'
 import { SentMark } from '@/shared/ui/SentMark'
 import { draftAtom, endFlowAtom } from '../model/atoms'
 
 /** 근거: docs/JOURNEY.md 여정 6 — 서버가 확정을 알려준 뒤에만 완료라고 쓴다 */
-export function Result({ transfer }: { transfer: Transfer }) {
+export function Result({ result }: { result: Transfer | Issue }) {
   const { t } = useTranslation()
   const onHome = useSetAtom(endFlowAtom)
   const draft = useAtomValue(draftAtom)
   const wallet = useQuery(walletQuery())
 
-  const issuing = transfer.kind === 'issue'
-  // 초안이 포인트를 이미 안다. 지갑을 기다리면 그 사이 화면이 빈다.
+  // 계약에서 둘은 다른 타입이다. 발행에만 있는 필드로 가른다.
+  const issued = 'totalIssuedAfter' in result ? result : null
   const point = draft?.pointType
   const balance =
-    wallet.data?.balances.find((b) => b.pointType.id === transfer.pointTypeId)?.amount ?? null
-  const supply = point ? point.totalIssued + transfer.amount : null
+    wallet.data?.balances.find((b) => b.pointType.id === result.pointTypeId)?.amount ?? null
 
   return (
     <Screen>
-      {issuing ? <IssueBanner /> : null}
       <Body>
         <Gutter paddingTop="10">
           <Box colorPalette={point?.accent ?? 'blue'}>
             <SentMark />
             <Text role="status" aria-live="polite" textStyle="headline" marginTop="4">
-              {issuing ? t('result.titleIssue') : t('result.titleTransfer')}
+              {issued ? t('result.titleIssue') : t('result.titleTransfer')}
             </Text>
-            {draft?.to && !issuing ? (
+            {draft?.to && !issued ? (
               <Text textStyle="support">{draft.to.name}</Text>
             ) : null}
 
@@ -42,7 +39,7 @@ export function Result({ transfer }: { transfer: Transfer }) {
               <Text textStyle="label" color="colorPalette.fg">
                 {point?.name}
               </Text>
-              <Text textStyle="balance">{toGrouped(transfer.amount)}</Text>
+              <Text textStyle="balance">{toGrouped(result.amount)}</Text>
             </Box>
 
             <Box
@@ -57,10 +54,14 @@ export function Result({ transfer }: { transfer: Transfer }) {
             >
               {/* 발행은 잔액이 아니라 유통량을 말한다 */}
               <Text textStyle="caption">
-                {issuing ? t('result.supply') : t('result.remaining')}
+                {issued ? t('result.supply') : t('result.remaining')}
               </Text>
               <Text textStyle="lineStrong">
-                {issuing ? toGrouped(supply ?? 0) : balance === null ? '' : toGrouped(balance)}
+                {issued
+                  ? toGrouped(issued.totalIssuedAfter)
+                  : balance === null
+                    ? ''
+                    : toGrouped(balance)}
               </Text>
             </Box>
           </Box>

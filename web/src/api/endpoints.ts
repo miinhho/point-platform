@@ -2,6 +2,8 @@ import { request, type RequestOptions } from './http'
 import type {
   HistoryEntry,
   Invite,
+  Issue,
+  IssueId,
   PointAccent,
   PointType,
   PointTypeId,
@@ -98,9 +100,14 @@ export const endpoints = {
   createPointType: (input: CreatePointTypeInput, idempotencyKey: string) =>
     request<PointType>('/point-types', { method: 'POST', body: input, idempotencyKey }),
 
-  /** 발행. 해당 포인트의 발행자만 성공한다 */
+  /** 발행. 응답은 `Transfer` 가 아니라 `Issue` 다 — 계약: docs/API.md */
   createIssue: (input: CreateIssueInput, idempotencyKey: string) =>
-    request<Transfer>('/issues', { method: 'POST', body: input, idempotencyKey }),
+    request<Issue>('/issues', { method: 'POST', body: input, idempotencyKey }),
+
+  issue: (id: IssueId, options?: RequestOptions) => request<Issue>(`/issues/${id}`, options),
+
+  issueByKey: (idempotencyKey: string, options?: RequestOptions) =>
+    request<Issue | null>('/issues/by-key', { ...options, query: { idempotencyKey } }),
 
   /** 상한 변경. 발행자만. 취소가 아니라 또 하나의 변경이다 — docs/API.md */
   changeCap: (pointTypeId: PointTypeId, issueCap: Points, idempotencyKey: string) =>

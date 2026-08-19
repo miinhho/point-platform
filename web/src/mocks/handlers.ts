@@ -71,14 +71,11 @@ function readKey(request: Request): string | null {
 function readCommitBody(
   body: TransferBody,
   meId: string,
-  selfOnly: boolean,
 ): Omit<ledger.CommitInput, 'idempotencyKey'> | null {
-  const toId = selfOnly ? meId : body.toId
+  const toId = body.toId
   if (!body.pointTypeId || !toId) return null
-  // 발행 요청에 대상이 실려 오면 계약 위반이다. 조용히 무시하지 않는다.
-  if (selfOnly && body.toId) return null
-  // 발행은 자기 지갑으로 들어가지만, 이체는 옮길 곳이 없다 — docs/JOURNEY.md 「버린 것」
-  if (!selfOnly && toId === meId) return null
+  // 자기에게 보낼 곳이 없다 — docs/JOURNEY.md 「버린 것」
+  if (toId === meId) return null
   // 타입은 컴파일 시점만 지킨다. HTTP 경계에는 타입이 없다 — 소수점 금액이 들어오면
   // 잔액에 소수가 생기고, 한글 병기가 그것을 조용히 버려 두 표기가 다른 값을 말한다.
   const { amount } = body
@@ -86,12 +83,7 @@ function readCommitBody(
   return { pointTypeId: body.pointTypeId, toId, amount }
 }
 
-async function commit(
-  request: Request,
-  apply: (meId: string, input: ledger.CommitInput) => ReturnType<typeof ledger.commitTransfer>,
-  /** 발행은 대상을 받지 않는다. 자기 지갑으로만 들어간다 */
-  selfOnly = false,
-) {
+async function commitTransfer(request: Request) {
   const blocked = await gate()
   if (blocked) return blocked
 
@@ -105,14 +97,48 @@ async function commit(
   const existing = ledger.findByIdempotencyKey(key, auth.userId)
   if (existing) return HttpResponse.json(existing)
 
-  const input = readCommitBody((await request.json()) as TransferBody, auth.userId, selfOnly)
+  const input = readCommitBody((await request.json()) as TransferBody, auth.userId)
   if (!input) return malformed()
 
   try {
-    const transfer = apply(auth.userId, { ...input, idempotencyKey: key })
+    const transfer = ledger.commitTransfer(auth.userId, { ...input, idempotencyKey: key })
     // 서버는 만들었고 클라이언트는 못 받는다. 멱등성이 실제로 시험되는 유일한 경로다.
     if (drawResponseLoss()) return HttpResponse.error()
     return HttpResponse.json(transfer, { status: 201 })
+  } catch (error) {
+    if (error instanceof ledger.LedgerError) return fail(error.code)
+    throw error
+  }
+}
+
+/** 발행은 대상을 받지 않는다. 응답도 `Transfer` 가 아니라 `Issue` 다 — 계약: docs/API.md */
+async function commitIssue(request: Request) {
+  const blocked = await gate()
+  if (blocked) return blocked
+
+  const auth = requireUser(request)
+  if (auth instanceof Response) return auth
+
+  const key = readKey(request)
+  if (!key) return malformed()
+
+  const existing = ledger.findIssueByKey(key, auth.userId)
+  if (existing) return HttpResponse.json(existing)
+
+  const body = (await request.json()) as TransferBody
+  // 발행 요청에 대상이 실려 오면 계약 위반이다. 조용히 무시하지 않는다.
+  if (!body.pointTypeId || body.toId) return malformed()
+  const { amount } = body
+  if (typeof amount !== 'number' || !Number.isSafeInteger(amount) || amount <= 0) return malformed()
+
+  try {
+    const issue = ledger.commitIssue(auth.userId, {
+      idempotencyKey: key,
+      pointTypeId: body.pointTypeId,
+      amount,
+    })
+    if (drawResponseLoss()) return HttpResponse.error()
+    return HttpResponse.json(issue, { status: 201 })
   } catch (error) {
     if (error instanceof ledger.LedgerError) return fail(error.code)
     throw error
@@ -272,8 +298,27 @@ export const handlers = [
     }),
   ),
 
-  http.post('*/api/transfers', ({ request }) => commit(request, ledger.commitTransfer)),
-  http.post('*/api/issues', ({ request }) => commit(request, ledger.commitIssue, true)),
+  http.post('*/api/transfers', ({ request }) => commitTransfer(request)),
+  http.post('*/api/issues', ({ request }) => commitIssue(request)),
+
+  http.get(
+    '*/api/issues/by-key',
+    authed((userId, request) => {
+      const key = new URL(request.url).searchParams.get('idempotencyKey')
+      if (!key) return malformed()
+      return ledger.findIssueByKey(key, userId) ?? null
+    }),
+  ),
+
+  http.get('*/api/issues/:id', async ({ request, params }) => {
+    const blocked = await gate()
+    if (blocked) return blocked
+    const auth = requireUser(request)
+    if (auth instanceof Response) return auth
+    const issue = ledger.findIssue(String(params.id), auth.userId)
+    if (!issue) return fail('TRANSFER_NOT_FOUND')
+    return HttpResponse.json(issue)
+  }),
 
   http.get(
     '*/api/transfers/by-key',

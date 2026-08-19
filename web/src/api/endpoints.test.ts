@@ -190,13 +190,46 @@ describe('발행', () => {
   it('무에서 만들어 내 지갑으로 들어오고 총 유통량이 늘어난다', async () => {
     const before = balanceOf('pt_gm', ME)
     const issued = await endpoints.createIssue({ pointTypeId: 'pt_gm', amount: 100_000 }, key())
-    expect(issued.fromId).toBeNull()
-    expect(issued.kind).toBe('issue')
-    expect(issued.toId).toBe(ME)
+    // 발행에는 상대가 없다. 발행자가 곧 받는 사람이라 칸이 하나다.
+    expect(issued.issuerId).toBe(ME)
     expect(balanceOf('pt_gm', ME)).toBe(before + 100_000)
 
     const types = await endpoints.pointTypes()
     expect(types.find((t) => t.id === 'pt_gm')?.totalIssued).toBe(1_300_000)
+  })
+
+  /*
+   * 일어난 일은 일어난 때의 값을 갖는다. 지금 값에서 거꾸로 계산하면 그 사이 발행이
+   * 끼거나 상한이 바뀌었을 때 틀린다. 계약: docs/API.md
+   */
+  it('그때의 유통량과 상한을 함께 잠근다', async () => {
+    const first = await endpoints.createIssue({ pointTypeId: 'pt_gm', amount: 100_000 }, key())
+    expect(first).toMatchObject({ totalIssuedAfter: 1_300_000, issueCapAt: 10_000_000 })
+
+    // 그 뒤에 더 발행하고 상한을 바꿔도 앞의 기록은 그대로다.
+    await endpoints.createIssue({ pointTypeId: 'pt_gm', amount: 50_000 }, key())
+    await endpoints.changeCap('pt_gm', 20_000_000, key())
+
+    expect(await endpoints.issue(first.id)).toMatchObject({
+      totalIssuedAfter: 1_300_000,
+      issueCapAt: 10_000_000,
+    })
+  })
+
+  it('남의 발행은 없는 것과 같다', async () => {
+    const mine = await endpoints.createIssue({ pointTypeId: 'pt_gm', amount: 1_000 }, key())
+
+    const session = await endpoints.login({ handle: '@jisoo', password: 'point' })
+    setTokens(session)
+    await expect(endpoints.issue(mine.id)).rejects.toMatchObject({ status: 404 })
+  })
+
+  it('멱등성 키로 조회한다 — 없으면 null 이다', async () => {
+    const k = key()
+    const issued = await endpoints.createIssue({ pointTypeId: 'pt_gm', amount: 1_000 }, k)
+
+    expect(await endpoints.issueByKey(k)).toMatchObject({ id: issued.id })
+    expect(await endpoints.issueByKey(key())).toBeNull()
   })
 
   // 대상을 실어 보내면 계약 위반이다. 조용히 무시하면 발행과 이체가 섞인다.

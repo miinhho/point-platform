@@ -1,12 +1,18 @@
 import { parseInput } from '@/shared/format'
-import type { PointType, Points, TransferKind, User } from '@/api/contract'
+import type { PointType, Points, User } from '@/api/contract'
+
+/**
+ * 흐름이 둘을 함께 다루는 동안만 쓰는 구분. **계약의 타입이 아니다** — 계약에서는
+ * 이체와 발행이 다른 타입이다(docs/API.md 「발행은 이체가 아니다」).
+ */
+export type DraftKind = 'transfer' | 'issue'
 
 /** 키패드 입력 자릿수 상한. 한글 병기가 성립하는 범위 안이다 */
 const MAX_AMOUNT_DIGITS = 13
 
 // 무엇을 · 누구에게 · 얼마. 내비게이션과 분리한다.
 export interface Draft {
-  kind: TransferKind
+  kind: DraftKind
   pointType: PointType
   to: User | null
   /** 키패드가 만든 문자열. 숫자 변환은 읽을 때 한다. */
@@ -15,7 +21,7 @@ export interface Draft {
   idempotencyKey: string | null
 }
 
-export function startDraft(pointType: PointType, kind: TransferKind = 'transfer'): Draft {
+export function startDraft(pointType: PointType, kind: DraftKind = 'transfer'): Draft {
   return { kind, pointType, to: null, raw: '', idempotencyKey: null }
 }
 
