@@ -12,7 +12,7 @@ All engineering tasks follow this workflow.
 
 * **QA** — independently verifies behavior using browser, accessibility, usability, performance, and regression testing as relevant. Follows `docs/QA.md`.
 
-* **Review** — continuously checks whether the **model matches the concept** and the **code matches the contract**. Follows `docs/REVIEW.md`. Reports; does not fix.
+* **Review** — continuously checks **risk first, then logic**: what could go irreversibly wrong, whether the model matches the concept, and whether the code matches the contract. Code quality is in scope but reported last, except where a structure is a defect generator. Follows `docs/REVIEW.md`. Reports; does not fix.
 
 **Self-review does not count as review.** Filling an empty field looks reasonable while
 writing it and only reads wrong later — the author is the one person who cannot see it.
