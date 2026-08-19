@@ -90,6 +90,7 @@ TanStack Query, 클라이언트가 진실인 것(플로우·선택된 포인트�
 | 순서와 기술 결정 | `docs/REBUILD.md` |
 | HTTP 계약 | `docs/API.md` |
 | 실기기 관측 | `docs/FIELD.md` |
+| QA 가 보는 법 | `docs/QA.md` |
 
 `docs/PHASES.md` 는 1차 구현의 기록이다. **현재 계획이 아니므로 여기서 지시를 읽지
 않는다.**
