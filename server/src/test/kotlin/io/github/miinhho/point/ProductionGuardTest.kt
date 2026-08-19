@@ -19,6 +19,7 @@ class ProductionGuardTest {
         val failure = assertFailsWith<IllegalStateException> { guard(committed, seed = true).run(NoArgs) }
         assertTrue(failure.message!!.contains("point.jwt.secret"), failure.message!!)
         assertTrue(failure.message!!.contains("point.seed-users"), failure.message!!)
+        assertTrue(failure.message!!.contains("앞단"), "방어를 앱 밖에 뒀으면 그 방어 없이 뜨면 안 된다")
     }
 
     @Test
@@ -28,6 +29,8 @@ class ProductionGuardTest {
 
     private fun guard(secret: String, seed: Boolean) = ProductionGuard(
         JwtProperties(secret, Duration.ofMinutes(15), Duration.ofDays(14)),
-        MockEnvironment().withProperty("point.seed-users", seed.toString()),
+        MockEnvironment()
+            .withProperty("point.seed-users", seed.toString())
+            .withProperty("point.login-rate-limited-upstream", (!seed).toString()),
     )
 }
