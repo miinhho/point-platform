@@ -22,6 +22,15 @@ enum class FailureCode(val status: HttpStatus) {
     // 이미 알고, 「대상이 없어요」는 받는 사람 핸들을 다시 확인하게 만든다.
     NOT_MEMBER(HttpStatus.FORBIDDEN),
 
+    // 은행장이 나가면 발행할 사람이 없는 은행이 되고 상한도 품목도 관리할 수 없어진다.
+    ISSUER_CANNOT_LEAVE(HttpStatus.CONFLICT),
+
+    // 초대는 은행장의 행동이라 「내가 방금 초대했다」가 사실이 아니면 그렇게 말해야 한다.
+    ALREADY_MEMBER(HttpStatus.CONFLICT),
+
+    // 초대가 없는 것과 남의 초대를 수락하는 것이 같은 답이다 — 다르면 누가 초대됐는지가 샌다.
+    INVITE_NOT_FOUND(HttpStatus.NOT_FOUND),
+
     // 빈 배열도 NOT_MEMBER 도 아니다 — 앞은 「회원이 0명」으로, 뒤는 「가입하면 된다」로
     // 읽힌다. 공개 은행에 명부가 없는 것은 비어 있는 것이 아니라 개념이 없는 것이다.
     NOT_A_PRIVATE_BANK(HttpStatus.NOT_FOUND),

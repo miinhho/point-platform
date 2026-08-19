@@ -27,12 +27,9 @@ class FailureCodeContractTest {
         assertTrue(extra.isEmpty(), "계약에 없는 코드를 서버가 만든다: $extra — 클라이언트는 이것을 SERVER 로 읽는다")
     }
 
-    // 실패 표의 줄과, 인증 절처럼 본문에 박힌 `"code": "X"` 를 함께 읽는다 —
-    // 표에 없는 코드가 둘 있어서(BAD_CREDENTIALS·UNAUTHENTICATED) 표만 보면 거짓 실패가 난다.
+    // 표만 읽는다. 문서 전체를 훑으면 본문 어딘가에 이름이 우연히 나온 것도 통과시킨다.
     private fun contractCodes(): Set<String> {
-        val doc = Path.of("..", "docs", "API.md").readText()
-        val inTable = Regex("^\\| `([A-Z_]+)` \\|", RegexOption.MULTILINE).findAll(doc)
-        val inProse = Regex("\"code\":\\s*\"([A-Z_]+)\"").findAll(doc)
-        return (inTable + inProse).map { it.groupValues[1] }.toSet()
+        val table = Path.of("..", "docs", "API.md").readText().substringAfter("## 실패").substringBefore("\n## ")
+        return Regex("^\\| `([A-Z_]+)` \\|", RegexOption.MULTILINE).findAll(table).map { it.groupValues[1] }.toSet()
     }
 }

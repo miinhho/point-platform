@@ -7,12 +7,16 @@ import org.springframework.stereotype.Service
 @Service
 class BankAccess(
     private val membershipRepository: MembershipRepository,
+    private val inviteRepository: InviteRepository,
     private val balanceRepository: BalanceRepository,
 ) {
+    // 초대받은 사람은 아직 회원이 아니어도 판단하러 페이지에 와야 한다.
     // 나갔거나 내보내진 사람이 잔액으로 포함된다. 지갑이 그 카드를 계속 실어 주므로
     // 페이지만 감추면 같은 사실을 두 곳이 다르게 말한다.
     fun reachablePrivateIds(viewerId: Long): Set<Long> =
-        membershipRepository.pointTypeIdsOf(viewerId) + balanceRepository.pointTypeIdsHeldBy(viewerId)
+        membershipRepository.pointTypeIdsOf(viewerId) +
+            inviteRepository.pointTypeIdsInvitedTo(viewerId) +
+            balanceRepository.pointTypeIdsHeldBy(viewerId)
 
     // 공개이거나 은행장이면 조회하지 않는다 — 단락되도록 집합을 인자로 받지 않는다.
     fun canReach(pointType: PointType, viewerId: Long): Boolean =

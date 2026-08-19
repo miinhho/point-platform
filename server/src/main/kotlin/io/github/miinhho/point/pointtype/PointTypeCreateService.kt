@@ -28,7 +28,7 @@ class PointTypeCreateService(
     @Transactional
     fun create(creatorId: Long, idempotencyKey: String, request: CreatePointTypeRequest): PointTypeResponse {
         val name = request.name?.trim().orEmpty()
-        val emoji = request.emoji?.trim().orEmpty()
+        val emoji = request.emoji?.let(AllowedEmoji::normalize)
         val description = request.description?.trim()
         val accent = request.accent?.trim()?.uppercase()
         val issueCap = request.issueCap?.asSafeInteger()
@@ -39,9 +39,7 @@ class PointTypeCreateService(
         // 말하지 않으면 계약이 어긋났을 때 그것을 찾는 데 시간이 든다.
         val wrong = when {
             name.filterNot(Char::isWhitespace).length !in 1..12 -> "name"
-            // 허용 목록 대조가 유일하게 맞는 검사다(결합 이모지는 코드포인트가 여럿이다).
-            // 목록이 아직 오지 않아 여기는 저장 한계만 본다.
-            emoji.isEmpty() || emoji.length > 32 -> "emoji"
+            emoji == null -> "emoji"
             description != null && description.filterNot(Char::isWhitespace).length > 60 -> "description"
             accent == null || PointAccent.entries.none { it.name == accent } -> "accent"
             issueCap == null || issueCap <= 0 -> "issueCap"
@@ -56,7 +54,7 @@ class PointTypeCreateService(
         val created = pointTypeRepository.saveAndFlush(
             PointType(
                 name = name,
-                emoji = emoji,
+                emoji = emoji!!,
                 description = description?.takeIf { it.isNotEmpty() },
                 issuer = issuer,
                 accent = PointAccent.valueOf(accent!!),

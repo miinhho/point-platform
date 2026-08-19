@@ -49,8 +49,7 @@ class FailureBodyTest {
         // 구현 중에 제일 자주 나는 자리다 — 아직 없는 엔드포인트를 프론트가 부른다.
         val paths = listOf(
             "/api/nope",
-            "/api/invites",
-            "/api/point-types/00000000-0000-0000-0000-000000000000/invites",
+            "/api/point-types/00000000-0000-0000-0000-000000000000/shop",
         )
         paths.forEach { path ->
             val body = assertNotNull(get(path).body, path)

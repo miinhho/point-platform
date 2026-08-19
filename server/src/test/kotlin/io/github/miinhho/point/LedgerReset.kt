@@ -3,6 +3,7 @@ package io.github.miinhho.point
 import io.github.miinhho.point.auth.RefreshTokenRepository
 import io.github.miinhho.point.issue.IssueRepository
 import io.github.miinhho.point.pointtype.CapChangeRepository
+import io.github.miinhho.point.pointtype.InviteRepository
 import io.github.miinhho.point.pointtype.MembershipRepository
 import io.github.miinhho.point.pointtype.PointTypeRepository
 import io.github.miinhho.point.transfer.TransferRepository
@@ -18,6 +19,7 @@ class LedgerReset(
     private val transferRepository: TransferRepository,
     private val issueRepository: IssueRepository,
     private val capChangeRepository: CapChangeRepository,
+    private val inviteRepository: InviteRepository,
     private val membershipRepository: MembershipRepository,
     private val balanceRepository: BalanceRepository,
     private val pointTypeRepository: PointTypeRepository,
@@ -29,6 +31,7 @@ class LedgerReset(
         transferRepository.deleteAll()
         issueRepository.deleteAll()
         capChangeRepository.deleteAll()
+        inviteRepository.deleteAll()
         membershipRepository.deleteAll()
         balanceRepository.deleteAll()
         pointTypeRepository.deleteAll()
