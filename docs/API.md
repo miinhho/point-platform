@@ -126,7 +126,9 @@ access 만 둔다. 갱신은 브릿지로 셸에 요청한다. `HttpOnly` 가 �
 | `GET` | `/api/users?q=&pointTypeId=` | `User[]` | 검색. 비공개 은행이면 회원만 |
 | `GET` | `/api/recent?pointTypeId=&limit=` | `User[]` | 그 포인트로 최근에 보낸 사람 |
 | `POST` | `/api/transfers` | `Transfer` `201` | 이체. `Idempotency-Key` 필수 |
-| `POST` | `/api/issues` | `Transfer` `201` | 발행. 발행자만. **대상 없음** |
+| `POST` | `/api/issues` | `Issue` `201` | 발행. 발행자만. **대상 없음** |
+| `GET` | `/api/issues/:id` | `Issue` | 발행 단건. 내 것만 |
+| `GET` | `/api/issues/by-key` | `Issue \| null` | 발행 멱등성 키 조회 |
 | `POST` | `/api/point-types` | `PointType` `201` | 포인트 창설. `Idempotency-Key` 필수 |
 | `PATCH` | `/api/point-types/:id/cap` | `PointType` | 상한 변경. 발행자만. `Idempotency-Key` 필수 |
 | `GET` | `/api/transfers/:id` | `Transfer` | 단건. **404 는 일어나지 않았다는 뜻** |
@@ -139,7 +141,8 @@ access 만 둔다. 갱신은 브릿지로 셸에 요청한다. `HttpOnly` 가 �
 { "pointTypeId": "pt_on", "toId": "u_jisoo", "amount": 30000 }
 ```
 
-발행 본문 — **`toId` 를 받지 않는다.** 발행은 자기 지갑으로만 들어간다
+발행 본문 — **`toId` 를 받지 않는다.** 응답은 `Transfer` 가 아니라 `Issue` 다
+(아래 「발행은 이체가 아니다」). 발행은 자기 지갑으로만 들어간다
 (`docs/JOURNEY.md` 여정 7). 대상이 실려 오면 `400` 이다. 조용히 무시하면 발행과
 이체가 같은 흐름에서 섞이고, 발행자는 잘못 고른 것을 알 방법이 없다.
 
@@ -271,7 +274,22 @@ access 만 둔다. 갱신은 브릿지로 셸에 요청한다. `HttpOnly` 가 �
 ```ts
 type HistoryEntry =
   | { type: 'transfer'; transfer: Transfer }
+  | { type: 'issue'; issue: Issue }
   | { type: 'capChange'; capChange: CapChange }
+
+interface Issue {
+  id: IssueId
+  idempotencyKey: string
+  pointTypeId: PointTypeId
+  /** 발행자. 받는 사람이기도 하다 — 한 사람이라 칸이 하나다 */
+  issuerId: UserId
+  amount: Points
+  /** 이 발행 **직후**의 유통량. 지금 값이 아니다 */
+  totalIssuedAfter: Points
+  /** 그때의 상한. 나중에 바뀌어도 이 값은 안 바뀐다 */
+  issueCapAt: Points
+  confirmedAt: string
+}
 
 interface CapChange {
   id: string
@@ -303,6 +321,30 @@ interface CapChange {
 **`idempotencyKey` 는 화면에 내보내지 않는다.** 그것은 클라이언트가 재시도를 가르려고
 만든 표이지 사람이 읽을 것이 아니고, **요청자별로만 뜻이 있어서** 남에게 말해도 아무도
 찾지 못한다. 사람이 가리킬 번호가 필요하면 `Transfer.id` 다.
+
+**발행은 이체가 아니다. 타입이 다르다.**
+
+한동안 `Transfer.kind` 로 갈랐는데, 그러면 `Transfer` 의 중심 필드인 `toId` 가 절반의
+경우에 없다. **중심 필드가 절반에서 비는 타입은 사실 두 타입이다.** 그리고 빈 칸은
+채워지려 한다 — 화면에 「보낸 사람: 발행(무에서)」과 「나」가 나온 것이 그 결과다.
+없는 것을 비워 두는 대신 뜻 없는 말을 만들었다.
+
+증거는 코드에 이미 있었다. `kind === 'issue'` 분기가 아홉 곳이었고 실패 문구 키마저
+`whereIssue` · `whereTransfer` 로 갈려 있었다. **모든 소비자가 받자마자 다시 가르는
+타입은 하나가 아니다.**
+
+둘은 규칙도 다르다 — 이체는 잔액을 보고(`INSUFFICIENT_BALANCE`), 발행은 상한을 본다
+(`CAP_EXCEEDED`). 권한도 다르고(발행자만), 사용자가 하는 일도 다르다. 이체는 「누구에게
+얼마를」이고 발행은 「얼마나 더 찍을까」다.
+
+**공유하는 것은 개념이 아니라 장치다.** 금액 입력 · 홀드 확정 · 멱등성 키 · 실패 처리는
+같은 조각을 쓴다. 조각을 나눠 쓰는 것과 타입을 합치는 것은 다른 일이다.
+
+**`totalIssuedAfter` 와 `issueCapAt` 을 서버가 싣는 이유.** 발행을 다시 보는 사람이
+궁금한 것은 「그 발행이 유통량을 어디까지 밀었는가」다. 그런데 화면이 지금 `PointType`
+에서 유통량을 읽으면 **지난주 발행의 상세에 오늘 유통량이 뜬다.** 그 사이 다른 발행이
+끼면 틀리고, 상한이 바뀌었으면 여력도 틀린다. **일어난 일은 일어난 때의 값을 갖는다** —
+지금 값에서 거꾸로 계산할 수 없다.
 
 **서버가 섞어서 준다.** 두 목록을 클라이언트가 받아 시간순으로 합치면 페이지네이션에서
 깨진다 — 각 목록의 `limit` 안에 든 것만 합쳐지므로 경계에서 항목이 사라진다.
