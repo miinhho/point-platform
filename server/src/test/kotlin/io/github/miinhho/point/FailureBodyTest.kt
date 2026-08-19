@@ -48,11 +48,14 @@ class FailureBodyTest {
         val paths = listOf(
             "/api/nope",
             "/api/invites",
-            "/api/point-types/00000000-0000-0000-0000-000000000000/members",
+            "/api/point-types/00000000-0000-0000-0000-000000000000/invites",
         )
         paths.forEach { path ->
             val body = assertNotNull(get(path).body, path)
-            assertTrue(body.contains("\"code\":"), "code 가 없으면 화면이 분기할 것이 없다 — $path: $body")
+            assertTrue(
+                body.contains("\"code\":\"UNKNOWN_ENDPOINT\""),
+                "고칠 입력이 없으므로 MALFORMED_REQUEST 가 아니다 — $path: $body",
+            )
             assertTrue(body.contains("\"outcome\":\"none\""), "아무 일도 없었다고 단정해야 한다 — $path: $body")
             assertTrue(!body.contains("\"error\":"), "프레임워크 기본 본문이 새면 안 된다 — $path: $body")
         }

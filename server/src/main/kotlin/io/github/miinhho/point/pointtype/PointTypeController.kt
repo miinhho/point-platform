@@ -2,6 +2,7 @@ package io.github.miinhho.point.pointtype
 
 import io.github.miinhho.point.shared.DomainFailureException
 import io.github.miinhho.point.shared.FailureCode
+import io.github.miinhho.point.user.UserResponse
 import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
@@ -27,6 +28,13 @@ class PointTypeController(
     @GetMapping("/point-types")
     fun pointTypes(@AuthenticationPrincipal userId: Long): List<PointTypeResponse> =
         pointTypeQueryService.all(userId)
+
+    // 회원 목록은 회원만 본다. 공개 은행에는 회원이라는 개념 자체가 없다.
+    @GetMapping("/point-types/{id}/members")
+    fun members(
+        @PathVariable id: String,
+        @AuthenticationPrincipal userId: Long,
+    ): List<UserResponse> = pointTypeQueryService.members(id, userId)
 
     // 은행 페이지. 포인트 하나에 페이지 하나이고 보는 사람에 따라 내용이 늘 뿐이다
     // (docs/JOURNEY.md 「은행 페이지」).

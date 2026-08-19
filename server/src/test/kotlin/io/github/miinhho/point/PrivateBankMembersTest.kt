@@ -76,6 +76,28 @@ class PrivateBankMembersTest {
     }
 
     @Test
+    fun `회원 목록은 세 가지로 답한다`() {
+        val mine = assertNotNull(get(member, "/api/point-types/${closed.publicId}/members").body)
+        assertTrue(mine.contains("@onmart") && mine.contains("@jisoo"), "회원 전원이 담긴다: $mine")
+        assertFalse(mine.contains("@nara"), "나간 사람은 담기지 않는다: $mine")
+
+        // 나간 사람은 은행 페이지를 이미 본다 — 감출 것이 남아 있지 않으므로 404 가 아니다.
+        val left = get(leftBehind, "/api/point-types/${closed.publicId}/members")
+        assertEquals(HttpStatus.FORBIDDEN, left.statusCode, left.body)
+        assertTrue(assertNotNull(left.body).contains("\"code\":\"NOT_MEMBER\""), left.body)
+
+        // 빈 배열도 NOT_MEMBER 도 아니다 — 「가입하면 된다」로 읽히면 없는 길을 알려 주는 것이다.
+        val public = get(issuer, "/api/point-types/${open.publicId}/members")
+        assertEquals(HttpStatus.NOT_FOUND, public.statusCode, public.body)
+        assertTrue(assertNotNull(public.body).contains("\"code\":\"NOT_A_PRIVATE_BANK\""), public.body)
+
+        // 닿을 수 없는 사람에게는 은행 페이지와 같은 404 다.
+        val stranger = get(outsider, "/api/point-types/${closed.publicId}/members")
+        assertEquals(HttpStatus.NOT_FOUND, stranger.statusCode)
+        assertTrue(assertNotNull(stranger.body).contains("\"code\":\"POINT_TYPE_NOT_FOUND\""), stranger.body)
+    }
+
+    @Test
     fun `받는 사람 목록이 회원으로 좁아진다`() {
         val body = assertNotNull(get(issuer, "/api/users?pointTypeId=${closed.publicId}").body)
         assertTrue(body.contains("@jisoo"), "회원은 담긴다: $body")

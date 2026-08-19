@@ -1,6 +1,5 @@
 package io.github.miinhho.point.shared
 
-import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.http.converter.HttpMessageNotReadableException
 import org.springframework.web.HttpRequestMethodNotSupportedException
@@ -32,8 +31,8 @@ class DomainExceptionHandler {
         HttpRequestMethodNotSupportedException::class,
     )
     fun onNoHandler(): ResponseEntity<FailureResponse> =
-        ResponseEntity.status(HttpStatus.NOT_FOUND)
-            .body(FailureResponse.none(FailureCode.MALFORMED_REQUEST, "없는 경로"))
+        ResponseEntity.status(FailureCode.UNKNOWN_ENDPOINT.status)
+            .body(FailureResponse.none(FailureCode.UNKNOWN_ENDPOINT, "없는 경로"))
 
     // 예상하지 못한 것을 여기서 삼키지 않는다. Exception 을 통째로 잡으면 프레임워크가
     // 상태를 아는 것까지 500 으로 바뀐다 — 테스트가 그것을 잡았다.

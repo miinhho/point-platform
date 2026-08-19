@@ -21,6 +21,14 @@ enum class FailureCode(val status: HttpStatus) {
     // 받는 쪽의 RECIPIENT_NOT_FOUND 를 재사용하지 않는다 — 보내는 사람은 자기가 나온 것을
     // 이미 알고, 「대상이 없어요」는 받는 사람 핸들을 다시 확인하게 만든다.
     NOT_MEMBER(HttpStatus.FORBIDDEN),
+
+    // 빈 배열도 NOT_MEMBER 도 아니다 — 앞은 「회원이 0명」으로, 뒤는 「가입하면 된다」로
+    // 읽힌다. 공개 은행에 명부가 없는 것은 비어 있는 것이 아니라 개념이 없는 것이다.
+    NOT_A_PRIVATE_BANK(HttpStatus.NOT_FOUND),
+
+    // 본문은 멀쩡하고 경로가 없다. MALFORMED_REQUEST 로 답하면 화면이 「입력을 고쳐 보라」고
+    // 말하는데 고칠 입력이 없다.
+    UNKNOWN_ENDPOINT(HttpStatus.NOT_FOUND),
     RECIPIENT_NOT_FOUND(HttpStatus.NOT_FOUND),
     POINT_TYPE_NOT_FOUND(HttpStatus.NOT_FOUND),
     SYMBOL_TAKEN(HttpStatus.CONFLICT),
