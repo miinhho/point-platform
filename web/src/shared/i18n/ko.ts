@@ -4,6 +4,10 @@ export const ko = {
   common: {
     loading: '불러오는 중',
     retry: '다시 시도',
+    /** 조회 실패. 빈 목록과 절대 같은 화면이 되면 안 된다 — CLAUDE.md */
+    loadFailed: '불러오지 못했어요',
+    /** 조회는 돈을 움직이지 않는다. 실패 문구는 늘 그것을 말한다 */
+    loadFailedWhere: '아무것도 바뀌지 않았어요',
     back: '뒤로',
     ok: '확인',
     /** 이름이 겹칠 때만 붙는 부제 — 홈 카드와 보내기 플로우가 같이 쓴다 */
@@ -31,6 +35,8 @@ export const ko = {
   history: {
     title: '내역',
     empty: '아직 보낸 것이 없어요',
+    loadFailed: '내역을 불러오지 못했어요',
+    detailFailed: '이 내역을 불러오지 못했어요',
     issued: '발행',
     detailTitleTransfer: '이체 내역',
     detailTitleIssue: '발행 내역',
@@ -116,6 +122,9 @@ export const ko = {
   },
 
   bank: {
+    title: '은행',
+    loadFailed: '이 은행을 불러오지 못했어요',
+    membersFailed: '회원을 불러오지 못했어요',
     /** 카드 옆 진입점. 발행자가 아닌 사람에게도 보인다 — 여정 10 */
     entry: '자세히',
     /** 카드가 여럿이라 보이는 글자만으로는 어느 포인트인지 알 수 없다 */
@@ -177,6 +186,7 @@ export const ko = {
     notSentBefore: '보낸 적 없음',
     notFound: '"{{query}}"로 찾은 사람이 없어요',
     empty: '보낼 수 있는 사람이 없어요',
+    loadFailed: '받는 사람을 불러오지 못했어요',
   },
 
   amount: {

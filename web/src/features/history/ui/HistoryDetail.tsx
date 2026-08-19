@@ -8,6 +8,7 @@ import { toGrouped } from '@/shared/format'
 import { BackButton } from '@/shared/ui/BackButton'
 import { IssueBanner } from '@/shared/ui/IssueBanner'
 import { Line } from '@/shared/ui/Line'
+import { Loadable, LinesSkeleton } from '@/shared/ui/Loadable'
 import { Body, Gutter, Header, Screen, Title } from '@/shared/ui/Screen'
 import { formatTime } from '../model/time'
 
@@ -22,14 +23,40 @@ interface Props {
  */
 export function HistoryDetail({ transferId, onBack }: Props) {
   const { t } = useTranslation()
-  const { data: transfer } = useQuery({
+  const one = useQuery({
     queryKey: ['transfer', transferId],
     queryFn: () => endpoints.transfer(transferId),
   })
+  const transfer = one.data
   const wallet = useQuery(walletQuery())
   const users = useQuery(usersQuery(''))
 
-  if (!transfer) return null
+  // 못 불러온 것을 빈 화면으로 두지 않는다. 헤더는 남겨야 돌아갈 길이 보인다.
+  if (!transfer) {
+    return (
+      <Screen>
+        <Header>
+          <BackButton onClick={onBack} />
+          <Title>{t('history.detailTitleTransfer')}</Title>
+        </Header>
+        <Body>
+          <Loadable
+            pending={one.isPending}
+            failed={one.isError}
+            onRetry={() => void one.refetch()}
+            label={t('history.detailFailed')}
+            skeleton={
+              <Gutter paddingTop="4">
+                <LinesSkeleton count={4} />
+              </Gutter>
+            }
+          >
+            {null}
+          </Loadable>
+        </Body>
+      </Screen>
+    )
+  }
 
   const issuing = transfer.kind === 'issue'
   const point = wallet.data?.balances.find((b) => b.pointType.id === transfer.pointTypeId)?.pointType

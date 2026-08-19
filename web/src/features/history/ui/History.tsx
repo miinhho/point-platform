@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next'
 import { historyQuery, usersQuery, walletQuery } from '@/api/queries'
 import { toGrouped } from '@/shared/format'
 import { goAtom } from '@/app/atoms'
+import { Loadable, RowsSkeleton } from '@/shared/ui/Loadable'
 import { Body, Gutter, Header, Row, RowButton, Screen, Title } from '@/shared/ui/Screen'
 import type { CapChange, Transfer } from '@/api/contract'
 import { formatTime } from '../model/time'
@@ -14,7 +15,7 @@ import { formatTime } from '../model/time'
 export function History() {
   const { t } = useTranslation()
   const go = useSetAtom(goAtom)
-  const { data, isPending } = useQuery(historyQuery())
+  const { data, isPending, isError, refetch } = useQuery(historyQuery())
   const wallet = useQuery(walletQuery())
   const users = useQuery(usersQuery(''))
 
@@ -33,37 +34,40 @@ export function History() {
       </Header>
 
       <Body>
-        {isPending ? (
-          <Text textStyle="caption" textAlign="center" paddingBlock="8">
-            {t('common.loading')}
-          </Text>
-        ) : null}
+        {/* 가운데 글자 한 줄을 두면 목록이 뜨는 순간 화면이 통째로 뛴다 */}
+        <Loadable
+          pending={isPending}
+          failed={isError}
+          onRetry={() => void refetch()}
+          label={t('history.loadFailed')}
+          skeleton={<RowsSkeleton count={5} avatar={false} />}
+        >
+          {data?.length === 0 ? (
+            <Gutter>
+              <Text textStyle="caption" textAlign="center" paddingBlock="8">
+                {t('history.empty')}
+              </Text>
+            </Gutter>
+          ) : null}
 
-        {data?.length === 0 ? (
-          <Gutter>
-            <Text textStyle="caption" textAlign="center" paddingBlock="8">
-              {t('history.empty')}
-            </Text>
-          </Gutter>
-        ) : null}
-
-        {data?.map((entry) =>
+          {data?.map((entry) =>
           entry.type === 'transfer' ? (
-            <TransferRow
-              key={entry.transfer.id}
-              transfer={entry.transfer}
-              to={toOf(entry.transfer)}
-              pointName={pointOf(entry.transfer.pointTypeId)?.name ?? ''}
-              onOpen={() => go({ name: 'historyDetail', transferId: entry.transfer.id })}
-            />
-          ) : (
-            <CapChangeRow
-              key={entry.capChange.id}
-              capChange={entry.capChange}
-              pointName={pointOf(entry.capChange.pointTypeId)?.name ?? ''}
-            />
-          ),
-        )}
+              <TransferRow
+                key={entry.transfer.id}
+                transfer={entry.transfer}
+                to={toOf(entry.transfer)}
+                pointName={pointOf(entry.transfer.pointTypeId)?.name ?? ''}
+                onOpen={() => go({ name: 'historyDetail', transferId: entry.transfer.id })}
+              />
+            ) : (
+              <CapChangeRow
+                key={entry.capChange.id}
+                capChange={entry.capChange}
+                pointName={pointOf(entry.capChange.pointTypeId)?.name ?? ''}
+              />
+            ),
+          )}
+        </Loadable>
       </Body>
     </Screen>
   )

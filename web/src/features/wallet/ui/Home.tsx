@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next'
 import { invitesQuery, walletQuery } from '@/api/queries'
 import { startTransferAtom } from '@/features/transfer'
 import { goAtom } from '@/app/atoms'
+import { Loadable, RowsSkeleton } from '@/shared/ui/Loadable'
 import { Body, Gutter, Header, RowButton, Screen, Title } from '@/shared/ui/Screen'
 import { PointBadge } from '@/shared/ui/PointBadge'
 import type { Invite } from '@/api/contract'
@@ -14,7 +15,7 @@ import { PointCard } from './PointCard'
 /** 근거: docs/JOURNEY.md 여정 1 */
 export function Home() {
   const { t } = useTranslation()
-  const { data, isPending, isError } = useQuery(walletQuery())
+  const { data, isPending, isError, refetch } = useQuery(walletQuery())
   const invites = useQuery(invitesQuery())
   const startTransfer = useSetAtom(startTransferAtom)
   const go = useSetAtom(goAtom)
@@ -28,38 +29,45 @@ export function Home() {
       </Header>
 
       <Body>
-        {/* 상태 변화는 소리로도 전달된다 — docs/JOURNEY.md. 특히 실패는 오래 머문다 */}
-        {isPending ? <Note role="status">{t('common.loading')}</Note> : null}
-        {isError ? <Note role="alert">{t('home.loadFailed')}</Note> : null}
-        {data?.balances.length === 0 && invites.data?.length === 0 ? (
-          <Note>{t('home.empty')}</Note>
-        ) : null}
+        {/* 못 불러온 것이 「아직 없어요」와 같아 보이면 여정 1 의 노력이 무너진다 */}
+        <Loadable
+          pending={isPending}
+          failed={isError}
+          onRetry={() => void refetch()}
+          label={t('home.loadFailed')}
+          skeleton={<RowsSkeleton count={4} />}
+        >
+          {data?.balances.length === 0 && invites.data?.length === 0 ? (
+            <Note>{t('home.empty')}</Note>
+          ) : null}
 
-        {/* 초대를 열면 은행 페이지가 열린다. 판단할 것은 거기 다 있다 — 여정 10 */}
-        {invites.data?.length ? (
-          <>
-            <Gutter paddingTop="3" paddingBottom="1">
-              <Text textStyle="caption">{t('home.invites')}</Text>
-            </Gutter>
-            {invites.data.map((invite) => (
-              <InviteRow
-                key={invite.id}
-                invite={invite}
-                onOpen={() => go({ name: 'bank', pointTypeId: invite.pointType.id })}
-              />
-            ))}
-          </>
-        ) : null}
+          {/* 초대를 열면 은행 페이지가 열린다. 판단할 것은 거기 다 있다 — 여정 10 */}
+          {invites.data?.length ? (
+            <>
+              <Gutter paddingTop="3" paddingBottom="1">
+                <Text textStyle="caption">{t('home.invites')}</Text>
+              </Gutter>
+              {invites.data.map((invite) => (
+                <InviteRow
+                  key={invite.id}
+                  invite={invite}
+                  onOpen={() => go({ name: 'bank', pointTypeId: invite.pointType.id })}
+                />
+              ))}
+            </>
+          ) : null}
 
-        {balances.map((balance) => (
-          <PointCard
-            key={balance.pointType.id}
-            balance={balance}
-            isMine={balance.pointType.canIssue}
-            onOpen={() => startTransfer({ pointType: balance.pointType })}
-            onBank={() => go({ name: 'bank', pointTypeId: balance.pointType.id })}
-          />
-        ))}
+          {balances.map((balance) => (
+            <PointCard
+              key={balance.pointType.id}
+              balance={balance}
+              isMine={balance.pointType.canIssue}
+              onOpen={() => startTransfer({ pointType: balance.pointType })}
+              onBank={() => go({ name: 'bank', pointTypeId: balance.pointType.id })}
+            />
+          ))}
+
+        </Loadable>
 
         {/* 목록 끝에 둔다 — 계좌 목록 아래의 「계좌 개설」과 같은 자리다 */}
         {data ? (

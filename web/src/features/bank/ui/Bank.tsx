@@ -12,6 +12,7 @@ import { BackButton } from '@/shared/ui/BackButton'
 import { IssuerSuffix } from '@/shared/ui/IssuerSuffix'
 import { Line } from '@/shared/ui/Line'
 import { PointBadge } from '@/shared/ui/PointBadge'
+import { Loadable, LinesSkeleton } from '@/shared/ui/Loadable'
 import { Body, Gutter, Header, Screen, Title } from '@/shared/ui/Screen'
 import type { PointType, PointTypeId } from '@/api/contract'
 import { formatCreated } from '../model/created'
@@ -23,7 +24,8 @@ import { CapForm } from './CapForm'
  */
 export function Bank({ pointTypeId, onBack }: { pointTypeId: PointTypeId; onBack: () => void }) {
   const { t } = useTranslation()
-  const { data: pointType } = useQuery(pointTypeQuery(pointTypeId))
+  const bank = useQuery(pointTypeQuery(pointTypeId))
+  const pointType = bank.data
   const wallet = useQuery(walletQuery())
   const startTransfer = useSetAtom(startTransferAtom)
   const startIssue = useSetAtom(startIssueAtom)
@@ -52,7 +54,32 @@ export function Bank({ pointTypeId, onBack }: { pointTypeId: PointTypeId; onBack
 
   const balance = wallet.data?.balances.find((b) => b.pointType.id === pointTypeId)
 
-  if (!pointType) return null
+  // 못 불러온 것을 빈 화면으로 두지 않는다. 헤더는 남겨야 돌아갈 길이 보인다.
+  if (!pointType) {
+    return (
+      <Screen>
+        <Header>
+          <BackButton onClick={onBack} />
+          <Title>{t('bank.title')}</Title>
+        </Header>
+        <Body>
+          <Loadable
+            pending={bank.isPending}
+            failed={bank.isError}
+            onRetry={() => void bank.refetch()}
+            label={t('bank.loadFailed')}
+            skeleton={
+              <Gutter paddingTop="4">
+                <LinesSkeleton count={5} />
+              </Gutter>
+            }
+          >
+            {null}
+          </Loadable>
+        </Body>
+      </Screen>
+    )
+  }
 
   return (
     <Screen>

@@ -7,6 +7,7 @@ import { membersQuery, pointTypeQuery, queryKeys } from '@/api/queries'
 import type { PointType, PointTypeId, User, UserId } from '@/api/contract'
 import { failureTitleKey } from '@/shared/i18n/keys'
 import { BackButton } from '@/shared/ui/BackButton'
+import { Loadable, RowsSkeleton } from '@/shared/ui/Loadable'
 import { Body, Gutter, Header, Row, Screen, Title } from '@/shared/ui/Screen'
 
 interface Props {
@@ -24,7 +25,8 @@ export function Members({ pointTypeId, onBack, onLeft }: Props) {
   const { t } = useTranslation()
   const client = useQueryClient()
   const { data: pointType } = useQuery(pointTypeQuery(pointTypeId))
-  const { data: members } = useQuery(membersQuery(pointTypeId))
+  const list = useQuery(membersQuery(pointTypeId))
+  const members = list.data
 
   const invalidate = () => {
     void client.invalidateQueries({ queryKey: queryKeys.members(pointTypeId) })
@@ -64,15 +66,23 @@ export function Members({ pointTypeId, onBack, onLeft }: Props) {
       </Header>
 
       <Body>
-        {members?.map((member) => (
-          <MemberRow
-            key={member.id}
-            member={member}
-            pointType={pointType}
-            onRemove={pointType.canIssue ? () => remove.mutate(member.id) : undefined}
-            busy={remove.isPending}
-          />
-        ))}
+        <Loadable
+          pending={list.isPending}
+          failed={list.isError}
+          onRetry={() => void list.refetch()}
+          label={t('bank.membersFailed')}
+          skeleton={<RowsSkeleton count={3} avatar={false} />}
+        >
+          {members?.map((member) => (
+            <MemberRow
+              key={member.id}
+              member={member}
+              pointType={pointType}
+              onRemove={pointType.canIssue ? () => remove.mutate(member.id) : undefined}
+              busy={remove.isPending}
+            />
+          ))}
+        </Loadable>
 
         {error ? (
           <Gutter paddingTop="3">

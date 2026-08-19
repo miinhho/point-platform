@@ -216,6 +216,20 @@ describe('홈', () => {
   it('실패는 소리로도 닿는다', async () => {
     server.use(http.get('*/api/wallet', () => HttpResponse.error()))
     renderApp(<Home />)
-    expect(await screen.findByRole('alert')).toHaveProperty('textContent', '지갑을 불러오지 못했어요')
+    const alert = await screen.findByRole('alert')
+
+    expect(alert.textContent).toContain('지갑을 불러오지 못했어요')
+    // 조회는 돈을 움직이지 않는다. 그것도 함께 말한다.
+    expect(alert.textContent).toContain('아무것도 바뀌지 않았어요')
+  })
+
+  // 빈 목록과 실패가 같은 화면이면 여정 1 이 가르려던 것이 무너진다.
+  it('실패는 「아직 없어요」와 다른 화면이다', async () => {
+    server.use(http.get('*/api/wallet', () => HttpResponse.error()))
+    renderApp(<Home />)
+    await screen.findByRole('alert')
+
+    expect(screen.queryByText('아직 받은 포인트가 없어요')).toBeNull()
+    expect(screen.getByRole('button', { name: '다시 시도' })).toBeTruthy()
   })
 })

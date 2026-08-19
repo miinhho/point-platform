@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next'
 import { recentQuery, usersQuery } from '@/api/queries'
 import { BackButton } from '@/shared/ui/BackButton'
 import { IssuerSuffix } from '@/shared/ui/IssuerSuffix'
+import { Loadable, RowsSkeleton } from '@/shared/ui/Loadable'
 import { Body, Gutter, Header, RowButton, Screen, Title } from '@/shared/ui/Screen'
 import { draftAtom, pickRecipientAtom } from '../model/atoms'
 import { buildRecipientList, buildSearchList, type RecipientEntry } from '../model/recipientList'
@@ -60,25 +61,33 @@ export function PickRecipient({ onBack }: { onBack: () => void }) {
       </Gutter>
 
       <Body marginTop="2">
-        {list.recent.length > 0 ? (
-          <Section label={t('pick.recentSection')}>
-            <Rows entries={list.recent} onPick={pick} />
-          </Section>
-        ) : null}
+        <Loadable
+          pending={users.isPending}
+          failed={users.isError}
+          onRetry={() => void users.refetch()}
+          label={t('pick.loadFailed')}
+          skeleton={<RowsSkeleton count={5} />}
+        >
+          {list.recent.length > 0 ? (
+            <Section label={t('pick.recentSection')}>
+              <Rows entries={list.recent} onPick={pick} />
+            </Section>
+          ) : null}
 
-        {list.others.length > 0 ? (
-          <Section label={list.recent.length > 0 ? t('pick.allSection') : undefined}>
-            <Rows entries={list.others} onPick={pick} />
-          </Section>
-        ) : null}
+          {list.others.length > 0 ? (
+            <Section label={list.recent.length > 0 ? t('pick.allSection') : undefined}>
+              <Rows entries={list.others} onPick={pick} />
+            </Section>
+          ) : null}
 
-        {!users.isPending && total === 0 ? (
-          <Gutter>
-            <Text textStyle="caption" paddingBlock="8" textAlign="center">
-              {searching ? t('pick.notFound', { query: query.trim() }) : t('pick.empty')}
-            </Text>
-          </Gutter>
-        ) : null}
+          {total === 0 ? (
+            <Gutter>
+              <Text textStyle="caption" paddingBlock="8" textAlign="center">
+                {searching ? t('pick.notFound', { query: query.trim() }) : t('pick.empty')}
+              </Text>
+            </Gutter>
+          ) : null}
+        </Loadable>
       </Body>
     </Screen>
   )
