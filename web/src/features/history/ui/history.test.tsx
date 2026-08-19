@@ -4,6 +4,7 @@ import { screen, waitFor } from '@testing-library/react'
 import { userEvent } from '@testing-library/user-event'
 import { endpoints } from '@/api/endpoints'
 import { newIdempotencyKey } from '@/api/http'
+import { balanceOf, SEED_ISSUER } from '@/mocks/ledger'
 import { renderApp, signInAs } from '@/test/render'
 import App from '@/app/App'
 
@@ -139,5 +140,30 @@ describe('설정', () => {
 
     const radios = screen.getAllByRole('radio')
     expect(radios.map((r) => r.textContent)).toEqual(['자동', '밝게', '어둡게'])
+  })
+})
+
+/*
+ * 지갑과 내역은 모수가 다르다 — 지갑은 「잔액 > 0 이거나 내가 발행자」로 거르고
+ * 내역은 관여 여부로 거른다. 전액을 보내면 그 순간 지갑에서 빠지고 방금 만든 이체
+ * 줄만 내역에 남는다. 클라이언트가 지갑에서 이름을 찾으면 그 줄이 빈 칸이 되고
+ * 색은 기본값으로 떨어지는데, 그 기본값도 누군가의 진짜 색이다.
+ * 계약: docs/API.md
+ */
+describe('전액을 보낸 포인트도 내역이 무엇인지 말한다', () => {
+  it('지갑에서 빠져도 이름이 남는다', async () => {
+    const before = balanceOf('pt_on2', SEED_ISSUER)
+    await endpoints.createTransfer(
+      { pointTypeId: 'pt_on2', toId: 'u_jisoo', amount: before },
+      newIdempotencyKey(),
+    )
+
+    await openHistory()
+
+    // 지갑에는 더 없다.
+    const wallet = await endpoints.wallet()
+    expect(wallet.balances.find((b) => b.pointType.id === 'pt_on2')).toBeUndefined()
+    // 그래도 내역 줄은 어느 은행인지 말한다.
+    expect(await screen.findByText(/온포인트/)).toBeTruthy()
   })
 })

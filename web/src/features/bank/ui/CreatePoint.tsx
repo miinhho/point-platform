@@ -53,7 +53,8 @@ export function CreatePoint({ onBack, onCreated }: Props) {
         {
           name: name.trim(),
           emoji: emoji!,
-          description: description.trim(),
+          // 「없음」은 `null` 하나다 — 빈 문자열을 보내지 않는다.
+          description: description.trim() || null,
           accent,
           issueCap: parseInput(cap),
           visibility: chosen,

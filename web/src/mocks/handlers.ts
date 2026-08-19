@@ -178,8 +178,11 @@ function readCreateBody(body: CreatePointTypeBody): ledger.CreatePointTypeInput 
   if (name.trim().length < 1 || name.trim().length > 12) return null
   // 허용 목록 안의 값만 받는다. 자유 입력을 받으면 기기마다 다르게 보이는 것이 들어온다.
   if (!(ALLOWED_EMOJI as readonly string[]).includes(emoji)) return null
-  // 없어도 만들 수 있다. 다만 온 값이 문자열이 아니거나 길면 거절한다.
-  if (description !== undefined && typeof description !== 'string') return null
+  // 없어도 만들 수 있다. 「없음」은 `null` 하나로 정규화한다 — 빈 문자열과 둘로 두면
+  // 한쪽만 보는 코드가 생기고, 그 코드는 한쪽 서버에서만 터진다.
+  if (description !== undefined && description !== null && typeof description !== 'string') {
+    return null
+  }
   if (typeof description === 'string' && description.trim().length > 60) return null
   if (typeof accent !== 'string' || !ACCENTS.includes(accent as PointAccent)) return null
   if (typeof issueCap !== 'number' || !Number.isSafeInteger(issueCap) || issueCap <= 0) return null
@@ -191,7 +194,7 @@ function readCreateBody(body: CreatePointTypeBody): ledger.CreatePointTypeInput 
     idempotencyKey: '',
     name,
     emoji,
-    description: typeof description === 'string' ? description.trim() : '',
+    description: typeof description === 'string' ? description.trim() || null : null,
     accent: accent as PointAccent,
     issueCap,
     visibility: visibility as PointVisibility,

@@ -1,6 +1,7 @@
 import type {
   CapChange,
   HistoryEntry,
+  HistoryPoint,
   Invite,
   Issue,
   IssueId,
@@ -98,7 +99,7 @@ function seedPointTypes(): SeedPoint[] {
       id: 'pt_gm',
       name: '금머니',
       emoji: '💎',
-      description: '',
+      description: null,
       issuerId: SEED_ISSUER,
       issuerName: '장민호',
       issuerHandle: '@minho',
@@ -127,7 +128,7 @@ function seedPointTypes(): SeedPoint[] {
       id: 'pt_hd',
       name: '한동네',
       emoji: '🏠',
-      description: '',
+      description: null,
       issuerId: 'u_solcafe',
       issuerName: '솔카페',
       issuerHandle: '@solcafe',
@@ -142,7 +143,7 @@ function seedPointTypes(): SeedPoint[] {
       id: 'pt_on2',
       name: '온포인트',
       emoji: '🌸',
-      description: '',
+      description: null,
       issuerId: 'u_solcafe',
       issuerName: '솔카페',
       issuerHandle: '@solcafe',
@@ -429,22 +430,37 @@ export function history(meId: UserId, pointTypeId: PointTypeId | null, limit: nu
   const transfers: HistoryEntry[] = state.order
     .map((id) => state.transfers.get(id)!)
     .filter((transfer) => involves(transfer, meId))
-    .map((transfer) => ({ type: 'transfer', transfer }))
+    .map((transfer) => ({ type: 'transfer', transfer, point: pointOf(transfer.pointTypeId) }))
 
   const issues: HistoryEntry[] = state.issueOrder
     .map((id) => state.issues.get(id)!)
     .filter((issue) => issue.issuerId === meId)
-    .map((issue) => ({ type: 'issue', issue }))
+    .map((issue) => ({ type: 'issue', issue, point: pointOf(issue.pointTypeId) }))
 
   const held = new Set(balancesOf(meId).map(({ pointType }) => pointType.id))
   const caps: HistoryEntry[] = state.capChanges
     .filter((capChange) => held.has(capChange.pointTypeId))
-    .map((capChange) => ({ type: 'capChange', capChange }))
+    .map((capChange) => ({ type: 'capChange', capChange, point: pointOf(capChange.pointTypeId) }))
 
   return [...transfers, ...issues, ...caps]
     .filter((entry) => !pointTypeId || pointTypeIdOf(entry) === pointTypeId)
     .sort((a, b) => timeOf(b).localeCompare(timeOf(a)))
     .slice(0, limit)
+}
+
+/**
+ * 내역 줄이 가리키는 포인트. **지갑으로 거르지 않는다** — 전액을 보내면 지갑에서
+ * 빠지지만 그 이체 줄은 내역에 남는다. 계약: docs/API.md
+ */
+function pointOf(pointTypeId: PointTypeId): HistoryPoint {
+  const pointType = state.pointTypes.get(pointTypeId)!
+  return {
+    name: pointType.name,
+    emoji: pointType.emoji,
+    accent: pointType.accent,
+    nameIsShared: sharesName(pointType.name, seedPoints()),
+    issuerHandle: pointType.issuerHandle,
+  }
 }
 
 function pointTypeIdOf(entry: HistoryEntry): PointTypeId {
@@ -473,7 +489,7 @@ export interface CreatePointTypeInput {
   idempotencyKey: string
   name: string
   emoji: string
-  description: string
+  description: string | null
   accent: PointAccent
   issueCap: Points
   visibility: PointVisibility
@@ -494,7 +510,8 @@ export function createPointType(meId: UserId, input: CreatePointTypeInput): Poin
     id: `pt_${state.pointTypes.size + 1}_${input.idempotencyKey.slice(0, 6)}`,
     name: input.name.trim(),
     emoji: input.emoji,
-    description: input.description,
+    // 「없음」은 `null` 하나다. 빈 문자열과 둘로 두면 한쪽만 보는 코드가 생긴다.
+    description: input.description?.trim() || null,
     issuerId: meId,
     issuerName: issuer.name,
     issuerHandle: issuer.handle,
@@ -714,7 +731,7 @@ export function findIssue(id: IssueId, meId: UserId): Issue | undefined {
 }
 
 /**
- * 발행한다. 무에서 만들고 총 유통량이 늘어난다.
+ * 발행한다. 유통량이 늘고 그만큼이 발행자 지갑에 생긴다.
  *
  * 그때의 유통량과 상한을 함께 잠가 둔다 — 나중에 계산하면 그 사이 발행이 끼어
  * 틀리고, 상한이 바뀌었으면 여력도 틀린다. 계약: docs/API.md

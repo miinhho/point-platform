@@ -187,7 +187,7 @@ describe('거절', () => {
 })
 
 describe('발행', () => {
-  it('무에서 만들어 내 지갑으로 들어오고 총 유통량이 늘어난다', async () => {
+  it('발행자 지갑으로 들어오고 총 유통량이 늘어난다', async () => {
     const before = balanceOf('pt_gm', ME)
     const issued = await endpoints.createIssue({ pointTypeId: 'pt_gm', amount: 100_000 }, key())
     // 발행에는 상대가 없다. 발행자가 곧 받는 사람이라 칸이 하나다.

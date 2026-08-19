@@ -248,7 +248,7 @@ describe('전액을 보내면 남은 잔액이 0 이다', () => {
 
   // 못 불러온 것과 0 이 같아 보이면 안 된다.
   it('잔액을 못 불러오면 0 이라고 쓰지 않는다', async () => {
-    const user = await atConfirm()
+    await atConfirm()
     server.use(http.get('*/api/wallet', () => HttpResponse.error()))
     await hold(750)
 
@@ -264,11 +264,9 @@ describe('전액을 보내면 남은 잔액이 0 이다', () => {
 describe('확정 화면은 모르는 잔액을 0 으로 쓰지 않는다', () => {
   it('지갑을 못 불러오면 숫자를 쓰지 않는다', async () => {
     server.use(http.get('*/api/wallet', () => HttpResponse.error()))
-    const user = userEvent.setup()
     renderApp(<App />)
     await screen.findByRole('alert')
 
-    expect(user).toBeTruthy()
     expect(screen.queryByText('보낸 뒤 남는 잔액')).toBeNull()
   })
 })

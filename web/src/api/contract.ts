@@ -46,8 +46,10 @@ export interface PointType {
   /**
    * 발행자가 적는 소개. 상한과 달리 바꿀 수 있다 — 약속이 아니라 소개다.
    * **앱이 보증하지 않는다.** 화면은 이 글이 사실보다 먼저 읽히지 않게 한다.
+   *
+   * 「없음」은 `null` 하나다. 빈 문자열과 둘로 두면 한쪽만 보는 코드가 생긴다.
    */
-  description: string
+  description: string | null
   /** 비공개 은행의 회원 수. 공개면 `null` — 공개 은행에는 회원 개념이 없다. */
   memberCount: number | null
   /** 창설 시 정해지고 나중에 바꿀 수 없다 — 바꾸는 것은 설정 변경이 아니라 사람에게 일어나는 일이다. */
@@ -246,7 +248,22 @@ export interface CapChange {
  * 받아 합치면 각 목록의 `limit` 경계에서 항목이 사라진다.
  *
  */
+/**
+ * 내역 줄이 가리키는 포인트. 지갑에서 찾으면 안 된다 — **모수가 다르다.** 지갑은
+ * 「잔액 > 0 이거나 내가 발행자」로 거르고 내역은 관여 여부로 거른다. 받은 포인트를
+ * 전액 보내면 그 순간 지갑에서 빠지고 방금 만든 이체 줄만 내역에 남는다.
+ *
+ * 표기라 「일어난 때의 값」이 아니라 지금 값이다 — 수가 아니다. 계약: docs/API.md
+ */
+export interface HistoryPoint {
+  name: string
+  emoji: string
+  accent: PointAccent
+  nameIsShared: boolean
+  issuerHandle: string
+}
+
 export type HistoryEntry =
-  | { type: 'transfer'; transfer: Transfer }
-  | { type: 'issue'; issue: Issue }
-  | { type: 'capChange'; capChange: CapChange }
+  | { type: 'transfer'; transfer: Transfer; point: HistoryPoint }
+  | { type: 'issue'; issue: Issue; point: HistoryPoint }
+  | { type: 'capChange'; capChange: CapChange; point: HistoryPoint }

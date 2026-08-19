@@ -3,12 +3,12 @@ import { useQuery } from '@tanstack/react-query'
 import { useSetAtom } from 'jotai'
 import { motion } from 'motion/react'
 import { useTranslation } from 'react-i18next'
-import { historyQuery, walletQuery } from '@/api/queries'
+import { historyQuery } from '@/api/queries'
 import { toGrouped } from '@/shared/format'
 import { goAtom } from '@/app/atoms'
 import { Loadable, RowSkeleton } from '@/shared/ui/Loadable'
 import { Body, Gutter, Header, Row, RowButton, Screen, Title } from '@/shared/ui/Screen'
-import type { CapChange, Issue, Transfer } from '@/api/contract'
+import type { CapChange, HistoryPoint, Issue, Transfer } from '@/api/contract'
 import { formatTime } from '../model/time'
 
 /** 근거: docs/JOURNEY.md 여정 8 */
@@ -16,10 +16,7 @@ export function History() {
   const { t } = useTranslation()
   const go = useSetAtom(goAtom)
   const { data, isPending, isError, refetch } = useQuery(historyQuery())
-  const wallet = useQuery(walletQuery())
 
-  const pointOf = (pointTypeId: string) =>
-    wallet.data?.balances.find((b) => b.pointType.id === pointTypeId)?.pointType
 
   return (
     <Screen>
@@ -55,21 +52,21 @@ export function History() {
               <TransferRow
                 key={entry.transfer.id}
                 transfer={entry.transfer}
-                pointName={pointOf(entry.transfer.pointTypeId)?.name ?? ''}
+                point={entry.point}
                 onOpen={() => go({ name: 'historyDetail', transferId: entry.transfer.id })}
               />
             ) : entry.type === 'issue' ? (
               <IssueRow
                 key={entry.issue.id}
                 issue={entry.issue}
-                pointName={pointOf(entry.issue.pointTypeId)?.name ?? ''}
+                point={entry.point}
                 onOpen={() => go({ name: 'issueDetail', issueId: entry.issue.id })}
               />
             ) : (
               <CapChangeRow
                 key={entry.capChange.id}
                 capChange={entry.capChange}
-                pointName={pointOf(entry.capChange.pointTypeId)?.name ?? ''}
+                point={entry.point}
               />
             ),
           )}
@@ -81,11 +78,11 @@ export function History() {
 
 interface TransferRowProps {
   transfer: Transfer
-  pointName: string
+  point: HistoryPoint
   onOpen: () => void
 }
 
-function TransferRow({ transfer, pointName, onOpen }: TransferRowProps) {
+function TransferRow({ transfer, point, onOpen }: TransferRowProps) {
   return (
     <RowButton type="button" onClick={onOpen}>
       <Box flex={1} minW={0}>
@@ -97,7 +94,7 @@ function TransferRow({ transfer, pointName, onOpen }: TransferRowProps) {
           <Text textStyle="name">{transfer.counterparty.name}</Text>
         </motion.div>
         <Text textStyle="caption">
-          {pointName} · {formatTime(transfer.confirmedAt)}
+          {point.name} · {formatTime(transfer.confirmedAt)}
         </Text>
       </Box>
       <motion.div layoutId={`t-${transfer.id}-amount`} layout="position">
@@ -113,11 +110,11 @@ function TransferRow({ transfer, pointName, onOpen }: TransferRowProps) {
  */
 function IssueRow({
   issue,
-  pointName,
+  point,
   onOpen,
 }: {
   issue: Issue
-  pointName: string
+  point: HistoryPoint
   onOpen: () => void
 }) {
   const { t } = useTranslation()
@@ -126,7 +123,7 @@ function IssueRow({
     <RowButton type="button" onClick={onOpen}>
       <Box flex={1} minW={0}>
         <motion.div layoutId={`i-${issue.id}-name`} layout="position">
-          <Text textStyle="label">{t('history.issuedTo', { name: pointName })}</Text>
+          <Text textStyle="label">{t('history.issuedTo', { name: point.name })}</Text>
         </motion.div>
         <Text textStyle="caption">{formatTime(issue.confirmedAt)}</Text>
       </Box>
@@ -142,7 +139,7 @@ function IssueRow({
  * 「누구에게 → 무엇을 → 얼마」 자리에 사람도 금액도 넣지 않는다. 위계를 빌려 쓰면
  * 이체 목록으로 읽힌다.
  */
-function CapChangeRow({ capChange, pointName }: { capChange: CapChange; pointName: string }) {
+function CapChangeRow({ capChange, point }: { capChange: CapChange; point: HistoryPoint }) {
   const { t } = useTranslation()
   const raised = capChange.issueCap > capChange.previousCap
 
@@ -150,7 +147,7 @@ function CapChangeRow({ capChange, pointName }: { capChange: CapChange; pointNam
     <Row>
       <Box flex={1} minW={0}>
         <Text textStyle="label">
-          {t(raised ? 'history.capRaised' : 'history.capLowered', { name: pointName })}
+          {t(raised ? 'history.capRaised' : 'history.capLowered', { name: point.name })}
         </Text>
         <Text textStyle="caption">
           {t('history.capFromTo', {
