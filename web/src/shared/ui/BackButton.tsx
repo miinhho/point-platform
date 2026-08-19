@@ -1,5 +1,6 @@
 import { chakra } from '@chakra-ui/react'
 import { useTranslation } from 'react-i18next'
+import { interactive } from './Screen'
 
 const Button = chakra('button', {
   base: {
@@ -9,7 +10,9 @@ const Button = chakra('button', {
     display: 'grid',
     placeItems: 'center',
     color: 'fg',
-    _active: { bg: 'bg.muted', borderRadius: 'l1' },
+    borderRadius: 'l1',
+    ...interactive,
+    _active: { bg: 'bg.muted' },
   },
 })
 

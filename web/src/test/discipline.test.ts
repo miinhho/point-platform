@@ -65,6 +65,28 @@ describe('상태 규율', () => {
   })
 })
 
+describe('상태는 공용 recipe 가 갖는다', () => {
+  /*
+   * 화면마다 `_hover` 를 적기 시작하면 곧 어떤 화면만 반응하는 상태가 된다.
+   * 사용자 지적: 「커서를 가져가도 색이 안 바뀐다」
+   */
+  it('feature 안에서 커서 상태를 직접 정하지 않는다', () => {
+    const offenders = FILES.filter((path) => path.includes('/features/')).filter((path) =>
+      /_hover|_focusVisible/.test(code(path)),
+    )
+    expect(offenders).toEqual([])
+  })
+
+  it('누를 수 있는 공용 요소가 세 상태를 갖는다', () => {
+    const shared = readFileSync('src/shared/ui/Screen.tsx', 'utf8')
+    for (const state of ['_hover', '_active', '_focusVisible']) {
+      expect(shared, state).toContain(state)
+    }
+    // 커서 상태는 커서가 있는 기기에서만. 터치에서는 탭한 자리에 눌러붙는다.
+    expect(shared).toContain('(hover: hover)')
+  })
+})
+
 describe('화면 규율', () => {
   it('검사할 화면이 있다', () => {
     expect(FILES.length).toBeGreaterThan(0)

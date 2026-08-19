@@ -21,6 +21,11 @@ const Button = chakra('button', {
     // 홀드 중 스크롤과 롱프레스 메뉴가 끼어들지 않게 한다.
     touchAction: 'none',
     userSelect: 'none',
+    // 채우는 면이 진행을 말하므로 커서 상태가 그것과 다투면 안 된다 — 테두리로만 답한다.
+    '@media (hover: hover)': {
+      _hover: { boxShadow: 'inset 0 0 0 2px var(--chakra-colors-color-palette-emphasized)' },
+    },
+    _focusVisible: { outline: '2px solid', outlineColor: 'colorPalette.focusRing', outlineOffset: '2px' },
   },
 })
 
