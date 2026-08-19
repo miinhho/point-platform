@@ -133,6 +133,7 @@ export const ko = {
     join: '들어가기',
     joined: '들어왔어요',
     members: '회원',
+    memberCountValue: '{{count}}명',
     invite: '초대하기',
     inviteTitle: '누구를 초대할까요?',
     invited: '초대했어요',
@@ -143,6 +144,10 @@ export const ko = {
     leave: '나가기',
     /** 「간 건 간 거다」 — 잔액을 지우거나 옮기지 않는다. 계약: docs/API.md */
     leaveKeeps: '나가도 잔액은 그대로 남지만 쓸 수 없어요',
+    /** 나온 사람에게 이 페이지는 물으러 갈 곳이다 — 겁주는 자리가 아니다 */
+    outsider: '이 은행의 회원이 아니에요',
+    outsiderWhy: '그래서 이 잔액을 지금 보낼 수 없어요',
+    outsiderKeeps: '없어진 것은 아니에요. 다시 초대받으면 그대로 써요',
   },
 
   home: {
@@ -244,6 +249,12 @@ export const ko = {
       title: '이 포인트는 발행할 수 없어요',
       whereTransfer: '아무것도 나가지 않았어요',
       whereIssue: '발행되지 않았어요. 총 유통량은 그대로예요',
+    },
+    /** 받는 쪽의 코드와 가려야 할 것이 다르다 — 보내는 사람은 자기가 나온 것을 이미 안다 */
+    NOT_MEMBER: {
+      title: '이 은행의 회원이 아니에요',
+      whereTransfer: '아무것도 나가지 않았어요',
+      whereIssue: '발행되지 않았어요',
     },
     RECIPIENT_NOT_FOUND: {
       title: '받는 사람을 찾을 수 없어요',

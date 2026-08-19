@@ -36,6 +36,7 @@ export type LedgerErrorCode =
   | 'SYMBOL_TAKEN'
   | 'CAP_BELOW_ISSUED'
   | 'ISSUER_CANNOT_LEAVE'
+  | 'NOT_MEMBER'
 
 /** 겹침은 원장을 봐야 알 수 있다. 시드가 들고 있으면 사용자가 늘 때 거짓이 된다. */
 type SeedUser = Omit<User, 'nameIsShared'>
@@ -56,7 +57,10 @@ function seedUsers(): SeedUser[] {
 }
 
 /** 하나는 내가 발행자, 둘은 보유자다. 그 조합이 실제 상태다. */
-type SeedPoint = Omit<PointType, 'canIssue' | 'issuableHeadroom' | 'nameIsShared'>
+type SeedPoint = Omit<
+  PointType,
+  'canIssue' | 'issuableHeadroom' | 'nameIsShared' | 'memberCount'
+>
 
 function seedPointTypes(): SeedPoint[] {
   return [
@@ -284,12 +288,17 @@ export function findPointType(pointTypeId: PointTypeId, userId: UserId): PointTy
   return pointType && reachable(pointType, userId) ? viewOf(pointType, userId) : undefined
 }
 
-/** 비공개 은행은 초대 없이 닿을 수 없다. 존재를 감추는 것이 비공개의 뜻이다 */
+/**
+ * 그 사람에게 이 은행이 존재하는가. `404` 는 **존재를 감추는 규칙**이지 회원을
+ * 가르는 규칙이 아니다 — 잔액 행이 있다는 것은 이미 닿았다는 증거이고, 이미 아는
+ * 것을 감추면 감춰지는 것이 아니라 고장난 것처럼 보인다. 계약: docs/API.md
+ */
 function reachable(pointType: SeedPoint, userId: UserId): boolean {
   return (
     pointType.visibility === 'public' ||
     isMember(pointType.id, userId) ||
-    isInvited(pointType.id, userId)
+    isInvited(pointType.id, userId) ||
+    balanceOf(pointType.id, userId) > 0
   )
 }
 
@@ -340,6 +349,9 @@ export function viewOf(pointType: SeedPoint, userId: UserId): PointType {
     canIssue: pointType.issuerId === userId,
     issuableHeadroom: Math.max(0, pointType.issueCap - pointType.totalIssued),
     nameIsShared: sharesName(pointType.name, seedPoints()),
+    // 공개 은행에는 회원 개념이 없다. 0 이 아니라 null 이어야 그 차이가 남는다.
+    memberCount:
+      pointType.visibility === 'private' ? (state.members.get(pointType.id)?.size ?? 0) : null,
   }
 }
 
@@ -623,7 +635,10 @@ export interface CommitInput {
 export function commitTransfer(meId: UserId, input: CommitInput): Transfer {
   const pointType = requirePointType(input.pointTypeId)
   // 나에게 닿지 않는 은행은 없는 은행이다. 그 은행이 존재한다고 알려 주지 않는다.
-  if (!usable(pointType, meId)) throw new LedgerError('POINT_TYPE_NOT_FOUND')
+  if (!reachable(pointType, meId)) throw new LedgerError('POINT_TYPE_NOT_FOUND')
+  // 닿는데 회원이 아니면 그 사실을 말한다. 「대상이 없어요」로 답하면 사용자가
+  // 받는 사람 핸들을 다시 확인하기 시작한다 — 엉뚱한 곳을 고치게 만든다.
+  if (!usable(pointType, meId)) throw new LedgerError('NOT_MEMBER')
   const recipient = requireRecipient(input.toId)
   // 비공개 은행에서 회원이 아닌 사람은 없는 사람과 구별되지 않아야 한다.
   if (!usable(pointType, recipient.id)) throw new LedgerError('RECIPIENT_NOT_FOUND')

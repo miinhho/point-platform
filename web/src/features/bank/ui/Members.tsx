@@ -12,7 +12,7 @@ import { Body, Gutter, Header, Row, Screen, Title } from '@/shared/ui/Screen'
 interface Props {
   pointTypeId: PointTypeId
   onBack: () => void
-  /** 나가면 그 은행에 닿지 않는다. 화면에 남겨 두면 다음 조회가 404 를 받는다 */
+  /** 나가도 은행 페이지는 계속 보인다. 그 페이지가 왜 못 쓰는지 말하는 자리다 */
   onLeft: () => void
 }
 

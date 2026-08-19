@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSetAtom } from 'jotai'
 import { useTranslation } from 'react-i18next'
 import { endpoints } from '@/api/endpoints'
-import { invitesQuery, pointTypeQuery, queryKeys, walletQuery } from '@/api/queries'
+import { invitesQuery, membersQuery, pointTypeQuery, queryKeys, walletQuery } from '@/api/queries'
 import { goAtom } from '@/app/atoms'
 import { toGrouped } from '@/shared/format'
 import { startIssueAtom, startTransferAtom } from '@/features/transfer'
@@ -30,6 +30,18 @@ export function Bank({ pointTypeId, onBack }: { pointTypeId: PointTypeId; onBack
   // 수락하면 초대가 사라진다. 그래서 「초대가 있다」가 곧 「아직 회원이 아니다」다.
   const invites = useQuery(invitesQuery())
   const invite = invites.data?.find((candidate) => candidate.pointType.id === pointTypeId)
+  const isPrivate = pointType?.visibility === 'private'
+  /*
+   * 회원인가. 회원 목록이 회원에게만 열린다는 것이 서버의 판정이라 그것을 읽는다 —
+   * `sendable === 0` 에서 되짚으면 보류금과 구별되지 않고, 그건 규칙을 화면이 다시
+   * 계산하는 것이다. 계약: docs/API.md 「회원 자격」
+   */
+  const members = useQuery({
+    ...membersQuery(pointTypeId),
+    enabled: isPrivate && !invite,
+    retry: false,
+  })
+  const outside = isPrivate && !invite && members.isError
 
   const balance = wallet.data?.balances.find((b) => b.pointType.id === pointTypeId)
 
@@ -48,8 +60,8 @@ export function Bank({ pointTypeId, onBack }: { pointTypeId: PointTypeId; onBack
 
           {invite ? <Join inviteId={invite.id} pointTypeId={pointTypeId} /> : null}
 
-          {/* 회원 목록은 회원만 본다. 초대받았을 뿐이면 아직 명부를 볼 자리가 아니다 */}
-          {pointType.visibility === 'private' && !invite ? (
+          {/* 회원 목록은 회원만 본다. 초대받았을 뿐이거나 나온 사람은 명부를 볼 자리가 아니다 */}
+          {isPrivate && !invite && !outside ? (
             <Box marginTop="6">
               <Button
                 size="lg"
@@ -69,14 +81,18 @@ export function Bank({ pointTypeId, onBack }: { pointTypeId: PointTypeId; onBack
                 value={toGrouped(balance.amount)}
                 textStyle="lineStrong"
               />
-              <Button
-                size="xl"
-                width="full"
-                disabled={balance.sendable === 0}
-                onClick={() => startTransfer({ pointType })}
-              >
-                {t('bank.send')}
-              </Button>
+              {outside ? (
+                <Outside />
+              ) : (
+                <Button
+                  size="xl"
+                  width="full"
+                  disabled={balance.sendable === 0}
+                  onClick={() => startTransfer({ pointType })}
+                >
+                  {t('bank.send')}
+                </Button>
+              )}
             </Box>
           ) : null}
 
@@ -113,6 +129,26 @@ export function Bank({ pointTypeId, onBack }: { pointTypeId: PointTypeId; onBack
         </Gutter>
       </Body>
     </Screen>
+  )
+}
+
+/**
+ * 나온 사람에게 이 페이지는 물으러 갈 곳이다 — 왜 못 쓰는지가 여기 없으면 갈 데가
+ * 없다. 겁주는 자리가 아니라 사실을 적는 자리다. 근거: docs/API.md 「회원 자격」
+ */
+function Outside() {
+  const { t } = useTranslation()
+
+  return (
+    <Box padding="4" borderRadius="l2" bg="bg.panel">
+      <Text textStyle="support">{t('bank.outsider')}</Text>
+      <Text textStyle="caption" marginTop="1">
+        {t('bank.outsiderWhy')}
+      </Text>
+      <Text textStyle="caption" marginTop="2">
+        {t('bank.outsiderKeeps')}
+      </Text>
+    </Box>
   )
 }
 
@@ -172,6 +208,13 @@ function Intro({ pointType }: { pointType: PointType }) {
         <Line label={t('bank.supply')} value={toGrouped(pointType.totalIssued)} />
         {/* 상한은 발행자의 설정이 아니라 보유자에게 하는 약속이다 — 계약: docs/API.md */}
         <Line label={t('bank.cap')} value={toGrouped(pointType.issueCap)} />
+        {/* 공개 은행에는 회원 개념이 없어 `null` 이다. 0 명과 구별된다 */}
+        {pointType.memberCount === null ? null : (
+          <Line
+            label={t('bank.members')}
+            value={t('bank.memberCountValue', { count: pointType.memberCount })}
+          />
+        )}
       </Box>
     </>
   )

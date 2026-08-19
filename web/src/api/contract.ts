@@ -39,6 +39,8 @@ export interface PointType {
   issueCap: Points
   /** 만들어진 시각. 오래된 것은 흉내낼 수 없다. */
   createdAt: string
+  /** 비공개 은행의 회원 수. 공개면 `null` — 공개 은행에는 회원 개념이 없다. */
+  memberCount: number | null
   /** 창설 시 정해지고 나중에 바꿀 수 없다 — 바꾸는 것은 설정 변경이 아니라 사람에게 일어나는 일이다. */
   visibility: PointVisibility
 }
@@ -81,6 +83,8 @@ export const FAILURE_CODES = [
   'NOT_ISSUER',
   /** 은행장은 나가거나 내보내질 수 없다. 발행할 사람이 없는 은행이 된다 */
   'ISSUER_CANNOT_LEAVE',
+  /** 비공개 은행의 회원이 아니어서 보낼 수 없다. 받는 쪽의 코드와 가려야 할 것이 다르다 */
+  'NOT_MEMBER',
   'RECIPIENT_NOT_FOUND',
   'POINT_TYPE_NOT_FOUND',
   /** 그 기호를 이미 쓰는 포인트가 있다 */

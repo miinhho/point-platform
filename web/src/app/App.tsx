@@ -77,11 +77,8 @@ function CurrentScreen({
       return <Invite pointTypeId={screen.pointTypeId} onBack={actions.back} />
     case 'members':
       return (
-        <Members
-          pointTypeId={screen.pointTypeId}
-          onBack={actions.back}
-          onLeft={actions.leaveFlow}
-        />
+        // 나가도 은행 페이지는 계속 보인다. 홈으로 돌려보내면 왜 못 쓰는지 물을 곳이 없다.
+        <Members pointTypeId={screen.pointTypeId} onBack={actions.back} onLeft={actions.back} />
       )
     case 'createPoint':
       return (

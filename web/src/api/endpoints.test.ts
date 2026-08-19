@@ -721,8 +721,33 @@ describe('나가기와 내보내기', () => {
     expect(balanceOf('pt_cl', 'u_jisoo')).toBe(30_000)
     const held = (await endpoints.wallet()).balances.find((b) => b.pointType.id === 'pt_cl')
     expect(held).toMatchObject({ amount: 30_000, sendable: 0 })
-    // 그 은행은 이제 닿지 않는다.
-    await expect(endpoints.pointType('pt_cl')).rejects.toMatchObject({ status: 404 })
+    // 잔액이 남아 있으면 은행 페이지는 계속 보인다 — 물으러 갈 곳이 필요하다.
+    expect(await endpoints.pointType('pt_cl')).toMatchObject({ id: 'pt_cl' })
+    // 명부와 초대 도구는 오지 않는다.
+    await expect(endpoints.members('pt_cl')).rejects.toMatchObject({ status: 404 })
+  })
+
+  /*
+   * 서버가 못 한다고 답한 것을 서버가 해 주면 안 된다. 「대상이 없어요」로 답하면
+   * 사용자가 받는 사람 핸들을 다시 확인하기 시작한다 — 계약: docs/API.md
+   */
+  it('나온 사람이 보내려 하면 NOT_MEMBER 다', async () => {
+    await asJisoo()
+    await endpoints.leaveBank('pt_cl')
+
+    await expect(
+      endpoints.createTransfer({ pointTypeId: 'pt_cl', toId: ME, amount: 100 }, key()),
+    ).rejects.toMatchObject({ code: 'NOT_MEMBER', status: 403 })
+  })
+
+  // 잔액도 회원 자격도 없는 사람에게는 그 은행이 존재하지 않는다. 403 은 존재를 알려 준다.
+  it('아무 관계 없는 사람에게는 여전히 404 다', async () => {
+    const session = await endpoints.login({ handle: '@jisu', password: 'point' })
+    setTokens(session)
+
+    await expect(
+      endpoints.createTransfer({ pointTypeId: 'pt_cl', toId: ME, amount: 100 }, key()),
+    ).rejects.toMatchObject({ code: 'POINT_TYPE_NOT_FOUND', status: 404 })
   })
 
   it('내보내도 같은 일이 일어난다 — 누가 정했느냐만 다르다', async () => {

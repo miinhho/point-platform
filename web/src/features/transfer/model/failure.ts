@@ -31,6 +31,10 @@ export function handleFailure(code: FailureCode, kind: TransferKind): FailureHan
       // 은행 화면 안에서 뜬다. 이체 실패 화면으로는 오지 않는다.
       return { retryable: false, editable: false, repickable: false, aboutSupply }
 
+    case 'NOT_MEMBER':
+      // 금액을 고쳐도 대상을 바꿔도 풀리지 않는다. 다시 초대받아야 한다.
+      return { retryable: false, editable: false, repickable: false, aboutSupply }
+
     case 'RECIPIENT_NOT_FOUND':
       return { retryable: false, editable: false, repickable: true, aboutSupply }
 
