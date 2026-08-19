@@ -1,0 +1,28 @@
+package io.github.miinhho.point.issue
+
+import java.time.Instant
+
+data class IssueResponse(
+    val id: String,
+    val idempotencyKey: String,
+    val pointTypeId: String,
+    /** 발행자. 받는 사람이기도 하다 — 한 사람이라 칸이 하나다. */
+    val issuerId: String,
+    val amount: Long,
+    /** 이 발행 직후의 유통량. 지금 값이 아니다. */
+    val totalIssuedAfter: Long,
+    /** 그때의 상한. 나중에 바뀌어도 이 값은 안 바뀐다. */
+    val issueCapAt: Long,
+    val confirmedAt: Instant,
+)
+
+fun Issue.toResponse() = IssueResponse(
+    id = publicId.toString(),
+    idempotencyKey = idempotencyKey,
+    pointTypeId = pointType.publicId.toString(),
+    issuerId = issuer.publicId.toString(),
+    amount = amount,
+    totalIssuedAfter = totalIssuedAfter,
+    issueCapAt = issueCapAt,
+    confirmedAt = confirmedAt,
+)

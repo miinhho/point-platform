@@ -1,6 +1,8 @@
 package io.github.miinhho.point.history
 
 import io.github.miinhho.point.wallet.BalanceRepository
+import io.github.miinhho.point.issue.IssueRepository
+import io.github.miinhho.point.issue.toResponse
 import io.github.miinhho.point.pointtype.CapChange
 import io.github.miinhho.point.pointtype.CapChangeRepository
 import io.github.miinhho.point.pointtype.PointTypeRepository
@@ -19,6 +21,7 @@ class HistoryService(
     private val pointTypeRepository: PointTypeRepository,
     private val balanceRepository: BalanceRepository,
     private val userRepository: UserRepository,
+    private val issueRepository: IssueRepository,
 ) {
     @Transactional(readOnly = true)
     fun history(userId: Long, pointTypePublicId: String?, limit: Int): List<HistoryEntryResponse> {
@@ -34,10 +37,13 @@ class HistoryService(
         val transfers = transferRepository.history(userId, filterId, Limit.of(limit))
             .map { HistoryEntryResponse(type = "transfer", transfer = it.toResponse(userId, sharedNames)) to it.createdAt }
 
+        val issues = issueRepository.history(userId, filterId, Limit.of(limit))
+            .map { HistoryEntryResponse(type = "issue", issue = it.toResponse()) to it.confirmedAt }
+
         val capChanges = visibleCapChanges(userId, filterId, limit)
             .map { HistoryEntryResponse(type = "capChange", capChange = it.toResponse()) to it.changedAt }
 
-        return (transfers + capChanges)
+        return (transfers + issues + capChanges)
             .sortedByDescending { (_, at) -> at }
             .take(limit)
             .map { (entry, _) -> entry }

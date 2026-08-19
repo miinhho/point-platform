@@ -1,6 +1,7 @@
 package io.github.miinhho.point
 
 import io.github.miinhho.point.auth.RefreshTokenRepository
+import io.github.miinhho.point.issue.IssueRepository
 import io.github.miinhho.point.pointtype.CapChangeRepository
 import io.github.miinhho.point.pointtype.MembershipRepository
 import io.github.miinhho.point.pointtype.PointTypeRepository
@@ -14,6 +15,7 @@ import org.springframework.stereotype.Component
 @Component
 class LedgerReset(
     private val transferRepository: TransferRepository,
+    private val issueRepository: IssueRepository,
     private val capChangeRepository: CapChangeRepository,
     private val membershipRepository: MembershipRepository,
     private val balanceRepository: BalanceRepository,
@@ -23,6 +25,7 @@ class LedgerReset(
 ) {
     fun wipe() {
         transferRepository.deleteAll()
+        issueRepository.deleteAll()
         capChangeRepository.deleteAll()
         membershipRepository.deleteAll()
         balanceRepository.deleteAll()

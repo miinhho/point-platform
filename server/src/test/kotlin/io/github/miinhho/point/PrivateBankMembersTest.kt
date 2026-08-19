@@ -9,6 +9,7 @@ import io.github.miinhho.point.pointtype.PointAccent
 import io.github.miinhho.point.pointtype.PointType
 import io.github.miinhho.point.pointtype.PointTypeRepository
 import io.github.miinhho.point.pointtype.PointVisibility
+import io.github.miinhho.point.issue.IssueRequest
 import io.github.miinhho.point.transfer.TransferRequest
 import io.github.miinhho.point.user.User
 import io.github.miinhho.point.user.UserRepository
@@ -188,7 +189,7 @@ class PrivateBankMembersTest {
     }
 
     @Test
-    fun `이체에는 상대가 실려 오고 발행에는 오지 않는다`() {
+    fun `이체에는 상대가 실려 오고 발행은 아예 다른 타입이다`() {
         val sent = send(issuer, closed, member)
         assertEquals(HttpStatus.CREATED, sent.statusCode, sent.body)
         // 보낸 쪽이 보는 상대는 받은 사람이다.
@@ -201,14 +202,18 @@ class PrivateBankMembersTest {
         val theirHistory = assertNotNull(get(member, "/api/history").body)
         assertTrue(theirHistory.contains("\"handle\":\"@onmart\""), "받은 쪽에는 보낸 사람이 실린다: $theirHistory")
 
-        // 발행에는 상대가 없다 — 빈 자리를 메우면 일어나지 않은 이체가 일어난 것처럼 읽힌다.
+        // 발행에는 상대라는 칸 자체가 없다 — 빈 칸을 두면 뜻 없는 말로 채워진다.
         val issued = post(
             issuer,
             "/api/issues",
-            TransferRequest(pointTypeId = closed.publicId.toString(), amount = BigDecimal(1_000)),
+            IssueRequest(pointTypeId = closed.publicId.toString(), amount = BigDecimal(1_000)),
         )
         assertEquals(HttpStatus.CREATED, issued.statusCode, issued.body)
-        assertTrue(assertNotNull(issued.body).contains("\"counterparty\":null"), issued.body)
+        val body = assertNotNull(issued.body)
+        listOf("counterparty", "toId", "fromId", "kind").forEach {
+            assertFalse(body.contains("\"$it\""), "$it 은 이체의 칸이다: $body")
+        }
+        assertTrue(body.contains("\"totalIssuedAfter\":") && body.contains("\"issueCapAt\":"), body)
     }
 
     @Test

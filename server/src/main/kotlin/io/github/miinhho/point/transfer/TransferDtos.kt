@@ -14,12 +14,11 @@ data class CounterpartyResponse(val name: String, val handle: String, val nameIs
 data class TransferResponse(
     val id: String,
     val idempotencyKey: String,
-    val kind: String,
     val pointTypeId: String,
-    val fromId: String?,
+    val fromId: String,
     val toId: String,
-    /** 발행이면 null 이다 — 빈 자리를 메우면 일어나지 않은 이체가 일어난 것처럼 읽힌다. */
-    val counterparty: CounterpartyResponse?,
+    /** 보는 사람 기준이다 — 보낸 쪽에는 받은 사람이, 받은 쪽에는 보낸 사람이 실린다. */
+    val counterparty: CounterpartyResponse,
     val amount: Long,
     val createdAt: Instant,
     val confirmedAt: Instant,
@@ -28,12 +27,11 @@ data class TransferResponse(
 fun Transfer.toResponse(viewerId: Long, sharedNames: Set<String>) = TransferResponse(
     id = publicId.toString(),
     idempotencyKey = idempotencyKey,
-    kind = kind.name.lowercase(),
     pointTypeId = pointType.publicId.toString(),
-    fromId = from?.publicId?.toString(),
+    fromId = from.publicId.toString(),
     toId = to.publicId.toString(),
-    counterparty = (if (from?.id == viewerId) to else from)
-        ?.let { CounterpartyResponse(it.name, it.handle, it.name in sharedNames) },
+    counterparty = (if (from.id == viewerId) to else from)
+        .let { CounterpartyResponse(it.name, it.handle, it.name in sharedNames) },
     amount = amount,
     createdAt = createdAt,
     confirmedAt = confirmedAt,

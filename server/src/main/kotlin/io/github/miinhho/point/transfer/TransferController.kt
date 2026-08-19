@@ -40,14 +40,7 @@ class TransferController(
         @RequestHeader("Idempotency-Key", required = false) idempotencyKey: String?,
         @RequestBody body: TransferRequest,
         @AuthenticationPrincipal userId: Long,
-    ): ResponseEntity<TransferResponse> = commit(idempotencyKey, body, userId, selfOnly = false)
-
-    @PostMapping("/issues")
-    fun createIssue(
-        @RequestHeader("Idempotency-Key", required = false) idempotencyKey: String?,
-        @RequestBody body: TransferRequest,
-        @AuthenticationPrincipal userId: Long,
-    ): ResponseEntity<TransferResponse> = commit(idempotencyKey, body, userId, selfOnly = true)
+    ): ResponseEntity<TransferResponse> = commit(idempotencyKey, body, userId)
 
     @GetMapping("/transfers/by-key")
     @Transactional(readOnly = true)
@@ -96,7 +89,6 @@ class TransferController(
         idempotencyKey: String?,
         body: TransferRequest,
         userId: Long,
-        selfOnly: Boolean,
     ): ResponseEntity<TransferResponse> {
         val key = idempotencyKey?.takeIf { it.isNotBlank() }
             ?: throw DomainFailureException(FailureCode.MALFORMED_REQUEST, "Idempotency-Key 없음")
@@ -105,23 +97,20 @@ class TransferController(
         // 동시에 온 둘은 여기서 둘 다 없다고 본다. 진짜 방어는 아래 unique 위반 처리다.
         transferService.findByIdempotencyKey(key, userId)?.let { return ResponseEntity.ok(it) }
 
-        val toId = if (selfOnly) null else body.toId
         val amount = body.amount?.let { raw ->
             // scale > 0 이면 소수점이 실려 온 것이다. stripTrailingZeros 로 100.0 은 통과시킨다.
             raw.stripTrailingZeros().takeIf { it.scale() <= 0 }?.runCatching { longValueExact() }?.getOrNull()
         }
-        val malformed = body.pointTypeId.isNullOrBlank() ||
-            (!selfOnly && toId.isNullOrBlank()) ||
-            amount == null || amount <= 0 || amount > MAX_SAFE_INTEGER ||
-            (selfOnly && body.toId != null)
-        if (malformed) throw DomainFailureException(FailureCode.MALFORMED_REQUEST, "요청 형식 오류")
+        val wrong = when {
+            body.pointTypeId.isNullOrBlank() -> "pointTypeId"
+            body.toId.isNullOrBlank() -> "toId"
+            amount == null || amount <= 0 || amount > MAX_SAFE_INTEGER -> "amount"
+            else -> null
+        }
+        if (wrong != null) throw DomainFailureException(FailureCode.MALFORMED_REQUEST, "$wrong 이(가) 계약과 다름")
 
         val transfer = try {
-            if (selfOnly) {
-                transferService.commitIssue(userId, key, body.pointTypeId!!, amount!!)
-            } else {
-                transferService.commitTransfer(userId, key, body.pointTypeId!!, toId!!, amount!!)
-            }
+            transferService.commitTransfer(userId, key, body.pointTypeId!!, body.toId!!, amount!!)
         } catch (e: DataIntegrityViolationException) {
             // 같은 키가 동시에 왔다. 키의 unique 위반은 오류가 아니라 "이미 만들었다"는 뜻이다 —
             // 사용자는 응답을 못 받아 다시 누른 것뿐이고, 두 번 빠지면 되돌릴 경로가 없다.
