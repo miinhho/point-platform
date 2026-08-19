@@ -5,6 +5,8 @@ import org.hibernate.engine.spi.SessionFactoryImplementor
 import org.hibernate.persister.entity.AbstractEntityPersister
 import org.springframework.boot.ApplicationArguments
 import org.springframework.boot.ApplicationRunner
+import org.springframework.core.Ordered
+import org.springframework.core.annotation.Order
 import org.springframework.stereotype.Component
 import javax.sql.DataSource
 
@@ -17,6 +19,7 @@ import javax.sql.DataSource
  * 실제로 그렇게 났다 (docs/FIELD.md 「W10」).
  */
 @Component
+@Order(Ordered.HIGHEST_PRECEDENCE)
 class SchemaGuard(
     private val entityManagerFactory: EntityManagerFactory,
     private val dataSource: DataSource,

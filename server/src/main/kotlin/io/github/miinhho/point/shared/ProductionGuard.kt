@@ -5,6 +5,8 @@ import org.springframework.boot.ApplicationArguments
 import org.springframework.boot.ApplicationRunner
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.core.env.Environment
+import org.springframework.core.Ordered
+import org.springframework.core.annotation.Order
 import org.springframework.stereotype.Component
 
 /**
@@ -18,6 +20,7 @@ import org.springframework.stereotype.Component
  * 계기가 없다. 그래서 부팅에서 세운다.
  */
 @Component
+@Order(Ordered.HIGHEST_PRECEDENCE)
 @ConditionalOnProperty("point.dev-defaults", havingValue = "false")
 class ProductionGuard(
     private val jwtProperties: JwtProperties,

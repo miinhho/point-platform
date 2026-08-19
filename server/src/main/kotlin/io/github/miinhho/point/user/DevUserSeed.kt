@@ -3,6 +3,7 @@ package io.github.miinhho.point.user
 import org.springframework.boot.ApplicationArguments
 import org.springframework.boot.ApplicationRunner
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
+import org.springframework.core.annotation.Order
 import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.stereotype.Component
 
@@ -14,6 +15,7 @@ import org.springframework.stereotype.Component
  * 만들 수 없고, 그러면 `nameIsShared` 방어를 실서버에서 확인할 방법이 없다.
  */
 @Component
+@Order(0)
 @ConditionalOnProperty("point.seed-users", havingValue = "true")
 class DevUserSeed(
     private val userRepository: UserRepository,
