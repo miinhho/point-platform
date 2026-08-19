@@ -36,6 +36,11 @@ export function handleFailure(code: FailureCode, kind: DraftKind): FailureHandli
       // 금액을 고쳐도 대상을 바꿔도 풀리지 않는다. 다시 초대받아야 한다.
       return { retryable: false, editable: false, repickable: false, aboutSupply }
 
+    case 'ALREADY_MEMBER':
+    case 'INVITE_NOT_FOUND':
+      // 초대 화면 안에서 뜬다. 이체 실패 화면으로는 오지 않는다.
+      return { retryable: false, editable: false, repickable: false, aboutSupply }
+
     case 'NOT_A_PRIVATE_BANK':
       // 회원 명부를 물었을 때의 답이다. 이체 실패 화면으로는 오지 않는다.
       return { retryable: false, editable: false, repickable: false, aboutSupply }

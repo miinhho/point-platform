@@ -17,8 +17,9 @@ interface Props {
 /**
  * 초대. 은행장만 한다 — docs/JOURNEY.md 여정 10.
  *
- * 이미 회원인 사람은 목록에서 빼지 않고 그렇게 표시한다. 사라지면 「저 사람은
- * 어디 갔나」가 되고, 초대했는지 이미 있는지 구별되지 않는다.
+ * **이미 회원인 사람은 후보에서 뺀다.** 초대할 수 없는 사람을 눌러 볼 수 있게 두면
+ * 정상 경로에서 `ALREADY_MEMBER` 를 만나게 된다 — 그건 겹쳐 들어온 경우에만 나오는
+ * 막다른 답이다. 계약: docs/API.md
  */
 export function Invite({ pointTypeId, onBack }: Props) {
   const { t } = useTranslation()
@@ -28,6 +29,8 @@ export function Invite({ pointTypeId, onBack }: Props) {
   // 회원 판정은 서버가 한다. 같은 규칙을 화면이 다시 계산하지 않는다.
   const members = useQuery(usersQuery('', pointTypeId))
   const memberIds = new Set(members.data?.map((user) => user.id))
+  // 회원 판정은 서버가 한다. 화면은 그 답으로 후보를 거를 뿐이다.
+  const candidates = (everyone.data ?? []).filter((user) => !memberIds.has(user.id))
 
   const [invited, setInvited] = useState<ReadonlySet<UserId>>(new Set())
 
@@ -63,13 +66,9 @@ export function Invite({ pointTypeId, onBack }: Props) {
       </Gutter>
 
       <Body marginTop="2">
-        {everyone.data?.map((user) =>
-          memberIds.has(user.id) || invited.has(user.id) ? (
-            <Candidate
-              key={user.id}
-              user={user}
-              note={t(memberIds.has(user.id) ? 'bank.alreadyMember' : 'bank.invited')}
-            />
+        {candidates.map((user) =>
+          invited.has(user.id) ? (
+            <Candidate key={user.id} user={user} note={t('bank.invited')} />
           ) : (
             <Candidate
               key={user.id}
@@ -80,7 +79,7 @@ export function Invite({ pointTypeId, onBack }: Props) {
           ),
         )}
 
-        {everyone.data?.length === 0 ? (
+        {candidates.length === 0 ? (
           <Gutter>
             <Text textStyle="caption" paddingBlock="8" textAlign="center">
               {t('pick.notFound', { query: query.trim() })}

@@ -14,6 +14,8 @@ const STATUS: Record<FailureCode, number> = {
   NOT_ISSUER: 403,
   ISSUER_CANNOT_LEAVE: 409,
   NOT_MEMBER: 403,
+  ALREADY_MEMBER: 409,
+  INVITE_NOT_FOUND: 404,
   NOT_A_PRIVATE_BANK: 404,
   UNKNOWN_ENDPOINT: 404,
   RECIPIENT_NOT_FOUND: 404,
@@ -387,11 +389,12 @@ export const handlers = [
     // 같은 키로 다시 오면 초대가 둘 생기면 안 된다.
     if (!key) return malformed()
 
-    const { toId } = (await request.json()) as { toId?: unknown }
-    if (typeof toId !== 'string' || !toId) return malformed()
+    // 이체가 `toId` 를 받는 것과 같다 — 화면은 검색해서 고른 사람을 보낸다.
+    const { userId } = (await request.json()) as { userId?: unknown }
+    if (typeof userId !== 'string' || !userId) return malformed()
 
     try {
-      const invited = ledger.invite(auth.userId, String(params.id), toId, key)
+      const invited = ledger.invite(auth.userId, String(params.id), userId, key)
       if (drawResponseLoss()) return HttpResponse.error()
       return HttpResponse.json(invited, { status: 201 })
     } catch (error) {

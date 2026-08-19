@@ -716,18 +716,52 @@ describe('초대와 수락', () => {
   })
 
   // 남의 초대 id 로 물어도 없을 때와 같은 답이어야 한다.
-  it('남의 초대는 수락할 수 없다', async () => {
+  // 남의 초대가 있다는 것을 알려 주면 그 은행에 누가 초대됐는지가 샌다.
+  it('남의 초대와 없는 초대가 같은 답이다', async () => {
     const invited = await endpoints.createInvite('pt_cl', 'u_jisu', key())
-    await expect(endpoints.acceptInvite(invited.id)).rejects.toMatchObject({ status: 404 })
+
+    await expect(endpoints.acceptInvite(invited.id)).rejects.toMatchObject({
+      code: 'INVITE_NOT_FOUND',
+      status: 404,
+    })
+    await expect(endpoints.acceptInvite('iv_nope')).rejects.toMatchObject({
+      code: 'INVITE_NOT_FOUND',
+      status: 404,
+    })
     await asMe()
   })
 
-  it('이미 회원인 사람에게는 초대가 쌓이지 않는다', async () => {
+  /*
+   * 초대는 은행장의 행동이다 — 「내가 방금 초대했다」가 사실이 아니면 그렇게 말한다.
+   * 계약: docs/API.md
+   */
+  it('이미 회원인 사람을 초대하면 409 다', async () => {
     // `@jisoo` 는 이미 `pt_cl` 의 회원이다.
-    await endpoints.createInvite('pt_cl', 'u_jisoo', key())
-    const session = await endpoints.login({ handle: '@jisoo', password: 'point' })
-    setTokens(session)
-    expect(await endpoints.invites()).toEqual([])
+    await expect(endpoints.createInvite('pt_cl', 'u_jisoo', key())).rejects.toMatchObject({
+      code: 'ALREADY_MEMBER',
+      status: 409,
+    })
+  })
+
+  it('없는 사람을 초대하면 404 다', async () => {
+    await expect(endpoints.createInvite('pt_cl', 'u_nobody', key())).rejects.toMatchObject({
+      code: 'RECIPIENT_NOT_FOUND',
+      status: 404,
+    })
+  })
+
+  /*
+   * 멱등은 「그가 원한 결과가 이미 있는가」로 판단한다. 수락을 누른 사람이 원한 것은
+   * 회원이 되는 것이고 그는 이미 회원이다 — 응답을 못 받고 다시 누른 사람에게 실패를
+   * 돌려주면 안 된다. 초대에서 409 인 것과 뒤집힌 것처럼 보이지만 기준은 하나다.
+   */
+  it('같은 초대를 두 번 수락해도 성공이다', async () => {
+    await endpoints.createInvite('pt_cl', 'u_jisu', key())
+    await asJisu()
+    const [invited] = await endpoints.invites()
+
+    await endpoints.acceptInvite(invited.id)
+    expect(await endpoints.acceptInvite(invited.id)).toMatchObject({ id: 'pt_cl' })
   })
 })
 

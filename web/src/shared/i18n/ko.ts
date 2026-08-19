@@ -156,7 +156,6 @@ export const ko = {
     invite: '초대하기',
     inviteTitle: '누구를 초대할까요?',
     invited: '초대했어요',
-    alreadyMember: '이미 회원이에요',
     membersEntry: '회원 보기',
     issuerBadge: '은행장',
     remove: '내보내기',
@@ -287,6 +286,18 @@ export const ko = {
     /** 클라이언트와 서버의 판이 어긋난 것이다. 사용자가 고칠 입력이 없다 */
     UNKNOWN_ENDPOINT: {
       title: '앱을 업데이트해야 해요',
+      whereTransfer: '아무것도 나가지 않았어요',
+      whereIssue: '발행되지 않았어요',
+    },
+    /** 초대 화면이 후보에서 빼므로 겹쳐 들어온 경우에만 난다 */
+    ALREADY_MEMBER: {
+      title: '이미 이 은행의 회원이에요',
+      whereTransfer: '아무것도 나가지 않았어요',
+      whereIssue: '발행되지 않았어요',
+    },
+    /** 남의 초대와 같은 답이다. 누가 초대됐는지 새면 안 된다 */
+    INVITE_NOT_FOUND: {
+      title: '초대를 찾을 수 없어요',
       whereTransfer: '아무것도 나가지 않았어요',
       whereIssue: '발행되지 않았어요',
     },

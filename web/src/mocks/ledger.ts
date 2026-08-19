@@ -40,6 +40,8 @@ export type LedgerErrorCode =
   | 'ISSUER_CANNOT_LEAVE'
   | 'NOT_MEMBER'
   | 'NOT_A_PRIVATE_BANK'
+  | 'ALREADY_MEMBER'
+  | 'INVITE_NOT_FOUND'
 
 /** 겹침은 원장을 봐야 알 수 있다. 시드가 들고 있으면 사용자가 늘 때 거짓이 된다. */
 type SeedUser = Omit<User, 'nameIsShared'>
@@ -234,6 +236,8 @@ interface State {
   members: Map<PointTypeId, Set<UserId>>
   /** 받은 초대. 수락하면 사라진다 — 거절도 취소도 없다 */
   invites: Map<string, SeedInvite>
+  /** 수락돼 사라진 초대. 응답을 못 받고 다시 누른 사람이 여기서 답을 받는다 */
+  acceptedInvites: Map<string, SeedInvite>
   /** `${요청자}:${멱등성 키}` → 초대 id */
   invitedByKey: Map<string, string>
   recent: Map<PointTypeId, UserId[]>
@@ -255,6 +259,7 @@ function initialState(): State {
     capChanges: [],
     members: seedMembers(),
     invites: new Map(),
+    acceptedInvites: new Map(),
     invitedByKey: new Map(),
     recent: seedRecent(),
   }
@@ -610,6 +615,8 @@ export function invite(
   }
   if (pointType.issuerId !== meId) throw new LedgerError('NOT_ISSUER')
   requireRecipient(toId)
+  // 초대는 은행장의 행동이다 — 「내가 방금 초대했다」가 사실이 아니면 그렇게 말한다.
+  if (isMember(pointTypeId, toId)) throw new LedgerError('ALREADY_MEMBER')
 
   const existing = [...state.invites.values()].find(
     (candidate) => candidate.pointTypeId === pointTypeId && candidate.toId === toId,
@@ -626,24 +633,35 @@ export function invite(
     byId: meId,
     createdAt: new Date().toISOString(),
   }
-  // 이미 회원이면 초대를 남기지 않는다. 수락할 것이 없는 줄이 초대함에 쌓인다.
-  if (isMember(pointTypeId, toId)) return inviteViewOf(created, meId)
-
   state.invites.set(created.id, created)
   state.invitedByKey.set(idempotencyScope(meId, idempotencyKey), created.id)
   return inviteViewOf(created, meId)
 }
 
-/** 수락하면 초대가 사라지고 회원이 된다. 남의 초대는 없는 것과 같다 */
+/**
+ * 수락하면 초대가 사라지고 회원이 된다.
+ *
+ * **이미 회원인데 다시 수락하면 성공이다.** 멱등은 「그가 원한 결과가 이미 있는가」로
+ * 판단한다 — 수락을 누른 사람이 원한 것은 회원이 되는 것이고 그는 이미 회원이다.
+ * 응답을 못 받고 다시 누른 사람에게 실패를 돌려주면 안 된다. 초대(은행장의 행동)에서
+ * `ALREADY_MEMBER` 인 것과 뒤집힌 것처럼 보이지만 기준은 하나다. 계약: docs/API.md
+ */
 export function acceptInvite(meId: UserId, inviteId: string): PointType {
   const invite = state.invites.get(inviteId)
-  // 남의 초대 id 로 물어도 없을 때와 같은 답이어야 한다.
-  if (!invite || invite.toId !== meId) throw new LedgerError('POINT_TYPE_NOT_FOUND')
+  if (!invite || invite.toId !== meId) {
+    const done = state.acceptedInvites.get(inviteId)
+    if (done && done.toId === meId && isMember(done.pointTypeId, meId)) {
+      return viewOf(requirePointType(done.pointTypeId), meId)
+    }
+    // 남의 초대가 있다는 것을 알려 주면 그 은행에 누가 초대됐는지가 샌다.
+    throw new LedgerError('INVITE_NOT_FOUND')
+  }
 
   const members = state.members.get(invite.pointTypeId) ?? new Set<UserId>()
   members.add(meId)
   state.members.set(invite.pointTypeId, members)
   state.invites.delete(inviteId)
+  state.acceptedInvites.set(inviteId, invite)
   return viewOf(requirePointType(invite.pointTypeId), meId)
 }
 

@@ -133,10 +133,10 @@ export const endpoints = {
     request<void>(`/point-types/${pointTypeId}/members/${userId}`, { method: 'DELETE' }),
 
   /** 초대. 은행장만. 같은 사람을 다시 초대하면 같은 초대가 온다 */
-  createInvite: (pointTypeId: PointTypeId, toId: UserId, idempotencyKey: string) =>
+  createInvite: (pointTypeId: PointTypeId, userId: UserId, idempotencyKey: string) =>
     request<Invite>(`/point-types/${pointTypeId}/invites`, {
       method: 'POST',
-      body: { toId },
+      body: { userId },
       idempotencyKey,
     }),
 

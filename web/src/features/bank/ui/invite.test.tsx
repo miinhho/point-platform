@@ -22,14 +22,17 @@ async function openInvite() {
 }
 
 describe('초대한다', () => {
-  it('이미 회원인 사람은 초대할 수 없다고 말한다', async () => {
+  /*
+   * 초대할 수 없는 사람을 눌러 볼 수 있게 두면 정상 경로에서 `ALREADY_MEMBER` 를
+   * 만나게 된다 — 그건 겹쳐 들어온 경우에만 나오는 막다른 답이다. 계약: docs/API.md
+   */
+  it('이미 회원인 사람은 후보에 없다', async () => {
     await openInvite()
-    // `@jisoo` 는 이미 `pt_cl` 의 회원이다. 사라지지 않고 그렇게 표시된다.
-    // 회원 판정이 늦게 오면 줄이 버튼에서 버튼 아닌 것으로 바뀐다 — 그 뒤에 찾는다.
-    await screen.findByText('이미 회원이에요')
-    expect(screen.getByText('@jisoo').closest('button')).toBeNull()
-    // 회원이 아닌 사람은 누를 수 있다.
-    expect(screen.getByRole('button', { name: /@taeyun/ })).toBeTruthy()
+    // 회원이 아닌 사람이 먼저 뜨는 것을 보고 나서 센다.
+    await screen.findByRole('button', { name: /@taeyun/ })
+
+    // `@jisoo` 는 이미 `pt_cl` 의 회원이다.
+    await waitFor(() => expect(screen.queryByText('@jisoo')).toBeNull())
   })
 
   it('초대하면 그 줄이 초대했다고 말한다', async () => {
