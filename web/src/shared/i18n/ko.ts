@@ -82,6 +82,10 @@ export const ko = {
       orange: '주황',
       pink: '분홍',
       teal: '청록',
+      amber: '호박',
+      rose: '장미',
+      indigo: '남색',
+      lime: '연두',
     },
   },
 

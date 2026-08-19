@@ -45,8 +45,21 @@ function ratio(a: string, b: string): number {
   return (hi + 0.05) / (lo + 0.05)
 }
 
-/** 화면에 실제로 나타나는 팔레트 — 포인트 6색 + 기본 + 실패 */
-const PALETTES = ['gray', 'red', 'blue', 'green', 'purple', 'orange', 'pink', 'teal']
+/** 화면에 실제로 나타나는 팔레트 — 포인트 10색 + 기본 + 실패 */
+const PALETTES = [
+  'gray',
+  'red',
+  'blue',
+  'green',
+  'purple',
+  'orange',
+  'pink',
+  'teal',
+  'amber',
+  'rose',
+  'indigo',
+  'lime',
+]
 const MODES: Mode[] = ['_light', '_dark']
 
 describe('포커스 링 대비', () => {

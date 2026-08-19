@@ -110,7 +110,7 @@ describe('포인트를 만든다', () => {
  * 관측: docs/FIELD.md 「S9 포인트 만들기 QA」 2 — `role="radio"` 만 붙인 버튼 여섯은
  * 방향키로 순회되지 않고 여섯 전부가 탭 정지점이었다.
  */
-describe('색 6택은 진짜 라디오그룹이다', () => {
+describe('색 고르기는 진짜 라디오그룹이다', () => {
   async function openForm() {
     const user = userEvent.setup()
     renderApp(<App />)
@@ -125,26 +125,29 @@ describe('색 6택은 진짜 라디오그룹이다', () => {
     ) as HTMLInputElement[]
 
   // 방향키 순회는 같은 name 을 공유하는 네이티브 라디오가 브라우저에서 주는 것이다.
-  it('여섯이 한 그룹을 이룬다', async () => {
+  it('열이 한 그룹을 이룬다', async () => {
     await openForm()
     const radios = accentRadios()
-    expect(radios).toHaveLength(6)
+    expect(radios).toHaveLength(10)
     expect(new Set(radios.map((radio) => radio.name)).size).toBe(1)
     expect(radios[0].name).not.toBe('')
   })
 
-  // 공개 여부도 라디오그룹이다. 두 그룹이 같은 name 을 나눠 쓰면 서로를 끈다.
-  it('색과 공개 여부는 다른 그룹이다', async () => {
+  /*
+   * 선택된 것만 칠하면 눌러 봐야 무슨 색인지 안다 — 색을 고르는 자리에서 색이 안
+   * 보이는 것이다. 사용자 지적: 「포인트 자세히 UX 가 최악이다」.
+   *
+   * 칠은 이제 선택과 무관한 한 줄이라 여기서 잴 것이 없다. 남은 것은 선택이 색이
+   * 아닌 다른 채널로 말하는가이고, 실제로 칠해져 보이는지는 눈이 판정한다.
+   */
+  it('선택은 색이 아니라 체크가 말한다', async () => {
     await openForm()
-    const visibility = within(
-      screen.getByRole('radiogroup', { name: '누가 쓸 수 있나요?' }),
-    ).getAllByRole('radio') as HTMLInputElement[]
 
-    expect(visibility).toHaveLength(2)
-    expect(visibility[0].name).not.toBe(accentRadios()[0].name)
+    expect(accentRadios()).toHaveLength(10)
+    expect(screen.getAllByText('✓')).toHaveLength(1)
   })
 
-  it('탭 정지점은 그룹당 하나다 — 여섯 번 눌러야 상한에 닿지 않는다', async () => {
+  it('탭 정지점은 그룹당 하나다 — 열 번 눌러야 상한에 닿지 않는다', async () => {
     const user = await openForm()
     screen.getByLabelText('기호').focus()
 

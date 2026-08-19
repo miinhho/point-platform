@@ -13,7 +13,18 @@ import { HoldButton } from '@/shared/ui/HoldButton'
 import { PointBadge } from '@/shared/ui/PointBadge'
 import { Body, Gutter, Header, Screen, Title } from '@/shared/ui/Screen'
 
-const ACCENTS: readonly PointAccent[] = ['blue', 'green', 'purple', 'orange', 'pink', 'teal']
+const ACCENTS: readonly PointAccent[] = [
+  'blue',
+  'green',
+  'purple',
+  'orange',
+  'pink',
+  'teal',
+  'amber',
+  'rose',
+  'indigo',
+  'lime',
+]
 
 interface Props {
   onBack: () => void
@@ -240,20 +251,26 @@ function AccentPicker({
       onValueChange={({ value: next }) => next && onChange(next as PointAccent)}
     >
       <RadioCard.Label textStyle="label">{t('create.accent')}</RadioCard.Label>
-      <Box marginTop="2" display="flex" gap="3">
+      {/*
+        열 다 자기 색으로 칠해 둔다. 선택된 것만 칠하면 눌러 봐야 무슨 색인지 아는데,
+        색을 고르는 자리에서 색이 안 보이는 것이다. 선택은 색이 아니라 테두리와 체크가
+        말한다 — 선택 표시와 색 표시가 같은 채널을 쓰면 둘 다 못 한다.
+      */}
+      <Box marginTop="2" display="grid" gridTemplateColumns="repeat(5, 1fr)" gap="2">
         {ACCENTS.map((accent) => (
-          <RadioCard.Item key={accent} value={accent} colorPalette={accent} flex={1} minW={0}>
+          <RadioCard.Item key={accent} value={accent} colorPalette={accent} minW={0}>
             <RadioCard.ItemHiddenInput />
             {/* 색 이름이 라디오의 접근성 이름이 된다. 색만으로 고르게 두지 않는다. */}
             <RadioCard.ItemText srOnly>{t(`create.accents.${accent}`)}</RadioCard.ItemText>
             <RadioCard.ItemControl
               justifyContent="center"
               paddingBlock="3"
+              bg="colorPalette.solid"
               color="colorPalette.contrast"
-              bg={accent === value ? 'colorPalette.solid' : undefined}
-              borderColor={accent === value ? 'colorPalette.solid' : 'border'}
+              borderWidth={accent === value ? '3px' : '1px'}
+              borderColor={accent === value ? 'fg' : 'border'}
             >
-              {/* 회색조에서도 갈린다 — 칠해진 사각형 + 체크 대 빈 테두리 */}
+              {/* 회색조에서도 갈린다 — 두꺼운 테두리 + 체크 대 얇은 테두리 */}
               {accent === value ? '✓' : ''}
             </RadioCard.ItemControl>
           </RadioCard.Item>

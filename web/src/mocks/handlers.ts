@@ -127,7 +127,18 @@ interface CreatePointTypeBody {
   visibility?: unknown
 }
 
-const ACCENTS: readonly PointAccent[] = ['blue', 'green', 'purple', 'orange', 'pink', 'teal']
+const ACCENTS: readonly PointAccent[] = [
+  'blue',
+  'green',
+  'purple',
+  'orange',
+  'pink',
+  'teal',
+  'amber',
+  'rose',
+  'indigo',
+  'lime',
+]
 const VISIBILITIES: readonly PointVisibility[] = ['public', 'private']
 
 /**

@@ -48,7 +48,18 @@ export interface PointType {
 /** `public` 에는 회원이 없다. 관문이 없는데 통과 기록을 두면 그것은 공개가 아니다. */
 export type PointVisibility = 'public' | 'private'
 
-export type PointAccent = 'blue' | 'green' | 'purple' | 'orange' | 'pink' | 'teal'
+/** 색으로 무엇을 가르지 않는다 — 그래서 늘려도 된다. 대비는 contrast.test.ts 가 잰다 */
+export type PointAccent =
+  | 'blue'
+  | 'green'
+  | 'purple'
+  | 'orange'
+  | 'pink'
+  | 'teal'
+  | 'amber'
+  | 'rose'
+  | 'indigo'
+  | 'lime'
 
 export interface Balance {
   pointType: PointType

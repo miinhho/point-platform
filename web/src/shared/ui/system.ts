@@ -6,8 +6,49 @@ import { createSystem, defaultConfig, defineConfig } from '@chakra-ui/react'
  * 포커스 링. Chakra 기본값은 밝은 모드에서 배경 대비 3:1(WCAG 1.4.11)에 미달한다 —
  * gray 2.56 · green 2.28 · teal 2.49 · orange 2.80. 모드별로 한 단계씩 옮긴다.
  */
+
+/**
+ * Chakra 에 없는 포인트 색. 여섯으로는 만드는 사람이 고를 것이 금방 떨어진다 —
+ * 색으로 무엇을 가르지 않으므로(발행자 핸들과 이모지가 그 일을 한다) 늘려도 된다.
+ * 대비는 `contrast.test.ts` 가 라이트·다크 둘 다 잰다.
+ */
+const ADDED = {
+  amber: ['#fffbeb','#fef3c7','#fde68a','#fcd34d','#fbbf24','#f59e0b','#d97706','#b45309','#92400e','#78350f','#451a03'],
+  rose: ['#fff1f2','#ffe4e6','#fecdd3','#fda4af','#fb7185','#f43f5e','#e11d48','#be123c','#9f1239','#881337','#4c0519'],
+  indigo: ['#eef2ff','#e0e7ff','#c7d2fe','#a5b4fc','#818cf8','#6366f1','#4f46e5','#4338ca','#3730a3','#312e81','#1e1b4b'],
+  lime: ['#f7fee7','#ecfccb','#d9f99d','#bef264','#a3e635','#84cc16','#65a30d','#4d7c0f','#3f6212','#365314','#1a2e05'],
+} as const
+
+const STEPS = [50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950] as const
+
+/** 밝은 색 위의 글자는 검정이어야 읽힌다 — 흰 글자는 4.5:1 에 못 미친다 */
+const DARK_TEXT: readonly string[] = ['amber', 'lime']
+
+const addedScales = Object.fromEntries(
+  Object.entries(ADDED).map(([name, ramp]) => [
+    name,
+    Object.fromEntries(STEPS.map((step, index) => [step, { value: ramp[index] }])),
+  ]),
+)
+
+/** Chakra 가 팔레트마다 요구하는 슬롯. 기본 팔레트의 정의를 그대로 따른다 */
+const addedSemantics = Object.fromEntries(
+  Object.keys(ADDED).map((name) => [
+    name,
+    {
+      contrast: { value: DARK_TEXT.includes(name) ? 'black' : 'white' },
+      fg: { value: { _light: `{colors.${name}.700}`, _dark: `{colors.${name}.300}` } },
+      subtle: { value: { _light: `{colors.${name}.100}`, _dark: `{colors.${name}.900}` } },
+      muted: { value: { _light: `{colors.${name}.200}`, _dark: `{colors.${name}.800}` } },
+      emphasized: { value: { _light: `{colors.${name}.300}`, _dark: `{colors.${name}.700}` } },
+      solid: { value: `{colors.${name}.600}` },
+      border: { value: { _light: `{colors.${name}.500}`, _dark: `{colors.${name}.400}` } },
+    },
+  ]),
+)
+
 const focusRings = Object.fromEntries(
-  ['gray', 'red', 'blue', 'green', 'purple', 'orange', 'pink', 'teal'].map((palette) => [
+  ['gray', 'red', 'blue', 'green', 'purple', 'orange', 'pink', 'teal', ...Object.keys(ADDED)].map((palette) => [
     palette,
     { focusRing: { value: { _light: `{colors.${palette}.600}`, _dark: `{colors.${palette}.400}` } } },
   ]),
@@ -20,6 +61,7 @@ const config = defineConfig({
         /** 화면 좌우 여백. 모든 화면이 같은 값을 쓴다 */
         gutter: { value: '20px' },
       },
+      colors: addedScales,
       sizes: {
         /** 목록의 원형 표식 */
         avatar: { value: '42px' },
@@ -32,6 +74,7 @@ const config = defineConfig({
 
     semanticTokens: {
       colors: {
+        ...addedSemantics,
         ...focusRings,
         /** 확정되지 않은 것. 완료와 같은 색일 수 없다. */
         pending: {
