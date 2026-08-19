@@ -55,7 +55,7 @@ Implementation
 
   ↓
 
-Self-review
+Author check
 
   ↓
 
@@ -67,17 +67,28 @@ Relevant QA if needed
 
   ↓
 
-HIGH risk → Orchestrator deep review
+HIGH risk → Review deep pass
 
   ↓
 
-Final gate
+Final gate (Orchestrator)
+
+
+Review ─── runs continuously, outside this flow ───→ findings to owning session
 
 ```
 
 Use the minimum workflow necessary for the identified risk.
 
 Do not invoke agents or verification steps that do not add meaningful confidence.
+
+**Review is not a gate except at HIGH risk.** It runs continuously and its findings arrive
+asynchronously as new work. Making it a per-task gate would turn the one session that never
+stops looking into the one thing everybody waits on.
+
+**Author check is not review.** It is the author reading their own diff before handing off —
+useful, and not independent. Where this document previously said "self-review", read
+"author check".
 
 ---
 
@@ -101,7 +112,7 @@ Typical flow:
 
 ```text id="w8qqgi"
 
-Implement → Self-review → Relevant checks → Done
+Implement → Author check → Relevant checks → Done
 
 ```
 
@@ -127,7 +138,7 @@ Typical flow:
 
 ```text id="7l8fp8"
 
-Implement → Self-review → Cross-review if needed → QA → Done
+Implement → Author check → Cross-review if needed → QA → Done
 
 ```
 
@@ -159,13 +170,15 @@ Typical flow:
 
 Implement
 
-→ Self-review
+→ Author check
 
 → Cross-review if needed
 
 → Relevant QA
 
-→ Orchestrator deep review
+→ Review deep pass
+
+→ Orchestrator final gate
 
 → Done
 
@@ -185,11 +198,11 @@ Implementation agents must:
 
 3. Run relevant tests, type checks, and lint checks.
 
-4. Self-review the resulting diff.
+4. Read the resulting diff. This is an author check, not review.
 
 5. Report unresolved concerns.
 
-Passing tests alone does not imply completion.
+Passing tests alone does not imply completion. Neither does an author check.
 
 ---
 
@@ -259,7 +272,9 @@ For bug fixes, reproduce the original failure when practical.
 
 ## HIGH-Risk Review
 
-For HIGH-risk changes, the Orchestrator performs the final focused review.
+For HIGH-risk changes, **Review** performs the focused pass and the Orchestrator owns the
+final gate. The Orchestrator does not repeat the pass — it decides whether the evidence is
+enough to complete.
 
 Review the risk-bearing parts of the change, especially:
 
@@ -287,6 +302,9 @@ Findings are either:
 
 * **NON_BLOCKING** — may be recorded separately.
 
+Findings come from QA, cross-review, or Review. **Review sends them straight to the owning
+session**; the Orchestrator is involved only when the contract itself is wrong.
+
 Blocking findings return to the owning agent:
 
 ```text id="ngqt5s"
@@ -313,7 +331,7 @@ The Orchestrator marks the task complete when:
 
 * acceptance criteria are satisfied
 
-* implementation and self-review are complete
+* implementation and the author check are complete
 
 * required checks pass
 
@@ -323,7 +341,7 @@ The Orchestrator marks the task complete when:
 
 * blocking findings are resolved
 
-* HIGH-risk review is complete when applicable
+* the HIGH-risk Review pass is complete when applicable
 
 Completion requires evidence, not agent confidence.
 
@@ -351,7 +369,11 @@ Behavior needs independent verification?
 
 HIGH risk?
 
-→ Orchestrator deep review
+→ Review deep pass, then Orchestrator final gate
+
+Model, contract, or irreversible-path concern at any risk level?
+
+→ Review (continuous — no need to route it)
 
 ```
 
