@@ -89,6 +89,17 @@ class IssueTest {
     }
 
     @Test
+    fun `상세도 자기 포인트의 표기를 갖는다`() {
+        val created = assertNotNull(issue(1_000).body)
+        val id = idOf(created)
+        // 목록에서 제대로 읽은 것이 그 줄을 눌렀을 때 부정되면 안 된다.
+        listOf(created, assertNotNull(get(issuer, "/api/issues/$id").body)).forEach {
+            assertTrue(it.contains("\"point\":{"), it)
+            assertTrue(it.contains("\"emoji\":\"🔵\"") && it.contains("\"issuerHandle\":\"@onmart\""), it)
+        }
+    }
+
+    @Test
     fun `발행 응답에는 이체의 칸이 없다`() {
         val body = assertNotNull(issue(1_000).body)
         listOf("kind", "toId", "fromId", "counterparty").forEach {

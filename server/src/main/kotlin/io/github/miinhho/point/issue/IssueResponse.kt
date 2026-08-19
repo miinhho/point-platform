@@ -1,11 +1,14 @@
 package io.github.miinhho.point.issue
 
+import io.github.miinhho.point.pointtype.PointMarkResponse
+import io.github.miinhho.point.pointtype.toMark
 import java.time.Instant
 
 data class IssueResponse(
     val id: String,
     val idempotencyKey: String,
     val pointTypeId: String,
+    val point: PointMarkResponse,
     /** 발행자. 받는 사람이기도 하다 — 한 사람이라 칸이 하나다. */
     val issuerId: String,
     val amount: Long,
@@ -16,10 +19,11 @@ data class IssueResponse(
     val confirmedAt: Instant,
 )
 
-fun Issue.toResponse() = IssueResponse(
+fun Issue.toResponse(sharedPointNames: Set<String>) = IssueResponse(
     id = publicId.toString(),
     idempotencyKey = idempotencyKey,
     pointTypeId = pointType.publicId.toString(),
+    point = pointType.toMark(sharedPointNames),
     issuerId = issuer.publicId.toString(),
     amount = amount,
     totalIssuedAfter = totalIssuedAfter,

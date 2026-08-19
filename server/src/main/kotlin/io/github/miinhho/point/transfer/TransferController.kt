@@ -66,7 +66,7 @@ class TransferController(
         val transfer = publicId?.let(transferRepository::findByPublicId)
             ?.takeIf { it.from?.id == userId || it.to.id == userId }
             ?: throw DomainFailureException(FailureCode.TRANSFER_NOT_FOUND, "없음")
-        return transfer.toResponse(userId, userRepository.sharedNames())
+        return transfer.toResponse(userId, userRepository.sharedNames(), pointTypeRepository.sharedNames())
     }
 
     @GetMapping("/transfers")
@@ -82,7 +82,7 @@ class TransferController(
             id.id
         }
         return transferRepository.history(userId, resolvedPointTypeId, Limit.of(limit))
-            .map { it.toResponse(userId, userRepository.sharedNames()) }
+            .map { it.toResponse(userId, userRepository.sharedNames(), pointTypeRepository.sharedNames()) }
     }
 
     private fun commit(

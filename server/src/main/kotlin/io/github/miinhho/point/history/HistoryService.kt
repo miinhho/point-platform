@@ -4,7 +4,7 @@ import io.github.miinhho.point.wallet.BalanceRepository
 import io.github.miinhho.point.issue.IssueRepository
 import io.github.miinhho.point.issue.toResponse
 import io.github.miinhho.point.pointtype.CapChange
-import io.github.miinhho.point.pointtype.PointType
+import io.github.miinhho.point.pointtype.toMark
 import io.github.miinhho.point.pointtype.CapChangeRepository
 import io.github.miinhho.point.pointtype.PointTypeRepository
 import io.github.miinhho.point.transfer.TransferRepository
@@ -36,22 +36,15 @@ class HistoryService(
         // 겹침은 원장 전체에서 한 번만 집계한다 — 이체마다 세면 N+1 이다.
         val sharedNames = userRepository.sharedNames()
         val sharedPointNames = pointTypeRepository.sharedNames()
-        fun point(pointType: PointType) = HistoryPointResponse(
-            name = pointType.name,
-            emoji = pointType.emoji,
-            accent = pointType.accent.name.lowercase(),
-            nameIsShared = pointType.name in sharedPointNames,
-            issuerHandle = pointType.issuer.handle,
-        )
 
         val transfers = transferRepository.history(userId, filterId, Limit.of(limit))
-            .map { HistoryEntryResponse("transfer", point(it.pointType), transfer = it.toResponse(userId, sharedNames)) to it.createdAt }
+            .map { HistoryEntryResponse("transfer", it.pointType.toMark(sharedPointNames), transfer = it.toResponse(userId, sharedNames, sharedPointNames)) to it.createdAt }
 
         val issues = issueRepository.history(userId, filterId, Limit.of(limit))
-            .map { HistoryEntryResponse("issue", point(it.pointType), issue = it.toResponse()) to it.confirmedAt }
+            .map { HistoryEntryResponse("issue", it.pointType.toMark(sharedPointNames), issue = it.toResponse(sharedPointNames)) to it.confirmedAt }
 
         val capChanges = visibleCapChanges(userId, filterId, limit)
-            .map { HistoryEntryResponse("capChange", point(it.pointType), capChange = it.toResponse()) to it.changedAt }
+            .map { HistoryEntryResponse("capChange", it.pointType.toMark(sharedPointNames), capChange = it.toResponse()) to it.changedAt }
 
         return (transfers + issues + capChanges)
             .sortedByDescending { (_, at) -> at }

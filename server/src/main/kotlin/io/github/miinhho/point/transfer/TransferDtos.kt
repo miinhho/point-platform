@@ -1,5 +1,7 @@
 package io.github.miinhho.point.transfer
 
+import io.github.miinhho.point.pointtype.PointMarkResponse
+import io.github.miinhho.point.pointtype.toMark
 import java.math.BigDecimal
 import java.time.Instant
 
@@ -15,6 +17,8 @@ data class TransferResponse(
     val id: String,
     val idempotencyKey: String,
     val pointTypeId: String,
+    /** 지갑을 뒤지는 길을 남겨 두면 안 된다 — 모수가 달라 빈 줄이 생긴다. */
+    val point: PointMarkResponse,
     val fromId: String,
     val toId: String,
     /** 보는 사람 기준이다 — 보낸 쪽에는 받은 사람이, 받은 쪽에는 보낸 사람이 실린다. */
@@ -24,10 +28,11 @@ data class TransferResponse(
     val confirmedAt: Instant,
 )
 
-fun Transfer.toResponse(viewerId: Long, sharedNames: Set<String>) = TransferResponse(
+fun Transfer.toResponse(viewerId: Long, sharedNames: Set<String>, sharedPointNames: Set<String>) = TransferResponse(
     id = publicId.toString(),
     idempotencyKey = idempotencyKey,
     pointTypeId = pointType.publicId.toString(),
+    point = pointType.toMark(sharedPointNames),
     fromId = from.publicId.toString(),
     toId = to.publicId.toString(),
     counterparty = (if (from.id == viewerId) to else from)

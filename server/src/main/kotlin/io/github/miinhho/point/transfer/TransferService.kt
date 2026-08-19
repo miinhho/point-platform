@@ -30,7 +30,7 @@ class TransferService(
     // open-in-view=false 라 지연 연관관계(pointType·from·to)는 트랜잭션 안에서 매핑까지 끝내야 한다.
     @Transactional(readOnly = true)
     fun findByIdempotencyKey(key: String, requesterId: Long): TransferResponse? =
-        transferRepository.findByFromIdAndIdempotencyKey(requesterId, key)?.toResponse(requesterId, userRepository.sharedNames())
+        transferRepository.findByFromIdAndIdempotencyKey(requesterId, key)?.toResponse(requesterId, userRepository.sharedNames(), pointTypeRepository.sharedNames())
 
     @Transactional
     fun commitTransfer(meId: Long, idempotencyKey: String, pointTypeId: String, toId: String, amount: Long): TransferResponse {
@@ -61,7 +61,7 @@ class TransferService(
             debitOrFail(meId, pointTypeId, amount)
         }
 
-        return record(idempotencyKey, pointType, from = sender, to = recipient, amount = amount).toResponse(meId, userRepository.sharedNames())
+        return record(idempotencyKey, pointType, from = sender, to = recipient, amount = amount).toResponse(meId, userRepository.sharedNames(), pointTypeRepository.sharedNames())
     }
 
     // 닿을 수 없는 은행은 없는 포인트와 같은 404 다 — 갈리는 순간 존재가 샌다.

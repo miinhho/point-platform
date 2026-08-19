@@ -25,7 +25,7 @@ class IssueService(
 ) {
     @Transactional(readOnly = true)
     fun findByIdempotencyKey(key: String, issuerId: Long): IssueResponse? =
-        issueRepository.findByIssuerIdAndIdempotencyKey(issuerId, key)?.toResponse()
+        issueRepository.findByIssuerIdAndIdempotencyKey(issuerId, key)?.toResponse(pointTypeRepository.sharedNames())
 
     /** 남의 것은 없는 것과 같다 — id 는 내역에서 새어 나갈 수 있다. */
     @Transactional(readOnly = true)
@@ -34,7 +34,7 @@ class IssueService(
             ?.let(issueRepository::findByPublicId)
             ?.takeIf { it.issuer.id == viewerId }
             ?: throw DomainFailureException(FailureCode.TRANSFER_NOT_FOUND, "없음")
-        return issue.toResponse()
+        return issue.toResponse(pointTypeRepository.sharedNames())
     }
 
     @Transactional
@@ -72,7 +72,7 @@ class IssueService(
                 totalIssuedAfter = pointType.totalIssued,
                 issueCapAt = pointType.issueCap,
             ),
-        ).toResponse()
+        ).toResponse(pointTypeRepository.sharedNames())
     }
 
     // 중복키는 오류가 아니라 "다른 요청이 먼저 만들었다"는 뜻이다. 별도 트랜잭션이라
