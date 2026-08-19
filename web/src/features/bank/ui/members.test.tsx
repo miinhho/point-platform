@@ -2,6 +2,8 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { screen, waitFor } from '@testing-library/react'
 import { userEvent } from '@testing-library/user-event'
+import { http, HttpResponse } from 'msw'
+import { server } from '@/mocks/node'
 import { renderApp, signInAs } from '@/test/render'
 import App from '@/app/App'
 
@@ -134,5 +136,38 @@ describe('나간다', () => {
     expect(screen.getAllByText('900,000').length).toBeGreaterThan(0)
     // 잔액은 사라진 것이 아니라 쓸 수 없는 것이다.
     expect(screen.getAllByText('25,000').length).toBeGreaterThan(0)
+  })
+})
+
+/*
+ * 실서버에서 `GET /point-types/:id/members` 가 회원에게도 프레임워크 기본 404 를
+ * 줬다 — `code` 도 `outcome` 도 없는 본문이다 (docs/FIELD.md W7). 그것을 「회원이
+ * 아니다」로 읽으면 화면이 회원에게 거짓을 말한다.
+ */
+describe('회원 판정은 서버가 그 코드로 말했을 때만이다', () => {
+  async function openBankWithBrokenMembers(body: Record<string, unknown>, status: number) {
+    server.use(
+      http.get('*/api/point-types/:id/members', () => HttpResponse.json(body, { status })),
+    )
+    const user = userEvent.setup()
+    renderApp(<App />)
+    await user.click(await screen.findByRole('button', { name: '동아리회비 자세히' }))
+    await screen.findByRole('heading', { name: '동아리회비' })
+  }
+
+  it('계약 밖 404 를 비회원으로 읽지 않는다', async () => {
+    await openBankWithBrokenMembers(
+      { timestamp: '2026-08-19T02:34:52.550Z', status: 404, error: 'Not Found' },
+      404,
+    )
+
+    await waitFor(() => expect(screen.queryByText('이 은행의 회원이 아니에요')).toBeNull())
+    expect(screen.getByRole('button', { name: '회원 보기' })).toBeTruthy()
+  })
+
+  it('서버가 넘어져도 비회원으로 읽지 않는다', async () => {
+    await openBankWithBrokenMembers({ code: 'SERVER', outcome: 'unknown' }, 500)
+
+    await waitFor(() => expect(screen.queryByText('이 은행의 회원이 아니에요')).toBeNull())
   })
 })

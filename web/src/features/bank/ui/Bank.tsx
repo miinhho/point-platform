@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSetAtom } from 'jotai'
 import { useTranslation } from 'react-i18next'
 import { endpoints } from '@/api/endpoints'
+import { ApiError } from '@/api/http'
 import { invitesQuery, membersQuery, pointTypeQuery, queryKeys, walletQuery } from '@/api/queries'
 import { goAtom } from '@/app/atoms'
 import { toGrouped } from '@/shared/format'
@@ -41,7 +42,16 @@ export function Bank({ pointTypeId, onBack }: { pointTypeId: PointTypeId; onBack
     enabled: isPrivate && !invite,
     retry: false,
   })
-  const outside = isPrivate && !invite && members.isError
+  /*
+   * 「회원이 아니다」는 서버가 그 코드로 말했을 때만이다. 아무 오류나 그렇게 읽으면
+   * 경로가 없거나 서버가 넘어졌을 때 회원에게 「회원이 아니에요」라고 말한다 —
+   * 실서버에서 실제로 그 상태였다(docs/FIELD.md W7).
+   */
+  const outside =
+    isPrivate &&
+    !invite &&
+    members.error instanceof ApiError &&
+    members.error.code === 'POINT_TYPE_NOT_FOUND'
 
   const balance = wallet.data?.balances.find((b) => b.pointType.id === pointTypeId)
 
