@@ -45,7 +45,9 @@ class HistoryService(
 
     // 그 포인트가 자기 지갑에 있는 사람과 발행자가 본다 — 발행자만 아는 변경은 약속이 아니다.
     private fun visibleCapChanges(userId: Long, filterId: Long?, limit: Int): List<CapChange> {
-        val held = balanceRepository.findByUserId(userId).mapNotNull { it.pointType.id }
+        // 지갑에 나오는 것과 같은 기준이어야 한다. 행의 존재로 세면 거절당한 이체가 남긴
+        // 잔액 0 행이 무관한 사람에게 비공개 은행의 상한 변경을 보여준다.
+        val held = balanceRepository.pointTypeIdsHeldBy(userId)
         val issued = pointTypeRepository.findAll().filter { it.issuer.id == userId }.mapNotNull { it.id }
         val visible = (held + issued).toSet()
         if (visible.isEmpty()) return emptyList()
