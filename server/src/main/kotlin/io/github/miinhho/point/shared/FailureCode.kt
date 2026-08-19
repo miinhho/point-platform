@@ -31,7 +31,6 @@ enum class FailureCode(val status: HttpStatus) {
     UNKNOWN_ENDPOINT(HttpStatus.NOT_FOUND),
     RECIPIENT_NOT_FOUND(HttpStatus.NOT_FOUND),
     POINT_TYPE_NOT_FOUND(HttpStatus.NOT_FOUND),
-    SYMBOL_TAKEN(HttpStatus.CONFLICT),
 
     // 확정된 실패다. SERVER 로 보내면 프론트가 「결과를 알 수 없음」으로 읽어 거짓말이 된다.
     MALFORMED_REQUEST(HttpStatus.BAD_REQUEST),

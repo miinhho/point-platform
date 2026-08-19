@@ -6,7 +6,8 @@ import java.math.BigDecimal
 // issuerId 를 받지 않는다. 만든 사람이 발행자다 (docs/API.md 「엔드포인트」).
 data class CreatePointTypeRequest(
     val name: String? = null,
-    val symbol: String? = null,
+    val emoji: String? = null,
+    val description: String? = null,
     val accent: String? = null,
     val issueCap: BigDecimal? = null,
     // 기본값을 두지 않는다 — 「기본이 공개」는 만든 사람이 모르는 사이에 열리는 일이다.

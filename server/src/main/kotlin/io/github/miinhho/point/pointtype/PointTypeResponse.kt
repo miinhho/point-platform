@@ -5,7 +5,10 @@ import java.time.Instant
 data class PointTypeResponse(
     val id: String,
     val name: String,
-    val symbol: String,
+    /** 알아보는 표식. 유일하지 않다 — 이모지가 같아도 다른 은행일 수 있다. */
+    val emoji: String,
+    /** 발행자가 적은 소개. 앱이 보증하는 글이 아니다. */
+    val description: String?,
     val issuerId: String,
     val issuerName: String,
     /** 발행자의 핸들. 유일하다 — issuerName 은 흉내낼 수 있다. */
@@ -31,7 +34,8 @@ data class PointTypeResponse(
 fun PointType.toResponse(viewerId: Long, sharedNames: Set<String>, memberCount: Long?) = PointTypeResponse(
     id = publicId.toString(),
     name = name,
-    symbol = symbol,
+    emoji = emoji,
+    description = description,
     issuerId = issuer.publicId.toString(),
     issuerName = issuer.name,
     issuerHandle = issuer.handle,

@@ -8,6 +8,9 @@ import java.time.Instant
 // toId 는 이체 본문에만 쓰인다. 발행 본문에 실려 오면 malformed 로 거절한다.
 data class TransferRequest(val pointTypeId: String? = null, val toId: String? = null, val amount: BigDecimal? = null)
 
+/** 상대. 누구인지는 원장의 성질이라 클라이언트가 목록에서 맞추면 목록에 없는 순간 틀린다. */
+data class CounterpartyResponse(val name: String, val handle: String, val nameIsShared: Boolean)
+
 data class TransferResponse(
     val id: String,
     val idempotencyKey: String,
@@ -15,18 +18,22 @@ data class TransferResponse(
     val pointTypeId: String,
     val fromId: String?,
     val toId: String,
+    /** 발행이면 null 이다 — 빈 자리를 메우면 일어나지 않은 이체가 일어난 것처럼 읽힌다. */
+    val counterparty: CounterpartyResponse?,
     val amount: Long,
     val createdAt: Instant,
     val confirmedAt: Instant,
 )
 
-fun Transfer.toResponse() = TransferResponse(
+fun Transfer.toResponse(viewerId: Long, sharedNames: Set<String>) = TransferResponse(
     id = publicId.toString(),
     idempotencyKey = idempotencyKey,
     kind = kind.name.lowercase(),
     pointTypeId = pointType.publicId.toString(),
     fromId = from?.publicId?.toString(),
     toId = to.publicId.toString(),
+    counterparty = (if (from?.id == viewerId) to else from)
+        ?.let { CounterpartyResponse(it.name, it.handle, it.name in sharedNames) },
     amount = amount,
     createdAt = createdAt,
     confirmedAt = confirmedAt,

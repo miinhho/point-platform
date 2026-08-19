@@ -30,7 +30,7 @@ class TransferService(
     // open-in-view=false 라 지연 연관관계(pointType·from·to)는 트랜잭션 안에서 매핑까지 끝내야 한다.
     @Transactional(readOnly = true)
     fun findByIdempotencyKey(key: String, requesterId: Long): TransferResponse? =
-        transferRepository.findByRequesterIdAndIdempotencyKey(requesterId, key)?.toResponse()
+        transferRepository.findByRequesterIdAndIdempotencyKey(requesterId, key)?.toResponse(requesterId, userRepository.sharedNames())
 
     @Transactional
     fun commitTransfer(meId: Long, idempotencyKey: String, pointTypeId: String, toId: String, amount: Long): TransferResponse {
@@ -61,7 +61,7 @@ class TransferService(
             debitOrFail(meId, pointTypeId, amount)
         }
 
-        return record(TransferKind.TRANSFER, idempotencyKey, pointType, requester = sender, from = sender, to = recipient, amount = amount).toResponse()
+        return record(TransferKind.TRANSFER, idempotencyKey, pointType, requester = sender, from = sender, to = recipient, amount = amount).toResponse(meId, userRepository.sharedNames())
     }
 
     // 근거: docs/JOURNEY.md 여정 7 — 무에서 만든다. 자기 지갑으로만 들어간다.
@@ -91,7 +91,7 @@ class TransferService(
         pointType.totalIssued += amount
         pointTypeRepository.save(pointType)
 
-        return record(TransferKind.ISSUE, idempotencyKey, pointType, requester = issuer, from = null, to = issuer, amount = amount).toResponse()
+        return record(TransferKind.ISSUE, idempotencyKey, pointType, requester = issuer, from = null, to = issuer, amount = amount).toResponse(meId, userRepository.sharedNames())
     }
 
     // 닿을 수 없는 은행은 없는 포인트와 같은 404 다 — 갈리는 순간 존재가 샌다.

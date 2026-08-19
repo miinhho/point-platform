@@ -65,8 +65,8 @@ class PrivateBankMembersTest {
         leftBehind = save("@nara", "이나라")
         outsider = save("@mose", "김지수")
 
-        open = pointTypeRepository.save(point("온포인트", "ON", PointVisibility.PUBLIC))
-        closed = pointTypeRepository.save(point("동아리비", "CL", PointVisibility.PRIVATE))
+        open = pointTypeRepository.save(point("온포인트", "🔵", PointVisibility.PUBLIC))
+        closed = pointTypeRepository.save(point("동아리비", "🎪", PointVisibility.PRIVATE))
 
         listOf(issuer, member).forEach { membershipRepository.save(Membership(pointType = closed, user = it)) }
         listOf(issuer, member, leftBehind).forEach {
@@ -179,11 +179,35 @@ class PrivateBankMembersTest {
         assertEquals(HttpStatus.CREATED, send(issuer, closed, member).statusCode)
 
         val after = assertNotNull(get(issuer, "/api/wallet").body)
-        val closedCard = assertNotNull(Regex("\\{\"pointType\":\\{[^}]*\"symbol\":\"CL\".*?\"sendable\":\\d+}").find(after)).value
+        val closedCard = assertNotNull(Regex("\\{\"pointType\":\\{[^}]*\"emoji\":\"🎪\".*?\"sendable\":\\d+}").find(after)).value
         assertTrue(closedCard.contains("\"neverSpent\":false"), "보냈으면 꺼진다: $closedCard")
 
         // 받기만 한 사람은 켜져 있다 — 아직 판단하지 않은 것이 맞다.
         assertTrue(assertNotNull(get(member, "/api/wallet").body).contains("\"neverSpent\":true"))
+    }
+
+    @Test
+    fun `이체에는 상대가 실려 오고 발행에는 오지 않는다`() {
+        val sent = send(issuer, closed, member)
+        assertEquals(HttpStatus.CREATED, sent.statusCode, sent.body)
+        // 보낸 쪽이 보는 상대는 받은 사람이다.
+        assertTrue(
+            assertNotNull(sent.body).contains("\"counterparty\":{\"name\":\"김지수\",\"handle\":\"@jisoo\",\"nameIsShared\":true}"),
+            "겹침도 원장 전체에서 센다: ${sent.body}",
+        )
+
+        // 받은 쪽이 보는 상대는 보낸 사람이다 — 같은 이체인데 방향이 다르다.
+        val theirHistory = assertNotNull(get(member, "/api/history").body)
+        assertTrue(theirHistory.contains("\"handle\":\"@onmart\""), "받은 쪽에는 보낸 사람이 실린다: $theirHistory")
+
+        // 발행에는 상대가 없다 — 빈 자리를 메우면 일어나지 않은 이체가 일어난 것처럼 읽힌다.
+        val issued = post(
+            issuer,
+            "/api/issues",
+            TransferRequest(pointTypeId = closed.publicId.toString(), amount = BigDecimal(1_000)),
+        )
+        assertEquals(HttpStatus.CREATED, issued.statusCode, issued.body)
+        assertTrue(assertNotNull(issued.body).contains("\"counterparty\":null"), issued.body)
     }
 
     private fun send(from: User, pointType: PointType, to: User) = post(
@@ -211,9 +235,9 @@ class PrivateBankMembersTest {
     private fun save(handle: String, name: String) =
         userRepository.save(User(name = name, handle = handle, passwordHash = passwordEncoder.encode("point")!!))
 
-    private fun point(name: String, symbol: String, visibility: PointVisibility) = PointType(
+    private fun point(name: String, emoji: String, visibility: PointVisibility) = PointType(
         name = name,
-        symbol = symbol,
+        emoji = emoji,
         issuer = issuer,
         accent = PointAccent.BLUE,
         visibility = visibility,

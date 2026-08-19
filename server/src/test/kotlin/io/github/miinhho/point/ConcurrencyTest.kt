@@ -71,7 +71,7 @@ class ConcurrencyTest {
         pointType = pointTypeRepository.save(
             PointType(
                 name = "금머니",
-                symbol = "GM",
+                emoji = "💰",
                 issuer = issuer,
                 accent = PointAccent.PURPLE,
                 visibility = PointVisibility.PUBLIC,
@@ -252,7 +252,7 @@ class ConcurrencyTest {
         val before = pointTypeRepository.count()
 
         val responses = inParallel(8) {
-            postPointType(token, key, CreatePointTypeRequest("동네빵집", "BK", "orange", BigDecimal(1_000_000), "public"))
+            postPointType(token, key, CreatePointTypeRequest("동네빵집", "🍞", null, "orange", BigDecimal(1_000_000), "public"))
         }
 
         assertTrue(responses.all { it.statusCode.is2xxSuccessful }, "전부 성공 응답이어야 한다: ${responses.map { it.statusCode }}")
@@ -260,23 +260,18 @@ class ConcurrencyTest {
         assertEquals(1, responses.mapNotNull { publicIdOf(it.body) }.toSet().size, "모두 같은 포인트를 돌려받아야 한다")
     }
 
+    // 계약: docs/API.md — 이모지는 겹쳐도 된다. 유일하게 두면 먼저 만든 사람이 차지하는 경주가 된다.
     @Test
-    fun `같은 기호로 동시에 창설하면 하나만 성공하고 나머지는 409 SYMBOL_TAKEN`() {
+    fun `같은 이모지로 동시에 창설해도 전부 만들어진다`() {
         val token = login("@minho").accessToken
         val before = pointTypeRepository.count()
 
-        // 키가 서로 다르다 — 다른 사람이 만든 것을 내 것이라고 돌려주면 안 된다.
         val responses = inParallel(6) {
-            postPointType(token, UUID.randomUUID().toString(), CreatePointTypeRequest("동네빵집", "bk", "orange", BigDecimal(1_000_000), "public"))
+            postPointType(token, UUID.randomUUID().toString(), CreatePointTypeRequest("동네빵집", "🍞", null, "orange", BigDecimal(1_000_000), "public"))
         }
 
-        assertEquals(1, responses.count { it.statusCode == HttpStatus.CREATED }, "기호가 같으니 하나만 성공해야 한다")
-        val losers = responses.filter { it.statusCode != HttpStatus.CREATED }
-        assertTrue(losers.all { it.statusCode.value() == 409 }, "진 쪽은 409 여야 한다: ${losers.map { it.statusCode }}")
-        assertTrue(losers.all { it.body?.contains("SYMBOL_TAKEN") == true }, "코드는 SYMBOL_TAKEN 이어야 한다")
-        assertEquals(before + 1, pointTypeRepository.count())
-        // 소문자로 보냈어도 정규화된 형태로 저장돼야 「전체에서 유일」이 성립한다.
-        assertNotNull(pointTypeRepository.findAll().firstOrNull { it.symbol == "BK" })
+        assertEquals(6, responses.count { it.statusCode == HttpStatus.CREATED }, "겹쳐도 막지 않는다: ${responses.map { it.statusCode }}")
+        assertEquals(before + 6, pointTypeRepository.count())
     }
 
     // 계약: docs/API.md — 상한 변경은 발행이 상한을 읽을 때와 같은 행을 잠근다.
@@ -346,7 +341,7 @@ class ConcurrencyTest {
     fun `창설을 같은 키로 다시 보내면 자기가 만든 기호에 SYMBOL_TAKEN 이 나지 않는다`() {
         val token = login("@minho").accessToken
         val key = UUID.randomUUID().toString()
-        val body = CreatePointTypeRequest("동네빵집", "BK", "orange", BigDecimal(1_000_000), "public")
+        val body = CreatePointTypeRequest("동네빵집", "🍞", null, "orange", BigDecimal(1_000_000), "public")
 
         val first = postPointType(token, key, body)
         assertEquals(HttpStatus.CREATED, first.statusCode)

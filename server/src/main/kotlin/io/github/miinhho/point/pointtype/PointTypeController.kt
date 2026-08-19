@@ -59,12 +59,18 @@ class PointTypeController(
         return try {
             ResponseEntity.status(HttpStatus.CREATED).body(pointTypeCreateService.create(userId, key, body))
         } catch (e: DataIntegrityViolationException) {
-            // 어느 제약이 깨졌는지는 키로 갈린다. 키가 이미 있으면 같은 사람이 다시 누른 것이고,
-            // 없으면 기호가 겹친 것이다 — 그때는 기존 것을 돌려주지 않는다.
-            pointTypeCreateService.findByIdempotencyKey(key, userId)?.let { return ResponseEntity.ok(it) }
-            throw DomainFailureException(FailureCode.SYMBOL_TAKEN, "이미 쓰이는 기호")
+            // 남은 unique 는 (발행자, 키)뿐이다 — 같은 사람이 다시 누른 것이다.
+            ResponseEntity.ok(pointTypeCreateService.findByIdempotencyKey(key, userId) ?: throw e)
         }
     }
+
+    // 소개는 약속이 아니라 발행자가 적는 글이다 — 이력에 남지 않으므로 멱등성 키도 없다.
+    @PatchMapping("/point-types/{id}")
+    fun changeDescription(
+        @PathVariable id: String,
+        @RequestBody body: ChangeDescriptionRequest,
+        @AuthenticationPrincipal userId: Long,
+    ): PointTypeResponse = pointTypeCreateService.changeDescription(userId, id, body.description)
 
     // 취소 엔드포인트는 없다. 낮추는 것은 다시 PATCH 지만 취소가 아니다 —
     // 올려 둔 동안 발행된 것은 이미 남의 지갑에 있다.

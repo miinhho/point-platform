@@ -89,7 +89,7 @@ class MigrationTest {
                 c.createStatement().executeQuery(
                     """select p.visibility, count(m.user_id)
                        from point_types p left join memberships m on m.point_type_id = p.id and m.user_id = p.issuer_id
-                       group by p.id, p.visibility order by p.symbol""",
+                       group by p.id, p.visibility order by p.id""",
                 ).use { rs ->
                     assertTrue(rs.next()); assertEquals("PRIVATE", rs.getString(1))
                     assertEquals(1, rs.getInt(2), "비공개 은행의 은행장은 회원이어야 한다")

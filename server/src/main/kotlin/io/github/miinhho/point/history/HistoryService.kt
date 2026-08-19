@@ -5,6 +5,7 @@ import io.github.miinhho.point.pointtype.CapChange
 import io.github.miinhho.point.pointtype.CapChangeRepository
 import io.github.miinhho.point.pointtype.PointTypeRepository
 import io.github.miinhho.point.transfer.TransferRepository
+import io.github.miinhho.point.user.UserRepository
 import io.github.miinhho.point.transfer.toResponse
 import org.springframework.data.domain.Limit
 import org.springframework.stereotype.Service
@@ -17,6 +18,7 @@ class HistoryService(
     private val capChangeRepository: CapChangeRepository,
     private val pointTypeRepository: PointTypeRepository,
     private val balanceRepository: BalanceRepository,
+    private val userRepository: UserRepository,
 ) {
     @Transactional(readOnly = true)
     fun history(userId: Long, pointTypePublicId: String?, limit: Int): List<HistoryEntryResponse> {
@@ -27,8 +29,10 @@ class HistoryService(
 
         // 각 목록에서 limit 만큼 뽑아 합친 뒤 다시 limit 으로 자른다 — 어느 쪽이 몰려 있어도
         // 시간순 상위 limit 개가 정확히 나온다.
+        // 겹침은 원장 전체에서 한 번만 집계한다 — 이체마다 세면 N+1 이다.
+        val sharedNames = userRepository.sharedNames()
         val transfers = transferRepository.history(userId, filterId, Limit.of(limit))
-            .map { HistoryEntryResponse(type = "transfer", transfer = it.toResponse()) to it.createdAt }
+            .map { HistoryEntryResponse(type = "transfer", transfer = it.toResponse(userId, sharedNames)) to it.createdAt }
 
         val capChanges = visibleCapChanges(userId, filterId, limit)
             .map { HistoryEntryResponse(type = "capChange", capChange = it.toResponse()) to it.changedAt }

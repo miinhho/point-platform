@@ -11,8 +11,6 @@ import jakarta.persistence.GenerationType
 import jakarta.persistence.Id
 import jakarta.persistence.JoinColumn
 import jakarta.persistence.ManyToOne
-import jakarta.persistence.PrePersist
-import jakarta.persistence.PreUpdate
 import jakarta.persistence.Table
 import java.time.Instant
 import java.util.UUID
@@ -23,8 +21,9 @@ class PointType(
     @Column(nullable = false, length = 50)
     var name: String,
 
-    @Column(nullable = false, unique = true, length = 10)
-    var symbol: String,
+    // 유일하지 않다 — 알아보는 표식이지 가리키는 표식이 아니다. 무엇을 가르는 데 쓰지 않는다.
+    @Column(nullable = false, length = 32)
+    var emoji: String,
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "issuer_id", nullable = false)
@@ -39,6 +38,10 @@ class PointType(
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 10, updatable = false)
     val visibility: PointVisibility,
+
+    // 약속이 아니라 소개다. 상한과 달리 바꿔도 이력에 남지 않는다.
+    @Column(length = 255)
+    var description: String? = null,
 
     @Column(name = "issue_cap", nullable = false)
     var issueCap: Long,
@@ -60,18 +63,9 @@ class PointType(
     var id: Long? = null
         protected set
 
-    // symbol 은 var 라 바뀔 수 있으므로 equals/hashCode 의 기준으로 쓰지 않는다.
     @Column(name = "public_id", nullable = false, unique = true, updatable = false)
     var publicId: UUID = UUID.randomUUID()
         protected set
-
-    // 기호 unique 는 정규화된 형태에 걸려야 한다 — 조회만 정규화하면 GM 과 gm 두 행이
-    // 공존하고, 그러면 「전체에서 유일」이 깨진다 (docs/API.md 「동시에 왔을 때」).
-    @PrePersist
-    @PreUpdate
-    protected fun normalize() {
-        symbol = symbol.trim().uppercase()
-    }
 
     override fun equals(other: Any?) = other is PointType && publicId == other.publicId
     override fun hashCode() = publicId.hashCode()

@@ -57,9 +57,9 @@ class NameIsSharedTest {
         save("@taeyun", "박태윤")
 
         // 이름이 겹치는 포인트 둘. jisoo 는 그중 한쪽만 가진다.
-        val onFromOnmart = pointTypeRepository.save(point("온포인트", "ON", onmart, PointAccent.BLUE))
-        pointTypeRepository.save(point("온포인트", "OP", solcafe, PointAccent.TEAL))
-        pointTypeRepository.save(point("솔포인트", "SL", solcafe, PointAccent.GREEN))
+        val onFromOnmart = pointTypeRepository.save(point("온포인트", "🔵", onmart, PointAccent.BLUE))
+        pointTypeRepository.save(point("온포인트", "🟣", solcafe, PointAccent.TEAL))
+        pointTypeRepository.save(point("솔포인트", "🌞", solcafe, PointAccent.GREEN))
 
         balanceRepository.save(Balance(user = jisoo, pointType = onFromOnmart, amount = 812_000))
     }
@@ -111,7 +111,7 @@ class NameIsSharedTest {
     private fun save(handle: String, name: String) =
         userRepository.save(User(name = name, handle = handle, passwordHash = passwordEncoder.encode("point")!!))
 
-    private fun point(name: String, symbol: String, issuer: User, accent: PointAccent) =
-        PointType(name = name, symbol = symbol, issuer = issuer, accent = accent,
+    private fun point(name: String, emoji: String, issuer: User, accent: PointAccent) =
+        PointType(name = name, emoji = emoji, issuer = issuer, accent = accent,
             visibility = PointVisibility.PUBLIC, issueCap = 1_000_000, totalIssued = 0)
 }

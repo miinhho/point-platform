@@ -3,6 +3,7 @@ package io.github.miinhho.point
 import io.github.miinhho.point.auth.LoginRequest
 import io.github.miinhho.point.auth.LoginResponse
 import io.github.miinhho.point.pointtype.ChangeCapRequest
+import io.github.miinhho.point.pointtype.ChangeDescriptionRequest
 import io.github.miinhho.point.pointtype.CreatePointTypeRequest
 import io.github.miinhho.point.pointtype.Membership
 import io.github.miinhho.point.pointtype.MembershipRepository
@@ -68,8 +69,8 @@ class BankPageTest {
         leftBehind = save("@nara", "이나라")
         stranger = save("@mose", "정모세")
 
-        open = pointTypeRepository.save(point("온포인트", "ON", PointVisibility.PUBLIC))
-        closed = pointTypeRepository.save(point("동아리비", "CL", PointVisibility.PRIVATE))
+        open = pointTypeRepository.save(point("온포인트", "🔵", PointVisibility.PUBLIC))
+        closed = pointTypeRepository.save(point("동아리비", "🎪", PointVisibility.PRIVATE))
 
         // 은행장은 언제나 회원이다. 나간 사람은 회원이 아닌 채로 잔액만 남는다.
         membershipRepository.save(Membership(pointType = closed, user = issuer))
@@ -150,25 +151,61 @@ class BankPageTest {
 
     @Test
     fun `창설은 visibility 를 명시적으로 받는다`() {
-        val missing = create(issuer, CreatePointTypeRequest("동네빵집", "BK", "orange", BigDecimal(1_000_000)))
+        val missing = create(issuer, CreatePointTypeRequest("동네빵집", "🍞", null, "orange", BigDecimal(1_000_000)))
         assertEquals(HttpStatus.BAD_REQUEST, missing.statusCode, "기본값을 두면 모르는 사이에 열린다")
         assertTrue(assertNotNull(missing.body).contains("\"code\":\"MALFORMED_REQUEST\""), missing.body)
 
-        val nonsense = create(issuer, CreatePointTypeRequest("동네빵집", "BK", "orange", BigDecimal(1_000_000), "secret"))
+        val nonsense = create(issuer, CreatePointTypeRequest("동네빵집", "🍞", null, "orange", BigDecimal(1_000_000), "secret"))
         assertEquals(HttpStatus.BAD_REQUEST, nonsense.statusCode, nonsense.body)
     }
 
     @Test
     fun `비공개로 창설하면 은행장이 곧 회원이다`() {
-        val created = create(issuer, CreatePointTypeRequest("동네빵집", "BK", "orange", BigDecimal(1_000_000), "private"))
+        val created = create(issuer, CreatePointTypeRequest("동네빵집", "🍞", null, "orange", BigDecimal(1_000_000), "private"))
         assertEquals(HttpStatus.CREATED, created.statusCode, created.body)
         val body = assertNotNull(created.body)
         assertTrue(body.contains("\"visibility\":\"private\""), body)
         assertTrue(body.contains("\"memberCount\":1"), "은행장은 나갈 수 없으므로 언제나 회원이다: $body")
 
         // 공개는 그 반대다 — 회원 개념 자체가 없다.
-        val public = create(issuer, CreatePointTypeRequest("솔카페", "SL", "teal", BigDecimal(1_000_000), "public"))
+        val public = create(issuer, CreatePointTypeRequest("솔카페", "🍞", null, "teal", BigDecimal(1_000_000), "public"))
         assertTrue(assertNotNull(public.body).contains("\"memberCount\":null"), public.body)
+    }
+
+    @Test
+    fun `이모지는 겹쳐도 되고 소개는 없어도 만들어진다`() {
+        val a = create(issuer, CreatePointTypeRequest("동네빵집", "🍞", "골목 끝 빵집이에요", "orange", BigDecimal(1_000_000), "public"))
+        assertEquals(HttpStatus.CREATED, a.statusCode, a.body)
+        assertTrue(assertNotNull(a.body).contains("\"emoji\":\"🍞\""), a.body)
+        assertTrue(assertNotNull(a.body).contains("\"description\":\"골목 끝 빵집이에요\""), a.body)
+
+        // 같은 이모지를 다시 쓴다 — 유일성은 버렸다.
+        val b = create(issuer, CreatePointTypeRequest("옆집빵집", "🍞", null, "orange", BigDecimal(1_000_000), "public"))
+        assertEquals(HttpStatus.CREATED, b.statusCode, b.body)
+        assertTrue(assertNotNull(b.body).contains("\"description\":null"), "없어도 만들어진다: ${b.body}")
+    }
+
+    @Test
+    fun `소개는 발행자만 바꾸고 60자를 넘지 못한다`() {
+        val created = assertNotNull(
+            create(issuer, CreatePointTypeRequest("동네빵집", "🍞", null, "orange", BigDecimal(1_000_000), "public")).body,
+        )
+        val id = Regex("\"id\":\"([^\"]+)\"").find(created)!!.groupValues[1]
+
+        val mine = patch(issuer, "/api/point-types/$id", ChangeDescriptionRequest("빵 사면 쌓여요"))
+        assertEquals(HttpStatus.OK, mine.statusCode, mine.body)
+        assertTrue(assertNotNull(mine.body).contains("\"description\":\"빵 사면 쌓여요\""), mine.body)
+
+        val theirs = patch(member, "/api/point-types/$id", ChangeDescriptionRequest("내가 바꾼다"))
+        assertEquals(HttpStatus.FORBIDDEN, theirs.statusCode, theirs.body)
+        assertTrue(assertNotNull(theirs.body).contains("NOT_ISSUER"), theirs.body)
+
+        val tooLong = patch(issuer, "/api/point-types/$id", ChangeDescriptionRequest("가".repeat(61)))
+        assertEquals(HttpStatus.BAD_REQUEST, tooLong.statusCode, tooLong.body)
+
+        // 빈 문자열은 지운다는 뜻이다.
+        val cleared = patch(issuer, "/api/point-types/$id", ChangeDescriptionRequest(""))
+        assertTrue(assertNotNull(cleared.body).contains("\"description\":null"), cleared.body)
     }
 
     @Test
@@ -210,9 +247,9 @@ class BankPageTest {
     private fun save(handle: String, name: String) =
         userRepository.save(User(name = name, handle = handle, passwordHash = passwordEncoder.encode("point")!!))
 
-    private fun point(name: String, symbol: String, visibility: PointVisibility) = PointType(
+    private fun point(name: String, emoji: String, visibility: PointVisibility) = PointType(
         name = name,
-        symbol = symbol,
+        emoji = emoji,
         issuer = issuer,
         accent = PointAccent.BLUE,
         visibility = visibility,

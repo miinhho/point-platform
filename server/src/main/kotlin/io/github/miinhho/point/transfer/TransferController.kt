@@ -3,6 +3,7 @@ package io.github.miinhho.point.transfer
 import io.github.miinhho.point.shared.DomainFailureException
 import io.github.miinhho.point.shared.FailureCode
 import io.github.miinhho.point.pointtype.PointTypeRepository
+import io.github.miinhho.point.user.UserRepository
 import org.springframework.dao.DataIntegrityViolationException
 import tools.jackson.databind.JsonNode
 import tools.jackson.databind.ObjectMapper
@@ -31,6 +32,7 @@ class TransferController(
     private val transferService: TransferService,
     private val transferRepository: TransferRepository,
     private val pointTypeRepository: PointTypeRepository,
+    private val userRepository: UserRepository,
     private val objectMapper: ObjectMapper,
 ) {
     @PostMapping("/transfers")
@@ -71,7 +73,7 @@ class TransferController(
         val transfer = publicId?.let(transferRepository::findByPublicId)
             ?.takeIf { it.from?.id == userId || it.to.id == userId }
             ?: throw DomainFailureException(FailureCode.TRANSFER_NOT_FOUND, "없음")
-        return transfer.toResponse()
+        return transfer.toResponse(userId, userRepository.sharedNames())
     }
 
     @GetMapping("/transfers")
@@ -86,7 +88,8 @@ class TransferController(
                 ?: return emptyList()
             id.id
         }
-        return transferRepository.history(userId, resolvedPointTypeId, Limit.of(limit)).map { it.toResponse() }
+        return transferRepository.history(userId, resolvedPointTypeId, Limit.of(limit))
+            .map { it.toResponse(userId, userRepository.sharedNames()) }
     }
 
     private fun commit(
