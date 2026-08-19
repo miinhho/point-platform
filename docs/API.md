@@ -295,8 +295,22 @@ type HistoryEntry =
   | { type: 'issue'; issue: Issue }
   | { type: 'capChange'; capChange: CapChange }
 
-**세 갈래 모두 `point` 를 싣는다.** `{ name, emoji, accent, nameIsShared, issuerHandle }`
-이고, `counterparty` 와 같은 모양이다.
+/** 그 줄이 어느 포인트인가. 세 갈래 모두 싣고, 단건 조회도 싣는다 */
+interface PointMark {
+  name: string
+  emoji: string
+  accent: PointAccent
+  nameIsShared: boolean
+  issuerHandle: string
+}
+
+**세 갈래 모두 `point` 를 싣는다. 그리고 단건 조회도 싣는다** —
+`GET /api/transfers/:id` 와 `GET /api/issues/:id` 다. 목록만 고치면 **한 화면에서 확인한
+것이 다음 화면에서 부정된다.** 내역에서 「솔카페」라고 제대로 읽고 그 줄을 눌렀는데
+상세에는 이름이 없고 화면이 통째로 기본색이 된다 — 되돌릴 수 없는 이체를 확인하러 들어간
+자리에서 그렇다.
+
+상세도 **일어난 일**이지 **지금 가진 것**이 아니다. 지갑을 뒤지는 길을 남겨 두면 안 된다.
 
 클라이언트가 `pointTypeId` 로 지갑을 뒤져 이름을 맞추면 안 된다. **지갑과 내역은 모수가
 다르다** — 지갑은 지금 가진 것이고 내역은 일어난 일이다. 실제로 지갑은
