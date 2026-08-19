@@ -14,7 +14,7 @@ import { HoldButton } from '@/shared/ui/HoldButton'
  * 상한 변경. 발행과 같은 무게로 다룬다 — docs/JOURNEY.md 여정 9.
  * 지금 상한과 유통량은 이 페이지가 이미 말하므로 여기서 다시 말하지 않는다.
  */
-export function CapForm({ pointType }: { pointType: PointType }) {
+export function CapForm({ pointType, onChanged }: { pointType: PointType; onChanged: () => void }) {
   const { t } = useTranslation()
   const client = useQueryClient()
   const [cap, setCap] = useState('')
@@ -32,8 +32,9 @@ export function CapForm({ pointType }: { pointType: PointType }) {
       void client.invalidateQueries({ queryKey: queryKeys.history })
       setCap('')
       setChanged(true)
-      // 화면을 떠나지 않고 또 바꿀 수 있다. 키를 물려주면 두 번째가 첫 번째의 재시도가 된다.
+      // 또 바꿀 수 있다. 키를 물려주면 두 번째가 첫 번째의 재시도가 된다.
       setIdempotencyKey(newIdempotencyKey())
+      onChanged()
     },
     // 어디를 고쳐야 하는지 포커스로도 말한다 — docs/FIELD.md S9-5 와 같은 자리다.
     onError: (failure) => {
@@ -50,8 +51,6 @@ export function CapForm({ pointType }: { pointType: PointType }) {
 
   return (
     <Box display="flex" flexDirection="column" gap="4">
-      <Text textStyle="label">{t('cap.title')}</Text>
-
       <Field.Root invalid={error?.code === 'CAP_BELOW_ISSUED'}>
         <Field.Label>{t('cap.next')}</Field.Label>
         <Input
@@ -88,12 +87,11 @@ export function CapForm({ pointType }: { pointType: PointType }) {
       <VisuallyHidden aria-live="polite">{changed ? t('cap.changed') : ''}</VisuallyHidden>
 
       {/*
-        다른 화면의 확정 버튼은 `Body` 밖에 있어 늘 바닥에 있다. 이 폼은 페이지
-        안에 있어 그럴 수 없고, 값을 입력하면 위의 미리보기가 늘어나면서 버튼이
-        접힌 곳으로 밀렸다 — 관측: docs/FIELD.md W5-2. 되돌릴 수 없는 조작의
-        확정 버튼이 소리 없이 사라지면 사용자는 그것이 있는 줄도 모른다.
+        고정하지 않는다. 붙여 두면 되돌릴 수 없는 조작이 엄지 자리에 상주한다 —
+        그 자리는 그 화면의 주된 행동이 앉는 자리다. 밀림은 화면을 통째로 내주는
+        것으로 푼다(`ChangeCap`). 근거: docs/MOTION.md
       */}
-      <Box position="sticky" bottom="0" bg="bg" paddingTop="3" paddingBottom="2">
+      <Box paddingTop="2">
         <Text textStyle="caption" textAlign="center" marginBottom="2">
           {t('cap.irreversible')}
         </Text>

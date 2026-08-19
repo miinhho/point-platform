@@ -1,6 +1,7 @@
 import { Box, Button, SkeletonCircle, Text, VisuallyHidden } from '@chakra-ui/react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSetAtom } from 'jotai'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { endpoints } from '@/api/endpoints'
 import { ApiError } from '@/api/http'
@@ -14,9 +15,10 @@ import { Line } from '@/shared/ui/Line'
 import { PointBadge } from '@/shared/ui/PointBadge'
 import { LineSkeleton, Loadable, NameSkeleton } from '@/shared/ui/Loadable'
 import { Body, Gutter, Header, Screen, Title } from '@/shared/ui/Screen'
+import type { ReactNode } from 'react'
 import type { PointType, PointTypeId } from '@/api/contract'
 import { formatCreated } from '../model/created'
-import { CapForm } from './CapForm'
+import { ChangeCap } from './ChangeCap'
 
 /**
  * 포인트 하나에 페이지 하나다. 보는 사람에 따라 내용이 늘어날 뿐 다른 페이지가
@@ -52,6 +54,7 @@ export function Bank({ pointTypeId, onBack }: { pointTypeId: PointTypeId; onBack
   const outside =
     isPrivate && !invite && members.error instanceof ApiError && members.error.code === 'NOT_MEMBER'
 
+  const [changingCap, setChangingCap] = useState(false)
   const balance = wallet.data?.balances.find((b) => b.pointType.id === pointTypeId)
 
   // 못 불러온 것을 빈 화면으로 두지 않는다. 헤더는 남겨야 돌아갈 길이 보인다.
@@ -90,6 +93,12 @@ export function Bank({ pointTypeId, onBack }: { pointTypeId: PointTypeId; onBack
     )
   }
 
+  // 상한을 바꾸는 동안은 그것이 이 화면의 일이다. 페이지 위에 얹지 않고 화면을
+  // 통째로 내준다 — 되돌릴 수 없는 확정을 다른 것과 나란히 두지 않는다.
+  if (changingCap) {
+    return <ChangeCap pointType={pointType} onDone={() => setChangingCap(false)} />
+  }
+
   return (
     <Screen>
       <Header>
@@ -98,35 +107,26 @@ export function Bank({ pointTypeId, onBack }: { pointTypeId: PointTypeId; onBack
       </Header>
 
       <Body>
-        <Gutter paddingTop="4" paddingBottom="6" colorPalette={pointType.accent}>
-          <Intro pointType={pointType} />
-
+        <Gutter paddingTop="4" paddingBottom="8" colorPalette={pointType.accent}>
           {invite ? <Join inviteId={invite.id} pointTypeId={pointTypeId} /> : null}
 
-          {/* 회원 목록은 회원만 본다. 초대받았을 뿐이거나 나온 사람은 명부를 볼 자리가 아니다 */}
-          {isPrivate && !invite && !outside ? (
-            <Box marginTop="6">
-              <Button
-                size="lg"
-                width="full"
-                variant="outline"
-                onClick={() => go({ name: 'members', pointTypeId: pointType.id })}
-              >
-                {t('bank.membersEntry')}
-              </Button>
-            </Box>
+          {/* 나온 사람의 Attention 은 「왜 못 쓰나」다. 잔액보다 먼저 온다 */}
+          {outside ? <Outside /> : null}
+
+          {/* 은행장의 Attention 은 회원이다 — 운영의 두 축이 사람과 돈이다 */}
+          {pointType.canIssue && isPrivate ? (
+            <Section
+              label={t('bank.members')}
+              value={t('bank.memberCountValue', { count: pointType.memberCount ?? 0 })}
+              action={t('bank.membersEntry')}
+              onAction={() => go({ name: 'members', pointTypeId: pointType.id })}
+            />
           ) : null}
 
+          {/* 보유자의 Attention 은 내 잔액이다 */}
           {balance ? (
-            <Box marginTop="6" display="flex" flexDirection="column" gap="3">
-              <Line
-                label={t('bank.myBalance')}
-                value={toGrouped(balance.amount)}
-                textStyle="lineStrong"
-              />
-              {outside ? (
-                <Outside />
-              ) : (
+            <Section label={t('bank.myBalance')} value={toGrouped(balance.amount)}>
+              {outside ? null : (
                 <Button
                   size="xl"
                   width="full"
@@ -136,16 +136,12 @@ export function Bank({ pointTypeId, onBack }: { pointTypeId: PointTypeId; onBack
                   {t('bank.send')}
                 </Button>
               )}
-            </Box>
+            </Section>
           ) : null}
 
+          {/* 여력·유통량·상한은 한 덩어리다. 상한 바꾸기는 그 안의 행동이지 나란한 기능이 아니다 */}
           {pointType.canIssue ? (
-            <Box marginTop="8" display="flex" flexDirection="column" gap="3">
-              <Line
-                label={t('bank.headroom')}
-                value={toGrouped(pointType.issuableHeadroom)}
-                textStyle="lineStrong"
-              />
+            <Section label={t('bank.headroom')} value={toGrouped(pointType.issuableHeadroom)}>
               <Button
                 size="xl"
                 width="full"
@@ -153,25 +149,79 @@ export function Bank({ pointTypeId, onBack }: { pointTypeId: PointTypeId; onBack
               >
                 {t('bank.issue')}
               </Button>
-              {pointType.visibility === 'private' ? (
-                <Button
-                  size="lg"
-                  width="full"
-                  variant="outline"
-                  onClick={() => go({ name: 'invite', pointTypeId: pointType.id })}
-                >
-                  {t('bank.invite')}
+              <Box display="flex" justifyContent="center">
+                <Button size="sm" variant="ghost" onClick={() => setChangingCap(true)}>
+                  {t('cap.entry')}
                 </Button>
-              ) : null}
-              {/* 상한도 발행과 같은 무게다. 그래서 같은 자리에 둔다 — 여정 9 */}
-              <Box marginTop="4">
-                <CapForm pointType={pointType} />
               </Box>
+            </Section>
+          ) : null}
+
+          {/* 회원이 아닌 사람도 보는 소개. 은행장에게는 남에게 보이는 얼굴이라 마지막이다 */}
+          <Box marginTop="8">
+            <Intro pointType={pointType} />
+          </Box>
+
+          {pointType.canIssue && isPrivate ? (
+            <Box marginTop="4">
+              <Button
+                size="sm"
+                width="full"
+                variant="outline"
+                onClick={() => go({ name: 'invite', pointTypeId: pointType.id })}
+              >
+                {t('bank.invite')}
+              </Button>
+            </Box>
+          ) : null}
+
+          {/* 회원이지만 은행장은 아닌 사람 — 명부는 볼 수 있으나 그의 주된 일이 아니다 */}
+          {isPrivate && !invite && !outside && !pointType.canIssue ? (
+            <Box marginTop="4">
+              <Button
+                size="sm"
+                width="full"
+                variant="outline"
+                onClick={() => go({ name: 'members', pointTypeId: pointType.id })}
+              >
+                {t('bank.membersEntry')}
+              </Button>
             </Box>
           ) : null}
         </Gutter>
       </Body>
     </Screen>
+  )
+}
+
+interface SectionProps {
+  label: string
+  value: string
+  action?: string
+  onAction?: () => void
+  children?: ReactNode
+}
+
+/**
+ * 한 덩어리 = 라벨 · 제일 큰 수 · 그 수로 하는 행동. 화면의 위계를 크기가 말하게
+ * 하려면 덩어리마다 「제일 큰 것」이 하나여야 한다. 근거: docs/MOTION.md
+ */
+function Section({ label, value, action, onAction, children }: SectionProps) {
+  return (
+    <Box marginTop="6" display="flex" flexDirection="column" gap="3">
+      <Box>
+        <Text textStyle="caption">{label}</Text>
+        <Box display="flex" alignItems="baseline" justifyContent="space-between" gap="3">
+          <Text textStyle="balance">{value}</Text>
+          {action && onAction ? (
+            <Button size="sm" variant="ghost" flexShrink={0} onClick={onAction}>
+              {action}
+            </Button>
+          ) : null}
+        </Box>
+      </Box>
+      {children}
+    </Box>
   )
 }
 
@@ -245,19 +295,13 @@ function Intro({ pointType }: { pointType: PointType }) {
         </Box>
       </Box>
 
-      <Box marginTop="5" display="flex" flexDirection="column" gap="2">
-        <Line label={t('bank.issuer')} value={pointType.issuerHandle} textStyle="mono" />
+      <Box marginTop="4" display="flex" flexDirection="column" gap="2">
+        <Line label={t('bank.issuer')} value={pointType.issuerHandle} />
         <Line label={t('bank.created')} value={formatCreated(pointType.createdAt)} />
         <Line label={t('bank.supply')} value={toGrouped(pointType.totalIssued)} />
         {/* 상한은 발행자의 설정이 아니라 보유자에게 하는 약속이다 — 계약: docs/API.md */}
         <Line label={t('bank.cap')} value={toGrouped(pointType.issueCap)} />
         {/* 공개 은행에는 회원 개념이 없어 `null` 이다. 0 명과 구별된다 */}
-        {pointType.memberCount === null ? null : (
-          <Line
-            label={t('bank.members')}
-            value={t('bank.memberCountValue', { count: pointType.memberCount })}
-          />
-        )}
       </Box>
     </>
   )

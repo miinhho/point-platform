@@ -88,6 +88,7 @@ export const ko = {
 
   cap: {
     title: '발행 상한 바꾸기',
+    entry: '상한 바꾸기',
     next: '새 상한',
     floor: '{{amount}}보다 낮출 수 없어요',
     holdersLabel: '가진 사람에게는',

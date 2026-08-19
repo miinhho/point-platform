@@ -44,8 +44,8 @@ describe('은행 페이지', () => {
     expect(screen.getByText('10,000,000')).toBeTruthy()
     expect(screen.getByText('8,800,000')).toBeTruthy()
     expect(screen.getByRole('button', { name: '발행하기' })).toBeTruthy()
-    // 상한 변경도 이 페이지 안에 있다. 화면을 하나 더 만들면 같은 은행을 두 곳에서 설명한다.
-    expect(screen.getByLabelText('새 상한')).toBeTruthy()
+    // 상한 바꾸기는 발행의 조건이지 나란한 기능이 아니다 — 작게 붙어 있다.
+    expect(screen.getByRole('button', { name: '상한 바꾸기' })).toBeTruthy()
   })
 
   // 처음 만나는 순간에는 유통량이 판단을 가른다 — 여정 8 의 「소음」은 이미 쓰는 포인트 이야기다.
@@ -57,7 +57,7 @@ describe('은행 페이지', () => {
     expect(screen.getByText('1,200,000')).toBeTruthy()
     // 발행 도구는 오지 않는다.
     expect(screen.queryByRole('button', { name: '발행하기' })).toBeNull()
-    expect(screen.queryByLabelText('새 상한')).toBeNull()
+    expect(screen.queryByRole('button', { name: '상한 바꾸기' })).toBeNull()
   })
 
   it('가진 사람에게는 내 잔액과 보내기가 붙는다', async () => {
@@ -77,5 +77,52 @@ describe('은행 페이지', () => {
     await user.click(cardOf('금머니'))
 
     expect(await screen.findByText('누구에게 보낼까요?')).toBeTruthy()
+  })
+})
+
+/*
+ * 역할마다 위가 다르다 — 보유자에게 제일 큰 것은 「내 잔액」, 은행장에게는 회원과
+ * 여력, 나온 사람에게는 「왜 못 쓰나」다. 하나로 합치면 셋 다 이류가 된다.
+ * 근거: docs/MOTION.md 「역할마다 따로 적는다」
+ */
+describe('위계는 역할마다 다르다', () => {
+  /** 화면에 나오는 순서. 제일 먼저 나오는 것이 주의가 처음 닿는 곳이다 */
+  function orderOf(...texts: string[]): string[] {
+    const found = texts
+      .map((text) => ({ text, node: screen.queryAllByText(text)[0] }))
+      .filter((entry) => entry.node)
+    return found
+      .sort((a, b) =>
+        a.node.compareDocumentPosition(b.node) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1,
+      )
+      .map((entry) => entry.text)
+  }
+
+  it('보유자에게는 내 잔액이 소개보다 먼저다', async () => {
+    await signInAs('@jisu')
+    await openBank('금머니')
+
+    expect(orderOf('내 잔액', '만든 사람')).toEqual(['내 잔액', '만든 사람'])
+  })
+
+  it('은행장에게는 회원과 여력이 소개보다 먼저다', async () => {
+    await openBank('동아리회비')
+
+    expect(orderOf('회원', '남은 여력', '만든 사람')).toEqual(['회원', '남은 여력', '만든 사람'])
+  })
+
+  it('나온 사람에게는 왜 못 쓰는지가 잔액보다 먼저다', async () => {
+    await signInAs('@jisoo')
+    const user = userEvent.setup()
+    renderApp(<App />)
+    await user.click(await screen.findByRole('button', { name: '동아리회비 자세히' }))
+    await user.click(await screen.findByRole('button', { name: '회원 보기' }))
+    await user.click(await screen.findByRole('button', { name: '나가기' }))
+    await screen.findByText('이 은행의 회원이 아니에요')
+
+    expect(orderOf('이 은행의 회원이 아니에요', '내 잔액')).toEqual([
+      '이 은행의 회원이 아니에요',
+      '내 잔액',
+    ])
   })
 })
