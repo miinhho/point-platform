@@ -7,7 +7,7 @@ import { walletQuery } from '@/api/queries'
 import { toGrouped } from '@/shared/format'
 import { BackButton } from '@/shared/ui/BackButton'
 import { Line } from '@/shared/ui/Line'
-import { Loadable, LinesSkeleton } from '@/shared/ui/Loadable'
+import { AmountSkeleton, LineSkeleton, Loadable, NameSkeleton } from '@/shared/ui/Loadable'
 import { Body, Gutter, Header, Screen, Title } from '@/shared/ui/Screen'
 import type { PointType, Transfer } from '@/api/contract'
 import { formatTime } from '../model/time'
@@ -45,8 +45,23 @@ export function HistoryDetail({ transferId, onBack }: Props) {
             onRetry={() => void one.refetch()}
             label={t('history.detailFailed')}
             skeleton={
-              <Gutter paddingTop="4">
-                <LinesSkeleton count={4} />
+              /*
+                이 화면의 실제 모양이다 — 큰 이름 → 핸들 → 포인트 이름 + 큰 금액 →
+                아래 줄. 균일한 줄 넷을 두면 제일 큰 둘에 자리가 없어 내용이 오는
+                순간 통째로 재배치된다.
+              */
+              <Gutter paddingTop="4" display="flex" flexDirection="column">
+                <NameSkeleton />
+                <Box marginTop="2">
+                  <LineSkeleton />
+                </Box>
+                <Box marginTop="5" display="flex" flexDirection="column" gap="2">
+                  <NameSkeleton width="28%" />
+                  <AmountSkeleton />
+                </Box>
+                <Box marginTop="6">
+                  <LineSkeleton />
+                </Box>
               </Gutter>
             }
           >

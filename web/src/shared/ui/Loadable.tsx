@@ -44,34 +44,52 @@ export function Loadable({ pending, failed, onRetry, label, skeleton, children }
   return <>{pending ? skeleton : children}</>
 }
 
-/** 목록이 올 자리. 줄 수는 화면이 정한다 — 실제로 올 만큼이어야 자리가 안 뛴다 */
-export function RowsSkeleton({ count = 3, avatar = true }: { count?: number; avatar?: boolean }) {
+/*
+ * 아래는 **조각**이다. 조합은 화면이 한다.
+ *
+ * 균일한 회색 줄을 늘어놓는 뼈대는 어느 화면에나 쓸 수 있고 그래서 어느 화면에도
+ * 맞지 않는다 — 스피너를 회색 사각형으로 바꾼 것에 지나지 않는다. 뼈대의 유일한
+ * 임무는 올 것의 자리를 잡는 것이고, 제일 큰 요소부터 잡아야 화면이 덜 뛴다.
+ */
+
+/** 목록 한 줄. 아바타·부제·오른쪽 값은 그 목록에 실제로 있는 것만 켠다 */
+export function RowSkeleton({
+  avatar = false,
+  caption = true,
+  trailing,
+}: {
+  avatar?: boolean
+  caption?: boolean
+  trailing?: string
+}) {
   return (
-    <Box aria-hidden>
-      {Array.from({ length: count }, (_, index) => (
-        <Row key={index}>
-          {avatar ? <SkeletonCircle boxSize="avatar" flexShrink={0} /> : null}
-          <Box flex={1} minW={0} display="flex" flexDirection="column" gap="2">
-            <Skeleton height="4" width="40%" />
-            <Skeleton height="3" width="24%" />
-          </Box>
-          <Skeleton height="5" width="72px" flexShrink={0} />
-        </Row>
-      ))}
+    <Row aria-hidden>
+      {avatar ? <SkeletonCircle boxSize="avatar" flexShrink={0} /> : null}
+      <Box flex={1} minW={0} display="flex" flexDirection="column" gap="2">
+        <Skeleton height="4" width="40%" />
+        {caption ? <Skeleton height="3" width="24%" /> : null}
+      </Box>
+      {trailing ? <Skeleton height="5" width={trailing} flexShrink={0} /> : null}
+    </Row>
+  )
+}
+
+/** 라벨과 값 한 줄 */
+export function LineSkeleton() {
+  return (
+    <Box aria-hidden display="flex" justifyContent="space-between" gap="4">
+      <Skeleton height="3" width="20%" />
+      <Skeleton height="3" width="32%" />
     </Box>
   )
 }
 
-/** 라벨과 값이 줄줄이 오는 자리 — 소개·상세가 같은 모양이다 */
-export function LinesSkeleton({ count = 3 }: { count?: number }) {
-  return (
-    <Box aria-hidden display="flex" flexDirection="column" gap="3">
-      {Array.from({ length: count }, (_, index) => (
-        <Box key={index} display="flex" justifyContent="space-between" gap="4">
-          <Skeleton height="3" width="20%" />
-          <Skeleton height="3" width="32%" />
-        </Box>
-      ))}
-    </Box>
-  )
+/** 잔액·발행량이 앉는 제일 큰 자리. 여기를 안 잡으면 다른 것을 다 잡아도 뛴다 */
+export function AmountSkeleton() {
+  return <Skeleton aria-hidden height="9" width="56%" />
+}
+
+/** 이름이 앉는 자리 */
+export function NameSkeleton({ width = '44%' }: { width?: string }) {
+  return <Skeleton aria-hidden height="6" width={width} />
 }

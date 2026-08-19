@@ -7,7 +7,7 @@ import { membersQuery, pointTypeQuery, queryKeys } from '@/api/queries'
 import type { PointType, PointTypeId, User, UserId } from '@/api/contract'
 import { failureTitleKey } from '@/shared/i18n/keys'
 import { BackButton } from '@/shared/ui/BackButton'
-import { Loadable, RowsSkeleton } from '@/shared/ui/Loadable'
+import { Loadable, RowSkeleton } from '@/shared/ui/Loadable'
 import { Body, Gutter, Header, Row, Screen, Title } from '@/shared/ui/Screen'
 
 interface Props {
@@ -71,7 +71,13 @@ export function Members({ pointTypeId, onBack, onLeft }: Props) {
           failed={list.isError}
           onRetry={() => void list.refetch()}
           label={t('bank.membersFailed')}
-          skeleton={<RowsSkeleton count={3} avatar={false} />}
+          skeleton={
+            <>
+              {[0, 1, 2].map((row) => (
+                <RowSkeleton key={row} trailing="64px" />
+              ))}
+            </>
+          }
         >
           {members?.map((member) => (
             <MemberRow

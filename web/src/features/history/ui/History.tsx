@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next'
 import { historyQuery, walletQuery } from '@/api/queries'
 import { toGrouped } from '@/shared/format'
 import { goAtom } from '@/app/atoms'
-import { Loadable, RowsSkeleton } from '@/shared/ui/Loadable'
+import { Loadable, RowSkeleton } from '@/shared/ui/Loadable'
 import { Body, Gutter, Header, Row, RowButton, Screen, Title } from '@/shared/ui/Screen'
 import type { CapChange, Transfer } from '@/api/contract'
 import { formatTime } from '../model/time'
@@ -34,7 +34,13 @@ export function History() {
           failed={isError}
           onRetry={() => void refetch()}
           label={t('history.loadFailed')}
-          skeleton={<RowsSkeleton count={5} avatar={false} />}
+          skeleton={
+            <>
+              {[0, 1, 2, 3, 4].map((row) => (
+                <RowSkeleton key={row} trailing="72px" />
+              ))}
+            </>
+          }
         >
           {data?.length === 0 ? (
             <Gutter>

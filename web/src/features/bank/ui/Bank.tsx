@@ -1,4 +1,4 @@
-import { Box, Button, Text, VisuallyHidden } from '@chakra-ui/react'
+import { Box, Button, SkeletonCircle, Text, VisuallyHidden } from '@chakra-ui/react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSetAtom } from 'jotai'
 import { useTranslation } from 'react-i18next'
@@ -12,7 +12,7 @@ import { BackButton } from '@/shared/ui/BackButton'
 import { IssuerSuffix } from '@/shared/ui/IssuerSuffix'
 import { Line } from '@/shared/ui/Line'
 import { PointBadge } from '@/shared/ui/PointBadge'
-import { Loadable, LinesSkeleton } from '@/shared/ui/Loadable'
+import { LineSkeleton, Loadable, NameSkeleton } from '@/shared/ui/Loadable'
 import { Body, Gutter, Header, Screen, Title } from '@/shared/ui/Screen'
 import type { PointType, PointTypeId } from '@/api/contract'
 import { formatCreated } from '../model/created'
@@ -69,8 +69,17 @@ export function Bank({ pointTypeId, onBack }: { pointTypeId: PointTypeId; onBack
             onRetry={() => void bank.refetch()}
             label={t('bank.loadFailed')}
             skeleton={
+              // 소개의 실제 모양 — 배지 옆 이름, 그 아래 사실 넷.
               <Gutter paddingTop="4">
-                <LinesSkeleton count={5} />
+                <Box display="flex" alignItems="center" gap="3">
+                  <SkeletonCircle boxSize="avatar" flexShrink={0} />
+                  <NameSkeleton />
+                </Box>
+                <Box marginTop="5" display="flex" flexDirection="column" gap="3">
+                  {[0, 1, 2, 3].map((row) => (
+                    <LineSkeleton key={row} />
+                  ))}
+                </Box>
               </Gutter>
             }
           >

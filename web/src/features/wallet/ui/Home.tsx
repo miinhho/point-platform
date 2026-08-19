@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next'
 import { invitesQuery, walletQuery } from '@/api/queries'
 import { startTransferAtom } from '@/features/transfer'
 import { goAtom } from '@/app/atoms'
-import { Loadable, RowsSkeleton } from '@/shared/ui/Loadable'
+import { Loadable, RowSkeleton } from '@/shared/ui/Loadable'
 import { Body, Gutter, Header, RowButton, Screen, Title } from '@/shared/ui/Screen'
 import { PointBadge } from '@/shared/ui/PointBadge'
 import type { Invite } from '@/api/contract'
@@ -35,7 +35,14 @@ export function Home() {
           failed={isError}
           onRetry={() => void refetch()}
           label={t('home.loadFailed')}
-          skeleton={<RowsSkeleton count={4} />}
+          skeleton={
+            // 카드 넷: 배지 · 이름과 부제 · 오른쪽 잔액. 시드가 그만큼 온다
+            <>
+              {[0, 1, 2, 3].map((row) => (
+                <RowSkeleton key={row} avatar trailing="88px" />
+              ))}
+            </>
+          }
         >
           {data?.balances.length === 0 && invites.data?.length === 0 ? (
             <Note>{t('home.empty')}</Note>

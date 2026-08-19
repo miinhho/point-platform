@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next'
 import { recentQuery, usersQuery } from '@/api/queries'
 import { BackButton } from '@/shared/ui/BackButton'
 import { IssuerSuffix } from '@/shared/ui/IssuerSuffix'
-import { Loadable, RowsSkeleton } from '@/shared/ui/Loadable'
+import { Loadable, RowSkeleton } from '@/shared/ui/Loadable'
 import { Body, Gutter, Header, RowButton, Screen, Title } from '@/shared/ui/Screen'
 import { draftAtom, pickRecipientAtom } from '../model/atoms'
 import { buildRecipientList, buildSearchList, type RecipientEntry } from '../model/recipientList'
@@ -66,7 +66,14 @@ export function PickRecipient({ onBack }: { onBack: () => void }) {
           failed={users.isError}
           onRetry={() => void users.refetch()}
           label={t('pick.loadFailed')}
-          skeleton={<RowsSkeleton count={5} />}
+          skeleton={
+            // 사람 줄에는 오른쪽 값이 없다. 넣으면 내용이 올 때 그 자리가 접힌다
+            <>
+              {[0, 1, 2, 3, 4].map((row) => (
+                <RowSkeleton key={row} avatar />
+              ))}
+            </>
+          }
         >
           {list.recent.length > 0 ? (
             <Section label={t('pick.recentSection')}>
