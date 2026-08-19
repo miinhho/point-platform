@@ -35,15 +35,20 @@ class PointTypeCreateService(
         val visibility = request.visibility?.trim()?.uppercase()
             ?.let { name -> PointVisibility.entries.find { it.name == name } }
 
-        val malformed = name.filterNot(Char::isWhitespace).length !in 1..12 ||
+        // message 는 화면에 뿌리는 글이 아니라 붙이는 사람이 읽는 글이다 — 어느 필드인지
+        // 말하지 않으면 계약이 어긋났을 때 그것을 찾는 데 시간이 든다.
+        val wrong = when {
+            name.filterNot(Char::isWhitespace).length !in 1..12 -> "name"
             // 허용 목록 대조가 유일하게 맞는 검사다(결합 이모지는 코드포인트가 여럿이다).
             // 목록이 아직 오지 않아 여기는 저장 한계만 본다.
-            emoji.isEmpty() || emoji.length > 32 ||
-            description != null && description.filterNot(Char::isWhitespace).length > 60 ||
-            accent == null || PointAccent.entries.none { it.name == accent } ||
-            issueCap == null || issueCap <= 0 ||
-            visibility == null
-        if (malformed) throw DomainFailureException(FailureCode.MALFORMED_REQUEST, "요청 형식 오류")
+            emoji.isEmpty() || emoji.length > 32 -> "emoji"
+            description != null && description.filterNot(Char::isWhitespace).length > 60 -> "description"
+            accent == null || PointAccent.entries.none { it.name == accent } -> "accent"
+            issueCap == null || issueCap <= 0 -> "issueCap"
+            visibility == null -> "visibility"
+            else -> null
+        }
+        if (wrong != null) throw DomainFailureException(FailureCode.MALFORMED_REQUEST, "$wrong 이(가) 계약과 다름")
 
         // 조회는 방어가 아니다 — 같은 기호가 동시에 오면 둘 다 비어 있다고 본다.
         // 진짜 방어는 symbol unique 제약이고, 위반 판정은 호출부가 한다.
