@@ -14,8 +14,10 @@ import org.springframework.context.annotation.Import
 import org.springframework.http.HttpEntity
 import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpMethod
+import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.security.crypto.password.PasswordEncoder
+import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
@@ -67,6 +69,27 @@ class FailureBodyTest {
             restTemplate.exchange("/api/me", HttpMethod.DELETE, HttpEntity<Void>(auth()), String::class.java).body,
         )
         assertTrue(body.contains("\"outcome\":\"none\""), body)
+    }
+
+    @Test
+    fun `예상하지 못한 500 도 계약 본문으로 답한다`() {
+        val response = get("/api/__boom")
+        assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.statusCode)
+        val body = assertNotNull(response.body)
+        assertTrue(body.contains("\"code\":\"SERVER\""), "프레임워크 기본 본문이 새면 진단이 안 된다: $body")
+        // 던진 자리가 커밋 앞인지 뒤인지 서버도 모른다.
+        assertTrue(body.contains("\"outcome\":\"unknown\""), body)
+        assertTrue(!body.contains("\"timestamp\":"), body)
+    }
+
+    @Test
+    fun `Error 도 계약 본문으로 답한다`() {
+        // 실제로 새어 나간 것이 NoSuchMethodError 였다 — Exception 만 잡으면 여기가 열린다.
+        val response = get("/api/__boom-error")
+        assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.statusCode)
+        val body = assertNotNull(response.body)
+        assertTrue(body.contains("\"code\":\"SERVER\""), body)
+        assertTrue(!body.contains("\"timestamp\":"), "프레임워크 기본 본문이 새면 진단이 안 된다: $body")
     }
 
     @Test
