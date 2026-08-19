@@ -53,10 +53,10 @@ class DomainExceptionHandler : ResponseEntityExceptionHandler() {
             statusCode.is4xxClientError -> FailureCode.MALFORMED_REQUEST
             else -> FailureCode.SERVER
         }
-        val failure = if (code == FailureCode.SERVER) {
-            FailureResponse.unknown(code, "서버 오류")
-        } else {
-            FailureResponse.none(code, ex.message)
+        val failure = when (code) {
+            FailureCode.SERVER -> FailureResponse.unknown(code, "서버 오류")
+            FailureCode.UNKNOWN_ENDPOINT -> FailureResponse.none(code, "없는 경로")
+            else -> FailureResponse.none(code, "요청이 계약과 다름")
         }
         return ResponseEntity.status(statusCode).body(failure)
     }
