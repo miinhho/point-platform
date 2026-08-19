@@ -53,10 +53,9 @@ export function handleFailure(code: FailureCode, kind: TransferKind): FailureHan
     case 'SERVER':
       return { retryable: true, editable: true, repickable: false, aboutSupply }
 
-    // 이 여섯은 실패 화면에 오지 않는다 — 인증은 로그인으로 가고, 기호 겹침과
-    // 상한 미달은 각자의 화면 안에서 그 자리에 뜬다. 그래도 값을 주는 것은 화면이
-    // 방어적으로 그리기 때문이고, 여기서 빠뜨리면 컴파일이 잡는다.
-    case 'SYMBOL_TAKEN':
+    // 이 다섯은 실패 화면에 오지 않는다 — 인증은 로그인으로 가고, 상한 미달은
+    // 그 화면 안에서 그 자리에 뜬다. 그래도 값을 주는 것은 화면이 방어적으로
+    // 그리기 때문이고, 여기서 빠뜨리면 컴파일이 잡는다.
     case 'CAP_BELOW_ISSUED':
     case 'MALFORMED_REQUEST':
     case 'TRANSFER_NOT_FOUND':

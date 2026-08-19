@@ -20,8 +20,11 @@ export interface User {
 export interface PointType {
   id: PointTypeId
   name: string
-  /** 좁은 자리에서 이름 대신 쓴다. */
-  symbol: string
+  /**
+   * 좁은 자리에서 이름 대신 쓰는 표식. **유일하지 않다** — 겹쳐도 된다.
+   * 이모지로 무엇을 가르지 않는다. 그 일은 발행자 핸들이 한다 (여정 10).
+   */
+  emoji: string
   issuerId: UserId
   /** 이름이 겹치는 포인트를 가르는 부제. 화면이 사용자 목록을 뒤지지 않게 서버가 준다. */
   issuerName: string
@@ -49,6 +52,39 @@ export interface PointType {
 export type PointVisibility = 'public' | 'private'
 
 /** 색으로 무엇을 가르지 않는다 — 그래서 늘려도 된다. 대비는 contrast.test.ts 가 잰다 */
+/**
+ * 고를 수 있는 이모지. 자유 입력을 받지 않는 이유는 이모지가 한 글자처럼 보여도
+ * 결합된 여러 코드포인트일 수 있어서다(피부색·ZWJ·이형 선택자) — 그러면 길이
+ * 검사·너비·폰트 대체가 기기마다 갈린다. 국기는 넣지 않는다: 무엇을 목록에 넣을지가
+ * 정치적 판단이 된다. 계약: docs/API.md
+ */
+export const ALLOWED_EMOJI = [
+  '🍞',
+  '🍎',
+  '🍜',
+  '🍕',
+  '🍵',
+  '🌱',
+  '🌙',
+  '🔥',
+  '💧',
+  '🌊',
+  '🌸',
+  '🍀',
+  '🎵',
+  '📚',
+  '🎨',
+  '🎬',
+  '🏠',
+  '🚲',
+  '🎁',
+  '🐝',
+  '🐟',
+  '🔑',
+  '🚀',
+  '💎',
+] as const
+
 export type PointAccent =
   | 'blue'
   | 'green'
@@ -102,8 +138,6 @@ export const FAILURE_CODES = [
   'UNKNOWN_ENDPOINT',
   'RECIPIENT_NOT_FOUND',
   'POINT_TYPE_NOT_FOUND',
-  /** 그 기호를 이미 쓰는 포인트가 있다 */
-  'SYMBOL_TAKEN',
   /** 이미 발행한 양보다 낮은 상한 */
   'CAP_BELOW_ISSUED',
   /** 본문이 계약과 다르다. 화면에서는 도달하지 않는다 */

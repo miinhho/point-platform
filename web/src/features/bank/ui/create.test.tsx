@@ -23,14 +23,14 @@ async function hold(ms: number) {
 
 async function fillForm(
   user: ReturnType<typeof userEvent.setup>,
-  symbol = 'BK',
+  emoji = '🍞',
   visibility = '공개',
 ) {
   renderApp(<App />)
   await user.click(await screen.findByRole('button', { name: '포인트 만들기' }))
   await user.type(await screen.findByLabelText('이름'), '동네빵집')
-  await user.type(screen.getByLabelText('기호'), symbol)
   await user.type(screen.getByLabelText('발행 상한'), '1000000')
+  await user.click(screen.getByRole('radio', { name: emoji }))
   // 골라 둔 쪽이 없다. 고르지 않으면 확정할 수 없다.
   await user.click(screen.getByRole('radio', { name: new RegExp(`^${visibility}`) }))
 }
@@ -50,15 +50,17 @@ describe('포인트를 만든다', () => {
     await waitFor(() => expect(screen.getByRole('button', { name: '발행하기' })).toBeTruthy())
   })
 
-  it('겹친 기호는 그 자리에서 말한다 — 실패 화면으로 보내지 않는다', async () => {
+  /*
+   * 유일성을 버렸다. 쓸 만한 이모지는 몇백 개뿐이라 유일하게 두면 먼저 만든 사람이
+   * 차지하는 경주가 된다 — 빵집 백 번째는 빵을 못 쓴다. 계약: docs/API.md
+   */
+  it('이미 쓰는 표식으로도 만들어진다', async () => {
     const user = userEvent.setup()
-    await fillForm(user, 'ON')
+    // 시드의 온포인트가 이미 🌊 를 쓴다.
+    await fillForm(user, '🌊')
     await hold(750)
 
-    expect(await screen.findByText('이미 쓰는 기호예요', {}, { timeout: 5000 })).toBeTruthy()
-    // 입력을 잃지 않는다. 기호만 고치면 된다.
-    expect(screen.getByLabelText('이름')).toHaveProperty('value', '동네빵집')
-    expect(screen.getByText('포인트 만들기')).toBeTruthy()
+    expect(await screen.findByText('만들었어요', {}, { timeout: 5000 })).toBeTruthy()
   })
 
   it('확정 전에 카드 모습을 보여준다', async () => {
@@ -66,7 +68,7 @@ describe('포인트를 만든다', () => {
     await fillForm(user)
     const preview = screen.getByText('이렇게 보여요').parentElement!
     expect(preview.textContent).toContain('동네빵집')
-    expect(preview.textContent).toContain('BK')
+    expect(preview.textContent).toContain('🍞')
   })
 
   it('짧게 누르면 만들어지지 않는다', async () => {
@@ -87,12 +89,12 @@ describe('포인트를 만든다', () => {
     )
   })
 
-  it('소문자로 쳐도 대문자로 보인다 — 화면과 결과가 같아야 한다', async () => {
+  it('고른 표식이 그대로 미리보기에 온다', async () => {
     const user = userEvent.setup()
     renderApp(<App />)
     await user.click(await screen.findByRole('button', { name: '포인트 만들기' }))
-    await user.type(await screen.findByLabelText('기호'), 'bk')
-    expect(screen.getByLabelText('기호')).toHaveProperty('value', 'BK')
+    await user.click(screen.getByRole('radio', { name: '🍞' }))
+    expect((screen.getByRole('radio', { name: '🍞' }) as HTMLInputElement).checked).toBe(true)
   })
 
   it('만든 것을 지우는 경로가 없다', async () => {
@@ -115,7 +117,7 @@ describe('색 고르기는 진짜 라디오그룹이다', () => {
     const user = userEvent.setup()
     renderApp(<App />)
     await user.click(await screen.findByRole('button', { name: '포인트 만들기' }))
-    await screen.findByLabelText('기호')
+    await screen.findByLabelText('이름')
     return user
   }
 
@@ -149,8 +151,10 @@ describe('색 고르기는 진짜 라디오그룹이다', () => {
 
   it('탭 정지점은 그룹당 하나다 — 열 번 눌러야 상한에 닿지 않는다', async () => {
     const user = await openForm()
-    screen.getByLabelText('기호').focus()
+    screen.getByLabelText('이름').focus()
 
+    await user.tab()
+    expect(document.activeElement).toBe(screen.getByRole('radio', { name: '🍞' }))
     await user.tab()
     expect(document.activeElement).toBe(screen.getByRole('radio', { name: '파랑' }))
     await user.tab()
@@ -170,37 +174,8 @@ describe('색 고르기는 진짜 라디오그룹이다', () => {
 })
 
 // 관측: docs/FIELD.md 「S9 포인트 만들기 QA」 5 — 실패 뒤 포커스가 body 로 빠졌다.
-describe('겹친 기호를 고칠 자리로 포커스가 간다', () => {
-  it('실패하면 기호 입력에 포커스가 있다', async () => {
-    const user = userEvent.setup()
-    await fillForm(user, 'ON')
-    await hold(750)
-
-    await screen.findByText('이미 쓰는 기호예요', {}, { timeout: 5000 })
-    expect(document.activeElement).toBe(screen.getByLabelText('기호'))
-  })
-
-  // 관측: docs/FIELD.md 「W2/W3 재확인」 2 — 고친 뒤에도 문구가 남아 있었다.
-  it('기호를 고치면 겹침 문구가 사라진다', async () => {
-    const user = userEvent.setup()
-    await fillForm(user, 'ON')
-    await hold(750)
-    await screen.findByText('이미 쓰는 기호예요', {}, { timeout: 5000 })
-
-    await user.clear(screen.getByLabelText('기호'))
-    await user.type(screen.getByLabelText('기호'), 'ZZ')
-    expect(screen.queryByText('이미 쓰는 기호예요')).toBeNull()
-    // 그 자리는 다시 안내로 돌아간다 — 비워 두면 무엇을 치라는 것인지 사라진다
-    expect(screen.getByText(/영문 두세 글자/)).toBeTruthy()
-  })
-})
-
-/*
- * 관측: docs/FIELD.md 「W2/W3 재확인」 — NETWORK 실패에서 폼이 리셋된 것처럼 보였는데
- * 그때 이 파일이 HMR 로 다시 마운트되고 있었다. 둘을 가르는 것은 테스트뿐이다.
- */
 describe('만들지 못해도 입력을 버리지 않는다', () => {
-  it('네트워크 실패 뒤에도 이름·기호·상한이 그대로다', async () => {
+  it('네트워크 실패 뒤에도 이름·표식·상한이 그대로다', async () => {
     const user = userEvent.setup()
     await fillForm(user)
     setSim({ forceFailure: 'NETWORK' })
@@ -211,19 +186,19 @@ describe('만들지 못해도 입력을 버리지 않는다', () => {
       '서버에 닿지 못했어요',
     )
     expect(screen.getByLabelText('이름')).toHaveProperty('value', '동네빵집')
-    expect(screen.getByLabelText('기호')).toHaveProperty('value', 'BK')
+    expect((screen.getByRole('radio', { name: '🍞' }) as HTMLInputElement).checked).toBe(true)
     expect(screen.getByLabelText('발행 상한')).toHaveProperty('value', '1,000,000')
   })
 
   // 결과를 알 수 없는 실패다. 키 입력 하나로 지우면 "만들어졌는지 모른다"가 사라진다.
-  it('기호를 고쳐도 결과를 알 수 없다는 말은 남는다', async () => {
+  it('표식을 바꿔도 결과를 알 수 없다는 말은 남는다', async () => {
     const user = userEvent.setup()
     await fillForm(user)
     setSim({ forceFailure: 'NETWORK' })
     await hold(750)
     await screen.findByRole('alert', {}, { timeout: 5000 })
 
-    await user.type(screen.getByLabelText('기호'), 'Z')
+    await user.click(screen.getByRole('radio', { name: '🍎' }))
     expect(screen.getByRole('alert')).toBeTruthy()
   })
 })
@@ -246,7 +221,7 @@ describe('공개 여부는 만드는 사람이 고른다', () => {
     renderApp(<App />)
     await user.click(await screen.findByRole('button', { name: '포인트 만들기' }))
     await user.type(await screen.findByLabelText('이름'), '동네빵집')
-    await user.type(screen.getByLabelText('기호'), 'BK')
+    await user.click(screen.getByRole('radio', { name: '🍞' }))
     await user.type(screen.getByLabelText('발행 상한'), '1000000')
 
     // 어느 쪽도 미리 눌려 있지 않다.
@@ -260,12 +235,14 @@ describe('공개 여부는 만드는 사람이 고른다', () => {
 
   it('비공개로 만들면 비공개로 남는다', async () => {
     const user = userEvent.setup()
-    await fillForm(user, 'BP', '비공개')
+    await fillForm(user, '🍞', '비공개')
     await hold(750)
 
     expect(await screen.findByText('만들었어요', {}, { timeout: 5000 })).toBeTruthy()
     const created = await endpoints.pointTypes()
-    expect(created.find((type) => type.symbol === 'BP')).toMatchObject({ visibility: 'private' })
+    expect(created.find((type) => type.name === '동네빵집')).toMatchObject({
+      visibility: 'private',
+    })
   })
 
   it('만든 뒤에는 바꿀 수 없다고 미리 말한다', async () => {

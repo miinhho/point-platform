@@ -11,7 +11,7 @@ beforeEach(async () => {
 })
 
 /** 확인 방법: docs/JOURNEY.md 여정 1 */
-const SYMBOL = /^(ON|SL|GM|OP|CL|HD|ZZ)$/
+const EMOJI = /^(🌊|🍵|💎|🌸|🎵|🏠|✨)$/u
 
 /** 카드와 그 옆의 진입점은 이름이 겹친다 — 카드는 `aria-label` 이 없는 쪽이다 */
 function cardOf(name: string): HTMLElement {
@@ -27,9 +27,9 @@ function cardOpacity(name: string): string {
   return node ? getComputedStyle(node).opacity : '1'
 }
 
-async function symbolOrder(): Promise<string[]> {
+async function emojiOrder(): Promise<string[]> {
   await screen.findByText('금머니')
-  return screen.getAllByText(SYMBOL).map((el) => el.textContent ?? '')
+  return screen.getAllByText(EMOJI).map((el) => el.textContent ?? '')
 }
 
 function walletOf(balances: unknown[]) {
@@ -38,10 +38,10 @@ function walletOf(balances: unknown[]) {
   )
 }
 
-const point = (id: string, name: string, symbol: string, issuerName: string, accent: string) => ({
+const point = (id: string, name: string, emoji: string, issuerName: string, accent: string) => ({
   id,
   name,
-  symbol,
+  emoji,
   issuerId: 'u_other',
   issuerName,
   accent,
@@ -54,24 +54,24 @@ describe('홈', () => {
     renderApp(<Home />)
     // 온포인트 324만 · 금머니 62만 · 솔포인트 8만7천 · 동아리회비 5만 · 한동네 2만5천 ·
     // 온포인트(솔카페) 1만2천. 겹치는 이름은 잔액을 건너뛰고 나란히 온다.
-    expect(await symbolOrder()).toEqual(['ON', 'OP', 'GM', 'SL', 'CL', 'HD'])
+    expect(await emojiOrder()).toEqual(['🌊', '🌸', '💎', '🍵', '🎵', '🏠'])
   })
 
   it('잔액 0 은 뒤로 간다', async () => {
     server.use(
       walletOf([
-        { pointType: point('pt_z', '영포인트', 'ZZ', '어딘가', 'pink'), amount: 0 },
-        { pointType: point('pt_g', '금머니', 'GM', '장민호', 'purple'), amount: 5 },
+        { pointType: point('pt_z', '영포인트', '✨', '어딘가', 'pink'), amount: 0 },
+        { pointType: point('pt_g', '금머니', '💎', '장민호', 'purple'), amount: 5 },
       ]),
     )
     renderApp(<Home />)
-    expect(await symbolOrder()).toEqual(['GM', 'ZZ'])
+    expect(await emojiOrder()).toEqual(['💎', '✨'])
   })
 
   it('잔액 0 카드는 보낼 수 없다고 말한다', async () => {
     server.use(
       walletOf([
-        { pointType: point('pt_z', '금머니', 'GM', '어딘가', 'pink'), amount: 0 },
+        { pointType: point('pt_z', '금머니', '💎', '어딘가', 'pink'), amount: 0 },
       ]),
     )
     renderApp(<Home />)
@@ -86,7 +86,7 @@ describe('홈', () => {
   it('발행할 수 있으면 잔액 0 이어도 죽이지 않는다', async () => {
     server.use(
       walletOf([
-        { pointType: { ...point('pt_new', '동네빵집', 'BK', '장민호', 'orange'), canIssue: true }, amount: 0 },
+        { pointType: { ...point('pt_new', '동네빵집', '🍞', '장민호', 'orange'), canIssue: true }, amount: 0 },
       ]),
     )
     renderApp(<Home />)
@@ -131,7 +131,7 @@ describe('홈', () => {
     server.use(
       walletOf([
         {
-          pointType: point('pt_hd', '한동네', 'HD', '솔카페', 'orange'),
+          pointType: point('pt_hd', '한동네', '🏠', '솔카페', 'orange'),
           amount: 25_000,
           sendable: 0,
         },
@@ -164,7 +164,7 @@ describe('홈', () => {
     server.use(
       walletOf([
         {
-          pointType: { ...point('pt_new', '동네빵집', 'BK', '장민호', 'orange'), canIssue: true },
+          pointType: { ...point('pt_new', '동네빵집', '🍞', '장민호', 'orange'), canIssue: true },
           amount: 500,
           neverSpent: true,
         },
@@ -193,11 +193,12 @@ describe('홈', () => {
     expect(card.querySelector('button')).toBeNull()
   })
 
-  it('색을 빼도 기호로 구별된다 — 카드마다 다른 기호가 있다', async () => {
+  // 이모지는 모양으로 갈리므로 색을 빼도 갈린다 — 겹쳐도 되는 것과는 다른 이야기다.
+  it('색을 빼도 표식으로 구별된다', async () => {
     renderApp(<Home />)
-    const symbols = await symbolOrder()
-    expect(symbols.length).toBeGreaterThan(1)
-    expect(new Set(symbols).size).toBe(symbols.length)
+    const emoji = await emojiOrder()
+    expect(emoji.length).toBeGreaterThan(1)
+    expect(new Set(emoji).size).toBe(emoji.length)
   })
 
   it('지갑이 비면 빈 문구가 나온다', async () => {

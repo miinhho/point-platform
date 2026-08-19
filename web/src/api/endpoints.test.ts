@@ -42,8 +42,8 @@ describe('조회', () => {
     const wallet = await endpoints.wallet()
     const sameName = wallet.balances.filter((b) => b.pointType.name === '온포인트')
     expect(sameName).toHaveLength(2)
+    // 겹칠 때 가르는 것은 발행자다. 이모지는 알아보는 표식이지 가리키는 표식이 아니다.
     expect(new Set(sameName.map((b) => b.pointType.issuerId)).size).toBe(2)
-    expect(new Set(sameName.map((b) => b.pointType.symbol)).size).toBe(2)
   })
 
   it('내가 발행자인 포인트는 잔액이 0이어도 지갑에 남는다', async () => {
@@ -229,7 +229,7 @@ describe('발행', () => {
 describe('포인트 창설', () => {
   const bakery = {
     name: '동네빵집',
-    symbol: 'BK',
+    emoji: '🍞',
     accent: 'orange' as const,
     issueCap: 1_000_000,
     visibility: 'public' as const,
@@ -239,7 +239,7 @@ describe('포인트 창설', () => {
     const created = await endpoints.createPointType(bakery, key())
     expect(created).toMatchObject({
       name: '동네빵집',
-      symbol: 'BK',
+      emoji: '🍞',
       issuerId: ME,
       totalIssued: 0,
       issueCap: 1_000_000,
@@ -256,33 +256,39 @@ describe('포인트 창설', () => {
     expect(mine?.pointType.canIssue).toBe(true)
   })
 
-  it('기호가 겹치면 409 다 — 판정은 서버만 한다', async () => {
-    await expect(
-      endpoints.createPointType({ ...bakery, symbol: 'ON' }, key()),
-    ).rejects.toMatchObject({ code: 'SYMBOL_TAKEN', status: 409 })
+  /*
+   * 유일성을 버렸다. 쓸 만한 이모지는 몇백 개뿐이라 유일하게 두면 먼저 만든 사람이
+   * 차지하는 경주가 되고, 사칭은 애초에 그것으로 막지 못한다. 계약: docs/API.md
+   */
+  it('표식이 겹쳐도 만들어진다', async () => {
+    const first = await endpoints.createPointType(bakery, key())
+    const second = await endpoints.createPointType({ ...bakery, name: '옆집' }, key())
+
+    expect(second.emoji).toBe(first.emoji)
+    expect(second.id).not.toBe(first.id)
   })
 
-  it('대소문자가 달라도 같은 기호다', async () => {
+  it('목록 밖의 이모지는 400 이다', async () => {
     await expect(
-      endpoints.createPointType({ ...bakery, symbol: 'on' }, key()),
-    ).rejects.toMatchObject({ code: 'SYMBOL_TAKEN' })
+      endpoints.createPointType({ ...bakery, emoji: '🏳️‍🌈' }, key()),
+    ).rejects.toMatchObject({ status: 400 })
   })
 
   // 창설도 되돌릴 수 없다. 응답을 못 받고 다시 눌러도 하나만 생겨야 한다.
   it('같은 키로 두 번 보내면 하나만 생긴다', async () => {
     const k = key()
-    const first = await endpoints.createPointType({ ...bakery, symbol: 'BX' }, k)
-    const second = await endpoints.createPointType({ ...bakery, symbol: 'BX' }, k)
+    const first = await endpoints.createPointType(bakery, k)
+    const second = await endpoints.createPointType(bakery, k)
     expect(second.id).toBe(first.id)
     const types = await endpoints.pointTypes()
-    expect(types.filter((t) => t.symbol === 'BX')).toHaveLength(1)
+    expect(types.filter((t) => t.name === '동네빵집')).toHaveLength(1)
   })
 
   it.each([
     ['이름이 비었다', { name: '  ' }],
     ['이름이 13자다', { name: '가나다라마바사아자차카타파' }],
-    ['기호가 네 자다', { symbol: 'ABCD' }],
-    ['기호에 숫자가 있다', { symbol: 'B1' }],
+    ['표식이 목록에 없다', { emoji: '🦄' }],
+    ['표식이 빈 문자열이다', { emoji: '' }],
     ['상한이 소수다', { issueCap: 1.5 }],
     ['상한이 0 이다', { issueCap: 0 }],
     ['없는 색이다', { accent: 'crimson' as never }],
@@ -291,7 +297,7 @@ describe('포인트 창설', () => {
     ['공개 여부가 그 둘이 아니다', { visibility: 'secret' as never }],
   ])('%s 면 400 이다', async (_label, patch) => {
     await expect(
-      endpoints.createPointType({ ...bakery, symbol: 'ZZ', ...patch }, key()),
+      endpoints.createPointType({ ...bakery, ...patch }, key()),
     ).rejects.toMatchObject({ status: 400 })
   })
 })
@@ -550,7 +556,7 @@ describe('비공개 은행은 회원이 아니면 없는 것과 같다', () => {
 
   it('만든 사람은 자기 비공개 은행에 닿는다', async () => {
     const created = await endpoints.createPointType(
-      { name: '모임', symbol: 'MT', accent: 'teal', issueCap: 1_000, visibility: 'private' },
+      { name: '모임', emoji: '🎵', accent: 'teal', issueCap: 1_000, visibility: 'private' },
       key(),
     )
     expect(await endpoints.pointType(created.id)).toMatchObject({ id: created.id })
@@ -836,7 +842,7 @@ describe('아직 쓰지 않은 포인트', () => {
   // 발행은 쓰는 것이 아니다. 자기 지갑으로 들어올 뿐이다.
   it('발행으로는 꺼지지 않는다', async () => {
     const created = await endpoints.createPointType(
-      { name: '빵집', symbol: 'BQ', accent: 'orange', issueCap: 1_000, visibility: 'public' },
+      { name: '빵집', emoji: '🍞', accent: 'orange', issueCap: 1_000, visibility: 'public' },
       key(),
     )
     await endpoints.createIssue({ pointTypeId: created.id, amount: 500 }, key())

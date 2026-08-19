@@ -54,8 +54,8 @@ export const ko = {
     entry: '포인트 만들기',
     name: '이름',
     namePlaceholder: '동네빵집',
-    symbol: '기호',
-    symbolHint: '좁은 자리에서 이름 대신 쓰는 표식이에요. 영문 두세 글자',
+    emoji: '표식',
+    emojiHint: '좁은 자리에서 이름 대신 보여요. 겹쳐도 괜찮아요',
     accent: '색',
     /** 기본값을 두지 않는다. 바꿀 수 없는 값에 기본값을 두면 고른 적 없는 상태가 남는다 */
     visibility: '누가 쓸 수 있나요?',
@@ -295,12 +295,6 @@ export const ko = {
       title: '은행장은 나갈 수 없어요',
       whereTransfer: '아무것도 나가지 않았어요',
       whereIssue: '발행되지 않았어요',
-    },
-    /** 만들기 화면 안에서 그 자리에 뜬다. where 는 키 구조를 맞추려고 둔다 */
-    SYMBOL_TAKEN: {
-      title: '이미 쓰는 기호예요',
-      whereTransfer: '만들어지지 않았어요',
-      whereIssue: '만들어지지 않았어요',
     },
     /** 상한 변경 화면 안에서 그 자리에 뜬다. where 는 키 구조를 맞추려고 둔다 */
     CAP_BELOW_ISSUED: {

@@ -1,10 +1,11 @@
 import { Box, Field, Input, RadioCard, Text } from '@chakra-ui/react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { useRef, useState } from 'react'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { endpoints } from '@/api/endpoints'
 import { queryKeys } from '@/api/queries'
 import { ApiError, newIdempotencyKey } from '@/api/http'
+import { ALLOWED_EMOJI } from '@/api/contract'
 import type { PointAccent, PointType, PointVisibility } from '@/api/contract'
 import { abbreviate, parseInput, toGrouped } from '@/shared/format'
 import { failureTitleKey } from '@/shared/i18n/keys'
@@ -36,7 +37,7 @@ export function CreatePoint({ onBack, onCreated }: Props) {
   const { t } = useTranslation()
   const client = useQueryClient()
   const [name, setName] = useState('')
-  const [symbol, setSymbol] = useState('')
+  const [emoji, setEmoji] = useState<string | null>(null)
   const [accent, setAccent] = useState<PointAccent>('blue')
   // 미리 골라 두지 않는다. 바꿀 수 없는 값의 기본값은 고른 적 없는 상태를 영구히 남긴다.
   const [visibility, setVisibility] = useState<PointVisibility | null>(null)
@@ -44,12 +45,11 @@ export function CreatePoint({ onBack, onCreated }: Props) {
 
   // 확정 직전에 만들지 않는다. 응답을 못 받고 다시 눌러도 같은 키여야 한다.
   const [idempotencyKey] = useState(newIdempotencyKey)
-  const symbolInput = useRef<HTMLInputElement>(null)
 
   const create = useMutation({
     mutationFn: (chosen: PointVisibility) =>
       endpoints.createPointType(
-        { name: name.trim(), symbol, accent, issueCap: parseInput(cap), visibility: chosen },
+        { name: name.trim(), emoji: emoji!, accent, issueCap: parseInput(cap), visibility: chosen },
         idempotencyKey,
       ),
     retry: false,
@@ -57,17 +57,10 @@ export function CreatePoint({ onBack, onCreated }: Props) {
       void client.invalidateQueries({ queryKey: queryKeys.wallet })
       onCreated(pointType)
     },
-    // 어디를 고쳐야 하는지 포커스로도 말한다. 실패하면 포커스가 body 로 빠진다.
-    onError: (failure) => {
-      if (failure instanceof ApiError && failure.code === 'SYMBOL_TAKEN') {
-        symbolInput.current?.focus()
-      }
-    },
   })
 
   const capAmount = parseInput(cap)
-  const ready =
-    name.trim() !== '' && /^[A-Za-z]{2,3}$/.test(symbol) && capAmount > 0 && visibility !== null
+  const ready = name.trim() !== '' && emoji !== null && capAmount > 0 && visibility !== null
   const error = create.error instanceof ApiError ? create.error : null
 
   return (
@@ -90,28 +83,7 @@ export function CreatePoint({ onBack, onCreated }: Props) {
             />
           </Field.Root>
 
-          <Field.Root invalid={error?.code === 'SYMBOL_TAKEN'}>
-            <Field.Label>{t('create.symbol')}</Field.Label>
-            <Input
-              ref={symbolInput}
-              value={symbol}
-              // 기호는 대문자로만 보인다. 소문자로 쳐도 화면과 결과가 같아야 한다.
-              onChange={(event) => {
-                setSymbol(event.target.value.toUpperCase().slice(0, 3))
-                // 고친 기호에 낡은 겹침 판정이 붙어 있으면 화면이 거짓을 말한다.
-                if (error?.code === 'SYMBOL_TAKEN') create.reset()
-              }}
-              autoCapitalize="characters"
-              autoCorrect="off"
-              spellCheck={false}
-              size="lg"
-            />
-            {error?.code === 'SYMBOL_TAKEN' ? (
-              <Field.ErrorText>{t(failureTitleKey(error.code))}</Field.ErrorText>
-            ) : (
-              <Field.HelperText>{t('create.symbolHint')}</Field.HelperText>
-            )}
-          </Field.Root>
+          <EmojiPicker value={emoji} onChange={setEmoji} />
 
           <AccentPicker value={accent} onChange={setAccent} />
 
@@ -132,9 +104,9 @@ export function CreatePoint({ onBack, onCreated }: Props) {
             ) : null}
           </Field.Root>
 
-          <Preview name={name} symbol={symbol} accent={accent} />
+          <Preview name={name} emoji={emoji} accent={accent} />
 
-          {error && error.code !== 'SYMBOL_TAKEN' ? (
+          {error ? (
             <Text role="alert" textStyle="support" color="red.fg">
               {t(failureTitleKey(error.code))}
             </Text>
@@ -159,7 +131,15 @@ export function CreatePoint({ onBack, onCreated }: Props) {
 }
 
 /** 입력란만 보고는 결과를 알 수 없다 — 확정 전에 그 카드를 보여준다 */
-function Preview({ name, symbol, accent }: { name: string; symbol: string; accent: PointAccent }) {
+function Preview({
+  name,
+  emoji,
+  accent,
+}: {
+  name: string
+  emoji: string | null
+  accent: PointAccent
+}) {
   const { t } = useTranslation()
 
   return (
@@ -176,7 +156,7 @@ function Preview({ name, symbol, accent }: { name: string; symbol: string; accen
         borderRadius="l2"
         padding="3"
       >
-        <PointBadge symbol={symbol} />
+        <PointBadge emoji={emoji ?? ''} />
         <Text textStyle="name">{name}</Text>
       </Box>
     </Box>
@@ -230,6 +210,48 @@ function VisibilityPicker({
       </Box>
       <Text textStyle="caption" marginTop="2">
         {t('create.visibilityFixed')}
+      </Text>
+    </RadioCard.Root>
+  )
+}
+
+/**
+ * 자유 입력이 아니라 목록에서 고른다 — 이모지는 한 글자처럼 보여도 결합된 여러
+ * 코드포인트일 수 있고 기기마다 다르게 보인다. 계약: docs/API.md
+ */
+function EmojiPicker({
+  value,
+  onChange,
+}: {
+  value: string | null
+  onChange: (emoji: string) => void
+}) {
+  const { t } = useTranslation()
+
+  return (
+    <RadioCard.Root
+      value={value ?? undefined}
+      onValueChange={({ value: next }) => next && onChange(next)}
+    >
+      <RadioCard.Label textStyle="label">{t('create.emoji')}</RadioCard.Label>
+      <Box marginTop="2" display="grid" gridTemplateColumns="repeat(6, 1fr)" gap="2">
+        {ALLOWED_EMOJI.map((option) => (
+          <RadioCard.Item key={option} value={option} minW={0}>
+            <RadioCard.ItemHiddenInput />
+            <RadioCard.ItemText srOnly>{option}</RadioCard.ItemText>
+            <RadioCard.ItemControl
+              justifyContent="center"
+              paddingBlock="2"
+              borderWidth={option === value ? '3px' : '1px'}
+              borderColor={option === value ? 'fg' : 'border'}
+            >
+              {option}
+            </RadioCard.ItemControl>
+          </RadioCard.Item>
+        ))}
+      </Box>
+      <Text textStyle="caption" marginTop="2">
+        {t('create.emojiHint')}
       </Text>
     </RadioCard.Root>
   )

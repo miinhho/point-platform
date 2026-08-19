@@ -30,7 +30,7 @@ export interface CreateIssueInput {
 /** 만든 사람이 발행자다 — 본문에 `issuerId` 가 없다. docs/JOURNEY.md 여정 9 */
 export interface CreatePointTypeInput {
   name: string
-  symbol: string
+  emoji: string
   accent: PointAccent
   issueCap: Points
   /** 나중에 바꿀 수 없다 — 계약: docs/API.md */

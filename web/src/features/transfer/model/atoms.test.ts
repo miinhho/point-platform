@@ -18,7 +18,7 @@ import type { PointType, User } from '@/api/contract'
 const ON: PointType = {
   id: 'pt_on',
   name: '온포인트',
-  symbol: 'ON',
+  emoji: '🌊',
   issuerId: 'u_onmart',
   issuerName: '온마트',
   issuerHandle: '@onmart',

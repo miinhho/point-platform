@@ -1,4 +1,5 @@
 import { delay, http, HttpResponse } from 'msw'
+import { ALLOWED_EMOJI } from '@/api/contract'
 import type { FailureCode, FailureOutcome, PointAccent, PointVisibility } from '@/api/contract'
 import * as ledger from './ledger'
 import { authenticate, burnFamily, issueTokens, rotate, userIdFromHeader } from './sessions'
@@ -17,7 +18,6 @@ const STATUS: Record<FailureCode, number> = {
   UNKNOWN_ENDPOINT: 404,
   RECIPIENT_NOT_FOUND: 404,
   POINT_TYPE_NOT_FOUND: 404,
-  SYMBOL_TAKEN: 409,
   CAP_BELOW_ISSUED: 422,
   MALFORMED_REQUEST: 400,
   TRANSFER_NOT_FOUND: 404,
@@ -121,7 +121,7 @@ async function commit(
 
 interface CreatePointTypeBody {
   name?: unknown
-  symbol?: unknown
+  emoji?: unknown
   accent?: unknown
   issueCap?: unknown
   visibility?: unknown
@@ -146,10 +146,11 @@ const VISIBILITIES: readonly PointVisibility[] = ['public', 'private']
  * 통과하지 못하면 원장을 부르지 않는다.
  */
 function readCreateBody(body: CreatePointTypeBody): ledger.CreatePointTypeInput | null {
-  const { name, symbol, accent, issueCap, visibility } = body
-  if (typeof name !== 'string' || typeof symbol !== 'string') return null
+  const { name, emoji, accent, issueCap, visibility } = body
+  if (typeof name !== 'string' || typeof emoji !== 'string') return null
   if (name.trim().length < 1 || name.trim().length > 12) return null
-  if (!/^[A-Za-z]{2,3}$/.test(symbol)) return null
+  // 허용 목록 안의 값만 받는다. 자유 입력을 받으면 기기마다 다르게 보이는 것이 들어온다.
+  if (!(ALLOWED_EMOJI as readonly string[]).includes(emoji)) return null
   if (typeof accent !== 'string' || !ACCENTS.includes(accent as PointAccent)) return null
   if (typeof issueCap !== 'number' || !Number.isSafeInteger(issueCap) || issueCap <= 0) return null
   // 나중에 바꿀 수 없는 값이다. 빠지면 기본값을 정하지 않고 거절한다.
@@ -159,7 +160,7 @@ function readCreateBody(body: CreatePointTypeBody): ledger.CreatePointTypeInput 
   return {
     idempotencyKey: '',
     name,
-    symbol,
+    emoji,
     accent: accent as PointAccent,
     issueCap,
     visibility: visibility as PointVisibility,

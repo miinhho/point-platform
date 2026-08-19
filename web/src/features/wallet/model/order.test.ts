@@ -6,7 +6,7 @@ const point = (id: string, name: string, accent: PointAccent = 'blue'): PointTyp
   id,
   name,
   nameIsShared: false,
-  symbol: id.slice(-2).toUpperCase(),
+  emoji: '🌊',
   issuerId: 'u_x',
   issuerName: '발행자',
   issuerHandle: '@x',

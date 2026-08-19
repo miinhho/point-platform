@@ -39,7 +39,7 @@ export function PointCard({ balance, isMine, onOpen, onBank }: Props) {
       opacity={dimmed ? 0.55 : 1}
     >
       <Main type={openable ? 'button' : undefined} onClick={openable ? onOpen : undefined} flex={1} minW={0}>
-      <PointBadge symbol={pointType.symbol} />
+      <PointBadge emoji={pointType.emoji} />
 
       <Box flex={1} minW={0}>
         <Box display="flex" alignItems="baseline" gap="1.5">

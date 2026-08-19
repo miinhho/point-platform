@@ -33,7 +33,6 @@ export type LedgerErrorCode =
   | 'NOT_ISSUER'
   | 'RECIPIENT_NOT_FOUND'
   | 'POINT_TYPE_NOT_FOUND'
-  | 'SYMBOL_TAKEN'
   | 'CAP_BELOW_ISSUED'
   | 'ISSUER_CANNOT_LEAVE'
   | 'NOT_MEMBER'
@@ -68,7 +67,7 @@ function seedPointTypes(): SeedPoint[] {
     {
       id: 'pt_on',
       name: '온포인트',
-      symbol: 'ON',
+      emoji: '🌊',
       issuerId: 'u_onmart',
       issuerName: '온마트',
       issuerHandle: '@onmart',
@@ -81,7 +80,7 @@ function seedPointTypes(): SeedPoint[] {
     {
       id: 'pt_sol',
       name: '솔포인트',
-      symbol: 'SL',
+      emoji: '🍵',
       issuerId: 'u_solcafe',
       issuerName: '솔카페',
       issuerHandle: '@solcafe',
@@ -94,7 +93,7 @@ function seedPointTypes(): SeedPoint[] {
     {
       id: 'pt_gm',
       name: '금머니',
-      symbol: 'GM',
+      emoji: '💎',
       issuerId: SEED_ISSUER,
       issuerName: '장민호',
       issuerHandle: '@minho',
@@ -108,7 +107,7 @@ function seedPointTypes(): SeedPoint[] {
     {
       id: 'pt_cl',
       name: '동아리회비',
-      symbol: 'CL',
+      emoji: '🎵',
       issuerId: SEED_ISSUER,
       issuerName: '장민호',
       issuerHandle: '@minho',
@@ -121,7 +120,7 @@ function seedPointTypes(): SeedPoint[] {
     {
       id: 'pt_hd',
       name: '한동네',
-      symbol: 'HD',
+      emoji: '🏠',
       issuerId: 'u_solcafe',
       issuerName: '솔카페',
       issuerHandle: '@solcafe',
@@ -135,7 +134,7 @@ function seedPointTypes(): SeedPoint[] {
     {
       id: 'pt_on2',
       name: '온포인트',
-      symbol: 'OP',
+      emoji: '🌸',
       issuerId: 'u_solcafe',
       issuerName: '솔카페',
       issuerHandle: '@solcafe',
@@ -435,7 +434,7 @@ const timeOf = (entry: HistoryEntry): string =>
 export interface CreatePointTypeInput {
   idempotencyKey: string
   name: string
-  symbol: string
+  emoji: string
   accent: PointAccent
   issueCap: Points
   visibility: PointVisibility
@@ -449,18 +448,13 @@ export function createPointType(meId: UserId, input: CreatePointTypeInput): Poin
   const existing = state.createdByKey.get(input.idempotencyKey)
   if (existing) return viewOf(state.pointTypes.get(existing)!, meId)
 
-  const symbol = input.symbol.toUpperCase()
-  if (seedPoints().some((pointType) => pointType.symbol === symbol)) {
-    throw new LedgerError('SYMBOL_TAKEN')
-  }
-
   const issuer = state.users.get(meId)
   if (!issuer) throw new LedgerError('RECIPIENT_NOT_FOUND')
 
   const created: SeedPoint = {
-    id: `pt_${symbol.toLowerCase()}_${state.pointTypes.size + 1}`,
+    id: `pt_${state.pointTypes.size + 1}_${input.idempotencyKey.slice(0, 6)}`,
     name: input.name.trim(),
-    symbol,
+    emoji: input.emoji,
     issuerId: meId,
     issuerName: issuer.name,
     issuerHandle: issuer.handle,

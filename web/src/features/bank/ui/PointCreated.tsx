@@ -28,7 +28,7 @@ export function PointCreated({
           </Text>
 
           <Box marginTop="8" display="flex" alignItems="center" gap="3">
-            <PointBadge symbol={pointType.symbol} />
+            <PointBadge emoji={pointType.emoji} />
             <Text textStyle="name">{pointType.name}</Text>
           </Box>
 

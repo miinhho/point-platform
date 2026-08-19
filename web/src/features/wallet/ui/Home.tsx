@@ -101,7 +101,7 @@ function InviteRow({ invite, onOpen }: { invite: Invite; onOpen: () => void }) {
 
   return (
     <RowButton type="button" onClick={onOpen} colorPalette={pointType.accent}>
-      <PointBadge symbol={pointType.symbol} />
+      <PointBadge emoji={pointType.emoji} />
       <Box flex={1} minW={0}>
         <Text textStyle="name">{pointType.name}</Text>
         <Text textStyle="caption">{t('home.invitedBy', { handle: invite.byHandle })}</Text>
