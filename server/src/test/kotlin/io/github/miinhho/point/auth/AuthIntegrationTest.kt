@@ -168,6 +168,33 @@ class AuthIntegrationTest {
     }
 
     @Test
+    fun `찍어 보는 것을 막는다 — 잠긴 동안에는 맞는 암호도 같은 답이다`() {
+        repeat(10) {
+            assertEquals(HttpStatus.UNAUTHORIZED, login("@jisoo", "틀린암호").statusCode)
+        }
+
+        val locked = login("@jisoo", "point")
+        assertEquals(HttpStatus.UNAUTHORIZED, locked.statusCode, "잠긴 동안에는 맞아도 들어가지 못한다")
+        // 응답이 달라지면 그것이 곧 「그 핸들은 있다」다.
+        assertEquals(login("@nobody-at-all", "point").body, locked.body)
+
+        // 한 핸들이 잠겨도 남은 들어간다 — 아니면 남의 계정을 일부러 잠글 수 있다.
+        userRepository.save(User(name = "장민호", handle = "@minho", passwordHash = passwordEncoder.encode("point")!!))
+        assertEquals(HttpStatus.OK, login("@minho", "point").statusCode)
+    }
+
+    @Test
+    fun `성공하면 실패 기록이 사라진다`() {
+        repeat(9) { login("@jisoo", "틀린암호") }
+        assertEquals(HttpStatus.OK, login("@jisoo", "point").statusCode)
+        repeat(9) { login("@jisoo", "틀린암호") }
+        assertEquals(HttpStatus.OK, login("@jisoo", "point").statusCode, "성공이 창을 비우지 않으면 여기서 잠긴다")
+    }
+
+    private fun login(handle: String, password: String) =
+        restTemplate.postForEntity("/api/auth/login", LoginRequest(handle, password), String::class.java)
+
+    @Test
     fun `logout 뒤에는 같은 refresh 토큰으로 재발급받을 수 없다`() {
         val login = login()
 
