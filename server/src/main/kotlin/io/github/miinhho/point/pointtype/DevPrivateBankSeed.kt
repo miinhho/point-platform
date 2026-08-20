@@ -9,17 +9,21 @@ import org.springframework.boot.ApplicationRunner
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.core.annotation.Order
 import org.springframework.stereotype.Component
+import org.springframework.transaction.annotation.Propagation
+import org.springframework.transaction.annotation.Transactional
 import java.math.BigDecimal
 
 /**
- * 비공개 은행 하나와 **관계 셋**을 채운다 — 회원 · 초대만 받은 사람 · 잔액이 남은 비회원.
+ * 비공개 은행 하나와 **관계 넷**을 채운다 — 회원 · 잔액 0 인 회원 · 초대만 받은 사람 ·
+ * 잔액이 남은 비회원.
  *
- * 셋이 다 있어야 `membership` 의 세 값과 수락 실패 두 갈래를 실서버에서 잴 수 있다. 손으로
+ * 넷이 다 있어야 `membership` 의 세 값과 수락 실패 두 갈래, 그리고 「들어왔지만 아직 없는
+ * 0」의 카드를 실서버에서 잴 수 있다. 손으로
  * 만들면 판을 다시 만들 때마다 사라지고, 그때마다 회원 자격 계약 전체가 잴 수 없는 상태로
  * 돌아간다.
  *
- * 화면이 지나는 서비스만 쓴다. 행을 직접 넣으면 원장에 사건 없는 잔액이 남고, 한 트랜잭션에
- * 묶으면 계정 삽입이 별도 트랜잭션이라 은행 행의 FK 락을 서로 기다린다.
+ * 화면이 지나는 서비스만 쓴다. 계정에 숫자를 바로 넣으면 원장에 사건 없는 잔액이 남고,
+ * 전체를 한 트랜잭션에 묶으면 계정 삽입이 별도 트랜잭션이라 은행 행의 FK 락을 서로 기다린다.
  */
 @Component
 @Order(2)
@@ -32,12 +36,16 @@ class DevPrivateBankSeed(
     private val issueService: IssueService,
     private val transferService: TransferService,
 ) : ApplicationRunner {
+    // NEVER 가 「한 트랜잭션으로 묶지 않는다」를 주석이 아니라 스프링이 막게 한다.
+    // 묶으면 계정 삽입이 은행 행의 FK 락을 기다리고 바깥은 그 삽입을 기다린다.
+    @Transactional(propagation = Propagation.NEVER)
     override fun run(args: ApplicationArguments) {
-        if (pointTypeRepository.findAll().any { it.name == BANK }) return
+        if (pointTypeRepository.existsByNameAndIssuerHandle(BANK, "@onmart")) return
         val issuer = user("@onmart") ?: return
         val member = user("@jisoo") ?: return
         val invited = user("@nara") ?: return
         val left = user("@mose") ?: return
+        val empty = user("@jisu") ?: return
 
         val bank = pointTypeCreateService.create(
             issuer.id!!,
@@ -53,6 +61,7 @@ class DevPrivateBankSeed(
         ).id
 
         issueService.commit(issuer.id!!, "seed-issue", bank, 200_000)
+
         join(bank, issuer, member, "seed-invite-member")
         transferService.commitTransfer(issuer.id!!, "seed-to-member", bank, member.publicId.toString(), 50_000)
 
@@ -60,6 +69,9 @@ class DevPrivateBankSeed(
         join(bank, issuer, left, "seed-invite-left")
         transferService.commitTransfer(issuer.id!!, "seed-to-left", bank, left.publicId.toString(), 30_000)
         membershipService.remove(bank, issuer.id!!, left.publicId.toString())
+
+        // 받은 것이 없는 회원 — 세 가지 0 중 「들어왔지만 아직 없는 0」이다.
+        join(bank, issuer, empty, "seed-invite-empty")
 
         // 초대만 받은 사람. 수락하지 않으므로 초대가 살아 있다.
         membershipService.invite(bank, issuer.id!!, invited.publicId.toString(), "seed-invite-only")
