@@ -4,6 +4,7 @@ import type { PointTypeId, User } from '@/shared/contract'
 import { BackButton } from '@/shared/ui/BackButton'
 import { Loadable, RowSkeleton } from '@/shared/ui/Loadable'
 import { Body, Gutter, Header, Note, Row, RowButton, Screen, Title } from '@/shared/ui/Screen'
+import { useBankGate } from '../model/useBankGate'
 import { useInvitePage } from '../model/useInvitePage'
 
 interface Props {
@@ -22,6 +23,8 @@ export function Invite({ pointTypeId, onBack }: Props) {
   const { t } = useTranslation()
   const { query, setQuery, candidates, invited, invite, busy, pending, failed, retry } =
     useInvitePage(pointTypeId)
+  // 초대는 은행장만 한다. 막혀 있으면 은행 페이지로 대체한다 — docs/REBUILD.md 「주소」
+  useBankGate(pointTypeId, 'issuer')
 
   return (
     <Screen>

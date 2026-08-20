@@ -3,9 +3,17 @@ import { ApiError, membersQuery, pointTypeQuery, pointsApi, queryKeys } from '@/
 import type { PointType, PointTypeId, User, UserId } from '@/shared/contract'
 
 export interface MembersPageView {
+  /** 명부 조회 */
   pending: boolean
   failed: boolean
   retry: () => void
+  /**
+   * 은행 조회. **명부와 따로 다룬다** — 이 화면은 주소로 바로 열 수 있으므로 은행이
+   * 캐시에 있다고 가정할 수 없다. 못 불러온 것을 빈 화면으로 두면 「없다」로 읽힌다.
+   */
+  bankPending: boolean
+  bankFailed: boolean
+  retryBank: () => void
   pointType: PointType | null
   members: User[]
   /** 내보내기나 나가기가 거절당했다. 둘 중 나중 것이 화면에 남는다 */
@@ -50,6 +58,9 @@ export function useMembersPage(pointTypeId: PointTypeId, onLeft: () => void): Me
     pending: list.isPending,
     failed: list.isError,
     retry: () => void list.refetch(),
+    bankPending: bank.isPending,
+    bankFailed: bank.isError,
+    retryBank: () => void bank.refetch(),
     pointType: bank.data ?? null,
     members: list.data ?? [],
     error:
