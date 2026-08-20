@@ -24,6 +24,14 @@ export function push(state: NavState, route: Route): NavState {
   return withStack(state, state.tab, [...state.stacks[state.tab], route])
 }
 
+/**
+ * 지금 화면을 다른 것으로 갈아 끼운다. 쌓지 않는다 — 뒤로 가기가 그 주소로 다시
+ * 가면 같은 자리를 돈다. 계약: docs/REBUILD.md 「막힌 주소는 은행 페이지로 대체한다」
+ */
+export function replace(state: NavState, route: Route): NavState {
+  return push(pop(state), route)
+}
+
 export function pop(state: NavState): NavState {
   return withStack(state, state.tab, state.stacks[state.tab].slice(0, -1))
 }
