@@ -69,7 +69,7 @@ class PrivateBankMembersTest {
         leftBehind = save("@nara", "이나라")
         outsider = save("@mose", "김지수")
 
-        open = bankFixture.open(point("온포인트", "🔵", PointVisibility.PUBLIC))
+        open = bankFixture.open(point("온포인트", "🏪", PointVisibility.PUBLIC))
         closed = bankFixture.open(point("동아리비", "🎪", PointVisibility.PRIVATE))
 
         listOf(issuer, member).forEach { membershipRepository.save(Membership(pointType = closed, user = it)) }

@@ -63,7 +63,7 @@ class InviteTest {
         member = save("@jisoo", "김지수")
         outsider = save("@mose", "정모세")
         closed = bankFixture.open(point("동아리비", "🎪", PointVisibility.PRIVATE))
-        open = bankFixture.open(point("온포인트", "🔵", PointVisibility.PUBLIC))
+        open = bankFixture.open(point("온포인트", "🏪", PointVisibility.PUBLIC))
         membershipRepository.save(Membership(pointType = closed, user = issuer))
         membershipRepository.save(Membership(pointType = closed, user = member))
     }
