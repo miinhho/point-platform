@@ -384,10 +384,10 @@ class ConcurrencyTest {
     @Test
     fun `같은 초대를 동시에 두 번 수락해도 둘 다 회원이 된 것을 본다`() {
         val bank = privateBank()
-        val inviteId = inviteIdOf(invite(login("@minho").accessToken, bank, recipient))
+        invite(login("@minho").accessToken, bank, recipient)
         val token = login(recipient.handle).accessToken
 
-        val responses = inParallel(2) { accept(token, inviteId) }
+        val responses = inParallel(2) { accept(token, bank) }
 
         // 응답을 못 받고 다시 누른 사람에게 실패를 주지 않는다 — 그가 원한 결과가 이미 있다.
         responses.forEach { assertEquals(HttpStatus.OK, it.statusCode, it.body) }
@@ -401,7 +401,21 @@ class ConcurrencyTest {
         val responses = inParallel(2) { invite(token, bank, recipient) }
 
         responses.forEach { assertTrue(it.statusCode.is2xxSuccessful, it.body) }
-        assertEquals(1, responses.map { inviteIdOf(it) }.distinct().size, "진 쪽도 같은 초대를 본다")
+        assertEquals(1, responses.map { idOf(it) }.distinct().size, "진 쪽도 같은 초대를 본다")
+    }
+
+    @Test
+    fun `같은 키로 동시에 다른 사람을 초대해도 그때의 결과가 온다`() {
+        val bank = privateBank()
+        val token = login("@minho").accessToken
+        val other = userRepository.save(user("@taeyun", "박태윤"))
+        val key = UUID.randomUUID().toString()
+
+        // 대상이 다르므로 부딪히는 것은 (요청자, 키) 쪽이다.
+        val responses = inParallel(2) { invite(token, bank, if (it) recipient else other, key) }
+
+        responses.forEach { assertTrue(it.statusCode.is2xxSuccessful, it.body) }
+        assertEquals(1, responses.map { idOf(it) }.distinct().size, "키가 답하는 것은 그때의 결과다")
     }
 
     private fun user(handle: String, name: String) =
@@ -476,33 +490,42 @@ class ConcurrencyTest {
         return bank
     }
 
-    private fun invite(token: String, bank: PointType, target: User) =
-        postJson("/api/point-types/" + bank.publicId + "/invites", token, InviteRequest(publicId(target)))
+    private fun invite(
+        token: String,
+        bank: PointType,
+        target: User,
+        key: String = UUID.randomUUID().toString(),
+    ) = postJson("/api/point-types/" + bank.publicId + "/invites", token, InviteRequest(publicId(target)), key)
 
-    private fun accept(token: String, inviteId: String) =
-        postJson("/api/invites/$inviteId/accept", token, "")
+    private fun accept(token: String, bank: PointType) =
+        postJson("/api/point-types/" + bank.publicId + "/invites/accept", token, "")
 
-    private fun postJson(path: String, token: String, body: Any): ResponseEntity<String> {
+    private fun postJson(
+        path: String,
+        token: String,
+        body: Any,
+        key: String = UUID.randomUUID().toString(),
+    ): ResponseEntity<String> {
         val headers = HttpHeaders().apply {
             setBearerAuth(token)
-            set("Idempotency-Key", UUID.randomUUID().toString())
+            set("Idempotency-Key", key)
         }
         return restTemplate.exchange(path, HttpMethod.POST, HttpEntity(body, headers), String::class.java)
     }
 
-    private fun inviteIdOf(response: ResponseEntity<String>) =
-        assertNotNull(transferIdOf(response.body), response.body)
+    private fun idOf(response: ResponseEntity<String>) =
+        assertNotNull(Regex("\"id\":\"([^\"]+)\"").find(assertNotNull(response.body))).groupValues[1]
 
     /** 모든 요청이 같은 순간에 출발하게 맞춘다 — 어긋나면 동시성이 시험되지 않는다. */
-    private fun <T : Any> inParallel(count: Int, call: () -> ResponseEntity<T>): List<ResponseEntity<T>> {
+    private fun <T : Any> inParallel(count: Int, call: (first: Boolean) -> ResponseEntity<T>): List<ResponseEntity<T>> {
         val pool = Executors.newFixedThreadPool(count)
         val ready = CountDownLatch(count)
         val go = CountDownLatch(1)
-        val futures = List(count) {
+        val futures = List(count) { index ->
             pool.submit<ResponseEntity<T>> {
                 ready.countDown()
                 go.await()
-                call()
+                call(index == 0)
             }
         }
         assertTrue(ready.await(10, TimeUnit.SECONDS))

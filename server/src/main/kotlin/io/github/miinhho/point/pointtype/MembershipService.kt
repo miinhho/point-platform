@@ -50,23 +50,21 @@ class MembershipService(
         inviteRepository.findByUserIdAndSpentAtIsNullOrderByCreatedAtDesc(userId).map { it.toResponse(userId) }
 
     /**
-     * 수락. 답은 **소진 여부가 아니라 지금 회원인가**로 갈린다 — 멱등의 기준이
-     * 「그가 원한 결과가 이미 있는가」이고, 수락을 누른 사람이 원한 것은 회원이 되는 것이다.
+     * 수락. 은행을 가리킨다 — 초대는 소진되면 새 행이 나므로 화면이 쥔 id 는 낡는다.
+     * 답은 소진 여부가 아니라 **지금 회원인가**로 갈린다 (docs/API.md 「초대」).
      */
     @Transactional
-    fun accept(invitePublicId: String, userId: Long): PointTypeResponse {
-        val invite = runCatching { UUID.fromString(invitePublicId) }.getOrNull()
-            ?.let(inviteRepository::findByPublicId)
-            ?.takeIf { it.user.id == userId }
-            ?: throw failure(FailureCode.INVITE_NOT_FOUND, "초대 없음")
-
-        if (!membershipRepository.existsById(MembershipId(invite.pointType.id!!, userId))) {
-            // 소진된 초대로는 걸어 들어올 수 없다. 내보내진 사람이 돌아오는 길이 여기서 막힌다.
-            if (invite.spentAt != null) throw failure(FailureCode.INVITE_NOT_FOUND, "소진된 초대")
+    fun accept(bankPublicId: String, userId: Long): PointTypeResponse {
+        val pointType = requirePrivateBank(bankPublicId, userId)
+        if (!membershipRepository.existsById(MembershipId(pointType.id!!, userId))) {
+            val invite = inviteRepository.findByPointTypeIdAndUserIdAndSpentAtIsNull(pointType.id!!, userId)
+                ?: throw failure(FailureCode.INVITE_NOT_FOUND, "초대 없음")
             invite.spend()
-            membershipRepository.saveAndFlush(Membership(pointType = invite.pointType, user = invite.user))
+            membershipRepository.saveAndFlush(
+                Membership(pointType = pointType, user = userRepository.getReferenceById(userId)),
+            )
         }
-        return pointTypeResponses.of(invite.pointType, userId)
+        return pointTypeResponses.of(pointType, userId)
     }
 
     /** 나간다. 은행장은 나갈 수 없다 — 발행할 사람이 없는 은행이 된다. */
@@ -90,15 +88,10 @@ class MembershipService(
         removeMember(pointType, target.id!!)
     }
 
-    // 잔액은 건드리지 않는다. 쓸 수 없는 채로 남는 것이 설계다.
-    private fun removeMember(pointType: PointType, userId: Long) {
-        val membership = MembershipId(pointType.id!!, userId)
-        if (!membershipRepository.existsById(membership)) return
-        // 회원 자격과 그 초대가 함께 끝난다. 회원이었던 사람만이다 — 대기 중인 초대를
-        // 여기서 끝내면 계약에 없는 「초대 취소」가 된다.
-        inviteRepository.findByPointTypeIdAndUserIdAndSpentAtIsNull(pointType.id!!, userId)?.spend()
-        membershipRepository.deleteById(membership)
-    }
+    // 잔액도 초대도 건드리지 않는다. 회원은 살아 있는 초대를 갖지 않으므로 여기서 끝낼
+    // 초대가 없고, 대기 중인 초대를 끝내면 계약에 없는 「초대 취소」가 된다.
+    private fun removeMember(pointType: PointType, userId: Long) =
+        membershipRepository.deleteById(MembershipId(pointType.id!!, userId))
 
     private fun requirePrivateBank(publicId: String, viewerId: Long): PointType {
         val pointType = runCatching { UUID.fromString(publicId) }.getOrNull()

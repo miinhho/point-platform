@@ -43,7 +43,8 @@ class MembershipController(private val membershipService: MembershipService) {
     @GetMapping("/invites")
     fun received(@AuthenticationPrincipal userId: Long): List<InviteResponse> = membershipService.received(userId)
 
-    @PostMapping("/invites/{id}/accept")
+    // 초대가 아니라 은행을 가리킨다 — 초대 id 는 소진되면 새것이 난다.
+    @PostMapping("/point-types/{id}/invites/accept")
     fun accept(@PathVariable id: String, @AuthenticationPrincipal userId: Long): PointTypeResponse =
         try {
             membershipService.accept(id, userId)
