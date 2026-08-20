@@ -6,6 +6,7 @@ import org.springframework.boot.ApplicationRunner
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.core.annotation.Order
 import org.springframework.stereotype.Component
+import org.springframework.transaction.annotation.Propagation
 import org.springframework.transaction.annotation.Transactional
 import java.math.BigDecimal
 
@@ -25,17 +26,12 @@ class DevPointTypeSeed(
     private val userRepository: UserRepository,
     private val pointTypeCreateService: PointTypeCreateService,
 ) : ApplicationRunner {
-    // 발행자 핸들을 읽는다 — open-in-view=false 라 트랜잭션 밖이면 프록시가 열리지 않는다.
-    @Transactional(readOnly = true)
-    fun missing(): List<Seed> {
-        val existing = pointTypeRepository.findAll().map { it.name to it.issuer.handle }.toSet()
-        return SEED.filterNot { it.name to it.handle in existing }
-    }
-
+    // 트랜잭션을 열지 않는다. 창설이 스스로 열고, 바깥에 하나 더 있으면 발행 계정 삽입이
+    // 은행 행의 FK 락을 기다리고 바깥은 그 삽입을 기다린다. NEVER 는 그것을 주석이 아니라
+    // 스프링이 막게 한다 — 누가 @Transactional 을 붙이면 그 자리에서 거절한다.
+    @Transactional(propagation = Propagation.NEVER)
     override fun run(args: ApplicationArguments) {
-        // 창설은 트랜잭션을 스스로 연다. 바깥에 하나 더 두면 발행 계정 삽입이 은행 행의
-        // FK 락을 기다리고 바깥은 그 삽입을 기다린다.
-        for (seed in missing()) {
+        for (seed in SEED.filterNot { pointTypeRepository.existsByNameAndIssuerHandle(it.name, it.handle) }) {
             val issuer = userRepository.findByHandle(seed.handle) ?: continue
             pointTypeCreateService.create(
                 issuer.id!!,

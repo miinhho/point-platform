@@ -9,6 +9,8 @@ import org.springframework.boot.ApplicationRunner
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.core.annotation.Order
 import org.springframework.stereotype.Component
+import org.springframework.transaction.annotation.Propagation
+import org.springframework.transaction.annotation.Transactional
 import java.math.BigDecimal
 
 /**
@@ -34,8 +36,11 @@ class DevPrivateBankSeed(
     private val issueService: IssueService,
     private val transferService: TransferService,
 ) : ApplicationRunner {
+    // NEVER 가 「한 트랜잭션으로 묶지 않는다」를 주석이 아니라 스프링이 막게 한다.
+    // 묶으면 계정 삽입이 은행 행의 FK 락을 기다리고 바깥은 그 삽입을 기다린다.
+    @Transactional(propagation = Propagation.NEVER)
     override fun run(args: ApplicationArguments) {
-        if (pointTypeRepository.findAll().any { it.name == BANK }) return
+        if (pointTypeRepository.existsByNameAndIssuerHandle(BANK, "@onmart")) return
         val issuer = user("@onmart") ?: return
         val member = user("@jisoo") ?: return
         val invited = user("@nara") ?: return
