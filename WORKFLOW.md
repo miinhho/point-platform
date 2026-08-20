@@ -452,6 +452,13 @@ Findings are either:
 Findings come from QA, cross-review, or Review. **Review sends them straight to the owning
 session**; the Orchestrator is involved only when the contract itself is wrong.
 
+**판정을 쓰는 자리에서 바로 보낸다.** 요약은 보낸 뒤에 한다 — 순서를 바꾸면 빠뜨릴
+자리가 없어진다. 내려놓고 안 보낸 판정은 없는 판정이다.
+
+**승인은 버튼이 아니라 문장이다.** GitHub 은 자기 계정의 PR 을 승인하지 못하게 막아서
+`gh pr review --approve` 가 실패한다. 코멘트로 남기되 **「이 문장이 승인이다」를 적는다** —
+안 적으면 저자가 승인인지 의견인지 가릴 수 없다.
+
 **보고에 「본 것」 줄이 없으면 되돌린다.** 앞 절의 한 줄이다 — 시점과 범위가 없는 지적은
 받는 쪽이 그 둘을 추측해야 하고, 추측이 틀리면 고칠 필요 없는 것을 고치거나 남의 작업
 순서가 바뀐다.
