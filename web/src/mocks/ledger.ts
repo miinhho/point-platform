@@ -352,7 +352,13 @@ export function balanceOf(pointTypeId: PointTypeId, userId: UserId): Points {
   return state.balances.get(balanceKey(pointTypeId, userId)) ?? 0
 }
 
-/** 잔액 0 도 발행자라면 포함한다. 걸러 내면 화면이 그 상태를 표현할 수 없다. */
+/**
+ * **담는 기준은 잔액이 아니라 관계다** — 계약: docs/API.md.
+ *
+ * 잔액 0 이어도 발행자이거나 회원이면 담는다. 걸러 내면 화면이 그 상태를 표현할 수
+ * 없다 — 초대를 수락한 사람은 처음엔 잔액이 0 이고, 수락이 초대를 소진시키므로
+ * 들어온 문마저 닫힌다. 가입은 됐는데 그 은행이 어느 화면에도 없게 된다.
+ */
 export function balancesOf(userId: UserId) {
   return seedPoints()
     .map((pointType) => {
@@ -366,7 +372,10 @@ export function balancesOf(userId: UserId) {
         neverSpent: !state.spent.has(balanceKey(pointType.id, userId)),
       }
     })
-    .filter(({ pointType, amount }) => amount > 0 || pointType.canIssue)
+    .filter(
+      ({ pointType, amount }) =>
+        amount > 0 || pointType.canIssue || pointType.membership === 'member',
+    )
 }
 
 /** 요청자 기준으로 본 포인트. 권한과 여력은 보는 사람에 따라 다르다. */
