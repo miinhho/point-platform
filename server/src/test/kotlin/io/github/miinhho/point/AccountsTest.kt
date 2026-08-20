@@ -5,6 +5,7 @@ import io.github.miinhho.point.auth.LoginResponse
 import io.github.miinhho.point.ledger.Account
 import io.github.miinhho.point.ledger.AccountKind
 import io.github.miinhho.point.ledger.AccountRepository
+import io.github.miinhho.point.ledger.IssuanceAccountGuard
 import io.github.miinhho.point.pointtype.CreatePointTypeRequest
 import io.github.miinhho.point.pointtype.PointAccent
 import io.github.miinhho.point.pointtype.PointType
@@ -16,6 +17,7 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.boot.DefaultApplicationArguments
 import org.springframework.boot.resttestclient.TestRestTemplate
 import org.springframework.boot.resttestclient.autoconfigure.AutoConfigureTestRestTemplate
 import org.springframework.boot.test.context.SpringBootTest
@@ -32,6 +34,7 @@ import java.util.UUID
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 /** 계정: docs/LEDGER.md 「계정」. 보유자 계정은 받을 때 생기고, 발행 계정은 창설과 함께 난다. */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
@@ -39,6 +42,7 @@ import kotlin.test.assertNull
 @Import(TestcontainersConfiguration::class)
 class AccountsTest {
     @Autowired lateinit var ledgerReset: LedgerReset
+    @Autowired lateinit var issuanceAccountGuard: IssuanceAccountGuard
     @Autowired lateinit var restTemplate: TestRestTemplate
     @Autowired lateinit var userRepository: UserRepository
     @Autowired lateinit var pointTypeRepository: PointTypeRepository
@@ -69,6 +73,34 @@ class AccountsTest {
         assertEquals(0, issuance.balance)
         // 발행 계정은 포인트의 것이지 사람의 것이 아니다.
         assertNull(issuance.user)
+    }
+
+    @Test
+    fun `발행 계정 없는 포인트가 있으면 가드가 터진다`() {
+        // 픽스처가 BankFixture 를 안 지나면 이 판이 만들어진다 — 실서버에는 없는 세상이다.
+        pointTypeRepository.saveAndFlush(
+            PointType(
+                name = "동아리비",
+                emoji = "🎪",
+                issuer = issuer,
+                accent = PointAccent.BLUE,
+                visibility = PointVisibility.PRIVATE,
+                issueCap = 1_000_000,
+                totalIssued = 0,
+            ),
+        )
+
+        val failed = assertThrows<IllegalStateException> {
+            issuanceAccountGuard.run(DefaultApplicationArguments())
+        }
+        assertTrue(failed.message!!.contains("발행 계정 없는 포인트"), failed.message)
+    }
+
+    @Test
+    fun `성한 판에서는 가드가 조용하다`() {
+        // 가드가 늘 빈 표를 보고 통과하면 그것은 검사가 아니다 — 위 테스트와 짝이어야 한다.
+        createPointType()
+        issuanceAccountGuard.run(DefaultApplicationArguments())
     }
 
     @Test
