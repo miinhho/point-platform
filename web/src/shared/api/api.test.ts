@@ -8,6 +8,7 @@ import { pointsApi } from './points'
 import { transfersApi } from './transfers'
 import { usersApi } from './users'
 import { walletApi } from './wallet'
+import type { PointTypeId } from '@/shared/contract'
 import { balanceOf, SEED_ISSUER as ME } from '@/mocks/ledger'
 import { expireAccessTokens } from '@/mocks/sessions'
 import { setSim } from '@/mocks/sim'
@@ -614,6 +615,32 @@ describe('비공개 은행은 회원이 아니면 없는 것과 같다', () => {
     expect(types.map((type) => type.id)).not.toContain('pt_cl')
     // 공개 은행은 그대로 온다.
     expect(types.map((type) => type.id)).toContain('pt_on')
+  })
+
+  /*
+   * 은행 조회만 감추면 모자란다. 후보 목록이 그 은행의 회원을 그대로 답하면 **감춘
+   * 은행의 명부가 다른 문으로 나온다.** 실서버는 `[]` 로 답한다 — 대조로 확인했다.
+   */
+  it('회원이 아니면 후보 목록이 비어 있다', async () => {
+    await asOutsider()
+    expect(await endpoints.users('', 'pt_cl')).toEqual([])
+  })
+
+  /*
+   * **길이가 답이 되면 안 된다.** 없는 은행에는 아무나 담아 주고 감춘 은행에는 빈
+   * 목록을 주면, 빈 목록이 「그 은행은 있다」가 된다. 물어본 사람이 새로 아는 것이
+   * 없어야 한다 — 계약: docs/API.md 「비공개 은행에서 회원이 아닌 사람은 없는
+   * 사람과 구별되지 않아야 한다」
+   */
+  it('없는 은행과 못 보는 은행이 같은 답이다', async () => {
+    await asOutsider()
+    expect(await endpoints.users('', 'pt_없는것' as PointTypeId)).toEqual([])
+  })
+
+  it('회원에게는 그대로 온다 — 감추는 것이 지우는 것이 되지 않는다', async () => {
+    const handles = (await endpoints.users('', 'pt_cl')).map((user) => user.handle)
+    expect(handles).toContain('@jisoo')
+    expect(handles).not.toContain('@minho')
   })
 
   it('만든 사람은 자기 비공개 은행에 닿는다', async () => {

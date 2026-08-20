@@ -418,6 +418,12 @@ export function searchUsers(
   pointTypeId: PointTypeId | null,
 ): User[] {
   const bank = pointTypeId ? state.pointTypes.get(pointTypeId) : undefined
+  /*
+   * 은행을 대고 물었는데 그 안에서 내가 보낼 수 없으면 **아무도 없다.** 없는 은행도
+   * 같은 답이다 — 답의 모양이 갈리면 감춘 은행의 존재가 목록의 길이로 샌다.
+   * 실서버가 그렇게 답하는 것을 확인했다.
+   */
+  if (pointTypeId && (bank === undefined || !usable(bank, meId))) return []
   const others = allUsers().filter(
     (user) => user.id !== meId && (!bank || usable(bank, user.id)),
   )
