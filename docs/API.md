@@ -287,7 +287,7 @@ interface CapChange {
 | `GET` | `/api/point-types/:id/members` | `User[]` | 회원 목록. 회원만 |
 | `POST` | `/api/point-types/:id/invites` | `Invite` `201` | 초대. 은행장만. `Idempotency-Key` 필수 |
 | `GET` | `/api/invites` | `Invite[]` | 내가 받은 초대 |
-| `POST` | `/api/invites/:id/accept` | `PointType` | 수락하면 회원이 된다 |
+| `POST` | `/api/point-types/:id/invites/accept` | `PointType` | 수락하면 회원이 된다 |
 | `DELETE` | `/api/point-types/:id/members/me` | `204` | 나간다 |
 | `DELETE` | `/api/point-types/:id/members/:userId` | `204` | 내보낸다. 은행장만 |
 
@@ -326,6 +326,14 @@ ALREADY_MEMBER` 다. **이것이 불변식이고 서버가 검사한다.** 깨�
 | 지금 회원이다 | 성공 — 다시 누른 것이다 |
 | 회원이 아니고 초대가 살아 있다 | 회원이 되고 초대가 소진된다 |
 | 회원이 아니고 초대가 소진됐다 | `404 INVITE_NOT_FOUND` |
+
+**그래서 수락은 은행을 가리킨다. 초대를 가리키지 않는다.** 위 표가 이미 초대 id 로
+갈리지 않는데 요청만 id 를 받고 있으면, 내보내졌다가 다시 초대받은 사람이 옛 id 로
+수락할 때 `404` 다 — 그는 살아 있는 초대를 갖고 있고 화면은 「초대받았다」고 말해 둔
+채다. 초대 id 는 소진되면 새것이 나므로 화면이 붙들고 있기 나쁜 값이다.
+
+**`membership` 이 `invited` 면 화면은 초대 목록을 읽지 않고 바로 수락한다.**
+`GET /api/invites` 는 초대함 화면(누가 나를 불렀나)에만 남는다.
 
 **살아 있는 초대가 있으면 다시 초대해도 그것을 돌려준다(멱등). 소진됐으면 새 초대를
 만든다.** 그래서 「다시 초대받으면 되살아난다」는 그대로다 — 되살리는 것은 은행장의 새
