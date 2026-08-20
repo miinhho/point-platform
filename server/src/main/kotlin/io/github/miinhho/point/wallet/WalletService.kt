@@ -1,7 +1,8 @@
 package io.github.miinhho.point.wallet
 
 import io.github.miinhho.point.ledger.AccountRepository
-import io.github.miinhho.point.pointtype.MembershipRepository
+import io.github.miinhho.point.pointtype.BankAccess
+import io.github.miinhho.point.pointtype.Relation
 import io.github.miinhho.point.pointtype.PointTypeRepository
 import io.github.miinhho.point.pointtype.PointTypeResponses
 import io.github.miinhho.point.pointtype.PointVisibility
@@ -17,7 +18,7 @@ class WalletService(
     private val pointTypeRepository: PointTypeRepository,
     private val accountRepository: AccountRepository,
     private val pointTypeResponses: PointTypeResponses,
-    private val membershipRepository: MembershipRepository,
+    private val bankAccess: BankAccess,
     private val transferRepository: TransferRepository,
 ) {
     @Transactional(readOnly = true)
@@ -31,12 +32,9 @@ class WalletService(
     fun wallet(userId: Long): WalletResponse {
         val user = requireUser(userId)
         val amountByType = accountRepository.findByUserId(userId).associate { it.pointType.id to it.balance }
-        val myMemberships = membershipRepository.pointTypeIdsOf(userId)
-        val held = pointTypeRepository.findAll().filter { pointType ->
-            (amountByType[pointType.id] ?: 0) > 0 ||
-                pointType.issuer.id == userId ||
-                pointType.id in myMemberships
-        }
+        val relations = bankAccess.relationsOf(userId)
+        val myMemberships = bankAccess.memberOf(userId)
+        val held = pointTypeRepository.findAll().filter { relations.any(it, CARRIES) }
         // id 로 맞춘다 — 순서로 맞추면 응답 조립이 하나를 거르는 날 잔액 카드가 조용히 사라진다.
         val responses = pointTypeResponses.of(held, userId).associateBy { it.id }
         val spent = transferRepository.spentPointTypeIdsOf(userId)
@@ -52,6 +50,15 @@ class WalletService(
             )
         }
         return WalletResponse(user.toResponse(userRepository.sharedNames()), balances)
+    }
+
+    companion object {
+        /**
+         * 지갑이 카드를 담아 주는 관계. **[BankAccess.REACHES] 안에 있어야 한다** — 담기는데
+         * 못 닿으면 카드는 있고 페이지는 없다. 반대는 열려 있다(초대만 받은 사람은 닿지만
+         * 안 담긴다). 근거: docs/API.md.
+         */
+        val CARRIES: Set<Relation> = setOf(Relation.HOLDS_BALANCE, Relation.ISSUER, Relation.MEMBER)
     }
 
     private fun requireUser(userId: Long) =
