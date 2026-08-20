@@ -60,6 +60,10 @@ const isCallTo = (node: ts.Node | undefined, name: string): node is ts.CallExpre
   ts.isIdentifier(node.expression) &&
   node.expression.text === name
 
+/** 이름을 짓는 자리인가. 그 이름을 쓰는 자리와 다르다 */
+const isDeclaredName = (node: ts.Identifier): boolean =>
+  ts.isVariableDeclaration(node.parent) && node.parent.name === node
+
 /** 이 자리에서 값이 곧바로 `read()` 에 들어가는가 */
 function goesIntoRead(node: ts.Expression): boolean {
   const parent = node.parent
@@ -84,9 +88,9 @@ function leakedQueries(path: string): string[] {
   const uses = (name: string): ts.Identifier[] => {
     const out: ts.Identifier[] = []
     const walk = (node: ts.Node) => {
-      if (ts.isIdentifier(node) && node.text === name && !ts.isVariableDeclaration(node.parent)) {
-        out.push(node)
-      }
+      // 선언의 **이름**만 뺀다. 초기화식도 부모가 `VariableDeclaration` 이라, 함께
+      // 빼면 `const { data } = bank` 의 `bank` 가 안 세어져 쓰임이 0 이 된다.
+      if (ts.isIdentifier(node) && node.text === name && !isDeclaredName(node)) out.push(node)
       ts.forEachChild(node, walk)
     }
     walk(source)
