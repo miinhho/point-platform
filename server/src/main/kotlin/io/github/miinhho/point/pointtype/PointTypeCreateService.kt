@@ -1,5 +1,6 @@
 package io.github.miinhho.point.pointtype
 
+import io.github.miinhho.point.ledger.Accounts
 import io.github.miinhho.point.shared.DomainFailureException
 import io.github.miinhho.point.shared.FailureCode
 import io.github.miinhho.point.user.UserRepository
@@ -18,6 +19,7 @@ class PointTypeCreateService(
     private val membershipRepository: MembershipRepository,
     private val userRepository: UserRepository,
     private val pointTypeResponses: PointTypeResponses,
+    private val accounts: Accounts,
     private val bankAccess: BankAccess,
 ) {
     @Transactional(readOnly = true)
@@ -62,6 +64,8 @@ class PointTypeCreateService(
                 idempotencyKey = idempotencyKey,
             ),
         )
+        accounts.openIssuance(created)
+
         // 은행장은 나갈 수도 내보내질 수도 없다 — 창설과 같은 트랜잭션에서 회원이 된다.
         if (created.visibility == PointVisibility.PRIVATE) {
             membershipRepository.saveAndFlush(Membership(pointType = created, user = issuer))
