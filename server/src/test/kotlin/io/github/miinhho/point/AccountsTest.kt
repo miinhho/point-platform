@@ -5,7 +5,6 @@ import io.github.miinhho.point.auth.LoginResponse
 import io.github.miinhho.point.ledger.Account
 import io.github.miinhho.point.ledger.AccountKind
 import io.github.miinhho.point.ledger.AccountRepository
-import io.github.miinhho.point.ledger.IssuanceAccountGuard
 import io.github.miinhho.point.pointtype.CreatePointTypeRequest
 import io.github.miinhho.point.pointtype.PointAccent
 import io.github.miinhho.point.pointtype.PointType
@@ -17,7 +16,6 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.boot.DefaultApplicationArguments
 import org.springframework.boot.resttestclient.TestRestTemplate
 import org.springframework.boot.resttestclient.autoconfigure.AutoConfigureTestRestTemplate
 import org.springframework.boot.test.context.SpringBootTest
@@ -42,7 +40,6 @@ import kotlin.test.assertTrue
 @Import(TestcontainersConfiguration::class)
 class AccountsTest {
     @Autowired lateinit var ledgerReset: LedgerReset
-    @Autowired lateinit var issuanceAccountGuard: IssuanceAccountGuard
     @Autowired lateinit var restTemplate: TestRestTemplate
     @Autowired lateinit var userRepository: UserRepository
     @Autowired lateinit var pointTypeRepository: PointTypeRepository
@@ -73,37 +70,6 @@ class AccountsTest {
         assertEquals(0, issuance.balance)
         // 발행 계정은 포인트의 것이지 사람의 것이 아니다.
         assertNull(issuance.user)
-    }
-
-    @Test
-    fun `발행 계정 없는 포인트가 있으면 가드가 터진다`() {
-        // 픽스처가 BankFixture 를 안 지나면 이 판이 만들어진다 — 실서버에는 없는 세상이다.
-        pointTypeRepository.saveAndFlush(
-            PointType(
-                name = "동아리비",
-                emoji = "🎪",
-                issuer = issuer,
-                accent = PointAccent.BLUE,
-                visibility = PointVisibility.PRIVATE,
-                issueCap = 1_000_000,
-                totalIssued = 0,
-            ),
-        )
-
-        val failed = assertThrows<IllegalStateException> {
-            issuanceAccountGuard.run(DefaultApplicationArguments())
-        }
-        assertTrue(failed.message!!.contains("발행 계정 없는 포인트"), failed.message)
-    }
-
-    @Test
-    fun `성한 판에서는 가드가 조용하다`() {
-        // 가드가 늘 빈 표를 보고 통과하면 그것은 검사가 아니다 — 위 테스트와 짝이어야 하고,
-        // 볼 것이 있다는 것부터 확인해야 한다. 이 PR 이 고치는 병이 바로 그것이다.
-        createPointType()
-        assertTrue(pointTypeRepository.count() > 0, "검사할 포인트가 없으면 조용한 것이 뜻이 없다")
-
-        issuanceAccountGuard.run(DefaultApplicationArguments())
     }
 
     @Test
