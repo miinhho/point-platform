@@ -117,6 +117,23 @@ class InviteTest {
     }
 
     @Test
+    fun `수락하면 잔액이 0 이어도 지갑에 담긴다`() {
+        invite(issuer, closed, outsider)
+        assertEquals(HttpStatus.OK, accept(outsider).statusCode)
+
+        // 안 담으면 가입은 됐는데 그 은행이 어느 화면에도 없다 — 초대함은 수락으로 비었고
+        // 내역에는 아직 아무 일도 없다.
+        val wallet = assertNotNull(get(outsider, "/api/wallet").body)
+        assertTrue(wallet.contains("동아리비"), wallet)
+        assertTrue(wallet.contains("\"amount\":0"), wallet)
+        assertTrue(wallet.contains("\"membership\":\"member\""), "세 가지 0 을 가를 재료가 실려 온다: $wallet")
+
+        // 내보내지면 관계가 끊긴다. 잔액도 없으므로 담을 이유가 없다.
+        delete(issuer, "/api/point-types/${closed.publicId}/members/${publicId(outsider)}")
+        assertFalse(assertNotNull(get(outsider, "/api/wallet").body).contains("동아리비"))
+    }
+
+    @Test
     fun `회원은 살아 있는 초대를 갖지 않는다`() {
         val first = idOf(assertNotNull(invite(issuer, closed, outsider).body))
         assertEquals(HttpStatus.OK, accept(outsider).statusCode)
