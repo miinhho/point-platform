@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ApiError, membersQuery, pointTypeQuery, pointsApi, queryKeys } from '@/shared/api'
+import { ApiError, membersQuery, pointTypeQuery, pointsApi, queryKeys, read } from '@/shared/api'
 import type { PointType, PointTypeId, User, UserId } from '@/shared/contract'
 
 export interface MembersPageView {
@@ -30,8 +30,8 @@ export interface MembersPageView {
  */
 export function useMembersPage(pointTypeId: PointTypeId, onLeft: () => void): MembersPageView {
   const client = useQueryClient()
-  const bank = useQuery(pointTypeQuery(pointTypeId))
-  const list = useQuery(membersQuery(pointTypeId))
+  const bank = read(useQuery(pointTypeQuery(pointTypeId)))
+  const list = read(useQuery(membersQuery(pointTypeId)))
 
   const invalidate = () => {
     void client.invalidateQueries({ queryKey: queryKeys.members(pointTypeId) })
@@ -55,13 +55,13 @@ export function useMembersPage(pointTypeId: PointTypeId, onLeft: () => void): Me
   })
 
   return {
-    pending: list.isPending,
-    failed: list.isError,
-    retry: () => void list.refetch(),
-    bankPending: bank.isPending,
-    bankFailed: bank.isError,
-    retryBank: () => void bank.refetch(),
-    pointType: bank.data ?? null,
+    pending: list.pending,
+    failed: list.failed,
+    retry: list.retry,
+    bankPending: bank.pending,
+    bankFailed: bank.failed,
+    retryBank: bank.retry,
+    pointType: bank.data,
     members: list.data ?? [],
     error:
       [remove.error, leave.error].find(

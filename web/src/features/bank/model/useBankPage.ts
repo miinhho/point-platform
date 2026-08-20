@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { invitesApi, pointTypeQuery, queryKeys, walletQuery } from '@/shared/api'
+import { invitesApi, pointTypeQuery, queryKeys, read, walletQuery } from '@/shared/api'
 import type { Balance, PointType, PointTypeId, User } from '@/shared/contract'
 
 /** 은행 페이지가 그리는 것 전부. 화면은 이 값만 읽는다 */
@@ -26,16 +26,16 @@ export interface BankPageView {
  * 화면도 이 훅도 그것을 다시 계산하지 않는다.
  */
 export function useBankPage(pointTypeId: PointTypeId): BankPageView {
-  const bank = useQuery(pointTypeQuery(pointTypeId))
-  const wallet = useQuery(walletQuery())
+  const bank = read(useQuery(pointTypeQuery(pointTypeId)))
+  const wallet = read(useQuery(walletQuery()))
 
-  const pointType = bank.data ?? null
+  const pointType = bank.data
   const membership = pointType?.membership ?? null
 
   return {
-    pending: bank.isPending,
-    failed: bank.isError,
-    retry: () => void bank.refetch(),
+    pending: bank.pending,
+    failed: bank.failed,
+    retry: bank.retry,
     pointType,
     balance: wallet.data?.balances.find((b) => b.pointType.id === pointTypeId) ?? null,
     me: wallet.data?.user ?? null,

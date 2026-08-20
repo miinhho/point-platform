@@ -1,6 +1,6 @@
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
-import { invitesApi, newIdempotencyKey, usersQuery } from '@/shared/api'
+import { invitesApi, newIdempotencyKey, read, usersQuery } from '@/shared/api'
 import type { PointTypeId, User, UserId } from '@/shared/contract'
 
 export interface InvitePageView {
@@ -27,9 +27,9 @@ export function useInvitePage(pointTypeId: PointTypeId): InvitePageView {
   const [invited, setInvited] = useState<ReadonlySet<UserId>>(new Set())
 
   // 전역 검색이다. 이체의 받는 사람 고르기와 같은 목록이라 아무나 부를 수 있다.
-  const everyone = useQuery(usersQuery(query.trim()))
+  const everyone = read(useQuery(usersQuery(query.trim())))
   // 회원 판정은 서버가 한다. 화면은 그 답으로 후보를 거를 뿐이다.
-  const members = useQuery(usersQuery('', pointTypeId))
+  const members = read(useQuery(usersQuery('', pointTypeId)))
   const memberIds = new Set(members.data?.map((user) => user.id))
 
   const invite = useMutation({
@@ -46,16 +46,16 @@ export function useInvitePage(pointTypeId: PointTypeId): InvitePageView {
    * 막다른 답을 만나고, 후보에서 회원을 빼는 것이 바로 그것을 막으려던 것이다.
    * 규칙: CLAUDE.md · 계약: docs/API.md
    */
-  const filtered = members.isSuccess
+  const filtered = members.data !== null
 
   return {
     query,
     setQuery,
-    pending: everyone.isPending || members.isPending,
-    failed: everyone.isError || members.isError,
+    pending: everyone.pending || members.pending,
+    failed: everyone.failed || members.failed,
     retry: () => {
-      void everyone.refetch()
-      void members.refetch()
+      everyone.retry()
+      members.retry()
     },
     candidates: filtered
       ? (everyone.data ?? []).filter((user) => !memberIds.has(user.id))

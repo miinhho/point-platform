@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { useSetAtom } from 'jotai'
 import { useQuery } from '@tanstack/react-query'
-import { pointTypeQuery } from '@/shared/api'
+import { pointTypeQuery, read } from '@/shared/api'
 import { replaceRouteAtom } from '@/app/atoms'
 import type { PointTypeId } from '@/shared/contract'
 
@@ -21,16 +21,16 @@ export type Gate = 'issuer' | 'member'
  * 「원래 못 들어온다」가 같은 이동으로 보인다.
  */
 export function useBankGate(pointTypeId: PointTypeId, gate: Gate): void {
-  const bank = useQuery(pointTypeQuery(pointTypeId))
+  const bank = read(useQuery(pointTypeQuery(pointTypeId)))
   const replaceRoute = useSetAtom(replaceRouteAtom)
   const decided = useRef(false)
 
-  // 조회가 실패한 것은 「막혔다」가 아니다. 그것은 화면이 실패로 말한다.
-  const open = bank.data
-    ? gate === 'issuer'
-      ? bank.data.canIssue
-      : bank.data.membership === 'member'
-    : null
+  /*
+   * 조회가 실패한 것은 「막혔다」가 아니다 — 그것은 화면이 실패로 말한다.
+   * 낡은 권한으로 문을 열어 주지도 않는다. 둘 다 `read` 가 갈라 준다.
+   */
+  const known = bank.data
+  const open = known ? (gate === 'issuer' ? known.canIssue : known.membership === 'member') : null
 
   useEffect(() => {
     if (decided.current || open === null) return

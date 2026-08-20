@@ -8,6 +8,8 @@
 export { ApiError, hasTokens, newIdempotencyKey, request, setTokens, setUnauthenticatedHandler, takeRefreshToken } from './http'
 export type { RequestOptions } from './http'
 export { queryKeys } from './keys'
+export { read } from './read'
+export type { Read } from './read'
 export { authApi, meQuery } from './auth'
 export type { Credentials, Session, Tokens } from './auth'
 export { walletApi, walletQuery } from './wallet'

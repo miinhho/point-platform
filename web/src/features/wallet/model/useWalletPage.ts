@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { invitesQuery, walletQuery } from '@/shared/api'
+import { invitesQuery, read, walletQuery } from '@/shared/api'
 import type { Balance, Invite } from '@/shared/contract'
 import { orderBalances } from './order'
 
@@ -20,14 +20,14 @@ export interface WalletPageView {
 
 /** 근거: docs/JOURNEY.md 여정 1 */
 export function useWalletPage(): WalletPageView {
-  const wallet = useQuery(walletQuery())
-  const invites = useQuery(invitesQuery())
+  const wallet = read(useQuery(walletQuery()))
+  const invites = read(useQuery(invitesQuery()))
 
   return {
-    pending: wallet.isPending,
-    failed: wallet.isError,
-    retry: () => void wallet.refetch(),
-    loaded: wallet.isSuccess,
+    pending: wallet.pending,
+    failed: wallet.failed,
+    retry: wallet.retry,
+    loaded: wallet.data !== null,
     balances: wallet.data ? orderBalances(wallet.data.balances) : [],
     invites: invites.data ?? [],
     empty: wallet.data?.balances.length === 0 && invites.data?.length === 0,

@@ -127,6 +127,26 @@ describe('feature 안의 세 자리', () => {
     expect(offenders).toEqual([])
   })
 
+  /*
+   * **조회는 `read()` 를 지나서 화면에 간다.**
+   *
+   * TanStack 은 재조회가 실패해도 마지막 성공 데이터를 버리지 않는다. `data` 를
+   * `isError` 보다 먼저 보면 화면이 **옛말을 확신에 차서 한다** — 나간 사람에게
+   * 「나가기」 버튼이 그대로 남은 것이 그것이었다(docs/FIELD.md W16).
+   *
+   * 한 곳이 아니라 열 곳이 넘었다. 그래서 하나씩 막지 않고 한 자리에서 가른다.
+   */
+  it('조회는 read() 를 지나서 화면에 간다', () => {
+    const offenders = FEATURES.flatMap((name) => {
+      const dir = join('src/features', name, 'model')
+      if (!existsSync(dir)) return []
+      return sourceFiles(dir).filter((path) =>
+        [...readFileSync(path, 'utf8').matchAll(/(read\()?\buseQuery\(/g)].some((m) => !m[1]),
+      )
+    })
+    expect(offenders).toEqual([])
+  })
+
   // ViewModel 이 뷰를 만들면 나눈 의미가 없다. 확장자로 막는다.
   it('model 은 JSX 를 갖지 않는다', () => {
     const offenders = FEATURES.flatMap((name) => {
