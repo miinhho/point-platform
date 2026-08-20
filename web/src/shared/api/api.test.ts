@@ -91,6 +91,17 @@ describe('조회', () => {
     expect(found.map((u) => u.handle).sort()).toEqual(['@jisoo', '@jisu'])
   })
 
+  /*
+   * **포인트별이면서 사람별이다.** 은행별로만 두면 그 은행에서 누가 최근에 받았는지를
+   * 아무에게나 답하게 된다 — 계약: docs/API.md 「그 포인트로 최근에 **보낸** 사람」.
+   * 실서버가 요청자에 매어 답하는 것을 대조로 확인했다.
+   */
+  it('최근 대상은 사람마다 다르다 — 한 번도 안 보낸 사람에게는 비어 있다', async () => {
+    const session = await endpoints.login({ handle: '@jisoo', password: 'point' })
+    setTokens(session)
+    expect(await endpoints.recent('pt_on')).toEqual([])
+  })
+
   // 포인트별 최근 대상이 이 계약의 핵심 중 하나다.
   it('최근 대상은 포인트마다 다르다', async () => {
     const on = await endpoints.recent('pt_on')
@@ -596,6 +607,10 @@ describe('비공개 은행은 회원이 아니면 없는 것과 같다', () => {
     const session = await endpoints.login({ handle: '@jisu', password: 'point' })
     setTokens(session)
   }
+  const asIssuer = async () => {
+    const session = await endpoints.login({ handle: '@minho', password: 'point' })
+    setTokens(session)
+  }
 
   it('회원에게는 보인다', async () => {
     expect(await endpoints.pointType('pt_cl')).toMatchObject({ visibility: 'private' })
@@ -641,6 +656,38 @@ describe('비공개 은행은 회원이 아니면 없는 것과 같다', () => {
     const handles = (await endpoints.users('', 'pt_cl')).map((user) => user.handle)
     expect(handles).toContain('@jisoo')
     expect(handles).not.toContain('@minho')
+  })
+
+  /*
+   * 후보 목록 옆에 같은 문이 하나 더 있었다. 최근 목록은 **명부보다 더 새는 쪽이다** —
+   * 명부는 누가 속하는지고 이것은 누가 움직였는지라, 길이가 0 이 아닌 것 하나로
+   * 감춘 은행의 존재까지 드러난다. 실서버는 `[]` 로 답한다.
+   */
+  it('회원이 아니면 최근 목록도 비어 있다', async () => {
+    await asOutsider()
+    expect(await endpoints.recent('pt_cl')).toEqual([])
+    expect(await endpoints.recent('pt_없는것' as PointTypeId)).toEqual([])
+  })
+
+  /*
+   * **한 번도 안 보낸 사람은 이것을 증명하지 못한다.** 그 사람은 애초에 목록이 없어서,
+   * 감추는 것이 없어도 빈 답이 온다. 재려면 **보낸 적이 있고 지금은 남남인** 사람이
+   * 있어야 한다 — 나가면서 자기 목록이 사라지는 것이 아니기 때문이다.
+   */
+  it('보낸 적이 있어도 나간 뒤에는 최근 목록이 비어 있다', async () => {
+    await endpoints.createInvite('pt_cl', 'u_jisu', key())
+    await asOutsider()
+    await endpoints.acceptInvite('pt_cl')
+
+    await asIssuer()
+    await endpoints.createTransfer({ pointTypeId: 'pt_cl', toId: 'u_jisu', amount: 5_000 }, key())
+
+    await asOutsider()
+    await endpoints.createTransfer({ pointTypeId: 'pt_cl', toId: 'u_jisoo', amount: 1_000 }, key())
+    expect((await endpoints.recent('pt_cl')).map((user) => user.id)).toEqual(['u_jisoo'])
+
+    await endpoints.leaveBank('pt_cl')
+    expect(await endpoints.recent('pt_cl')).toEqual([])
   })
 
   it('만든 사람은 자기 비공개 은행에 닿는다', async () => {
@@ -850,6 +897,19 @@ describe('나가기와 내보내기', () => {
     const session = await endpoints.login({ handle: '@jisoo', password: 'point' })
     setTokens(session)
   }
+
+  /*
+   * 나간 사람은 지금 받을 수 없다. 최근 목록에 그대로 두면 화면이 **보낼 수 없는
+   * 사람을 제일 누르기 쉬운 자리에 놓는다** — 그 자리는 대상 선택의 첫 줄이다.
+   * 잔액처럼 지우는 것이 아니라 지금 보낼 수 있는 사람만 담는 것이다.
+   */
+  it('내보내진 사람은 최근 목록에서 빠진다', async () => {
+    await endpoints.createTransfer({ pointTypeId: 'pt_cl', toId: 'u_jisoo', amount: 1_000 }, key())
+    expect((await endpoints.recent('pt_cl')).map((u) => u.id)).toEqual(['u_jisoo'])
+
+    await endpoints.removeMember('pt_cl', 'u_jisoo')
+    expect(await endpoints.recent('pt_cl')).toEqual([])
+  })
 
   /** 계약: docs/API.md — 명부는 셋으로 답한다 */
   it('회원에게는 목록을 준다', async () => {

@@ -295,11 +295,11 @@ export const handlers = [
 
   http.get(
     '*/api/recent',
-    authed((_userId, request) => {
+    authed((userId, request) => {
       const params = new URL(request.url).searchParams
       const pointTypeId = params.get('pointTypeId')
       if (!pointTypeId) return fail('POINT_TYPE_NOT_FOUND')
-      return ledger.recentFor(pointTypeId, Number(params.get('limit') ?? 4))
+      return ledger.recentFor(pointTypeId, userId, Number(params.get('limit') ?? 4))
     }),
   ),
 

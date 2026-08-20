@@ -167,6 +167,11 @@ type BalanceKey = string
 const balanceKey = (pointTypeId: PointTypeId, userId: UserId): BalanceKey =>
   `${pointTypeId}:${userId}`
 
+/** `${pointTypeId}:${senderId}` → 그 사람이 그 포인트로 보낸 사람들 */
+type RecentKey = string
+const recentKey = (pointTypeId: PointTypeId, senderId: UserId): RecentKey =>
+  `${pointTypeId}:${senderId}`
+
 function seedBalances(): Map<BalanceKey, Points> {
   return new Map<BalanceKey, Points>([
     [balanceKey('pt_on', SEED_ISSUER), 3_240_000],
@@ -206,12 +211,12 @@ function seedMembers(): Map<PointTypeId, Set<UserId>> {
   ])
 }
 
-/** 포인트별로 다르다. */
-function seedRecent(): Map<PointTypeId, UserId[]> {
-  return new Map<PointTypeId, UserId[]>([
-    ['pt_on', ['u_jisoo', 'u_taeyun', 'u_junho']],
-    ['pt_sol', ['u_seoyeon']],
-    ['pt_gm', ['u_jisu']],
+/** 포인트별로 다르고 **사람별로도 다르다.** 내가 보낸 사람이지 그 은행이 보낸 사람이 아니다 */
+function seedRecent(): Map<RecentKey, UserId[]> {
+  return new Map<RecentKey, UserId[]>([
+    [recentKey('pt_on', SEED_ISSUER), ['u_jisoo', 'u_taeyun', 'u_junho']],
+    [recentKey('pt_sol', SEED_ISSUER), ['u_seoyeon']],
+    [recentKey('pt_gm', SEED_ISSUER), ['u_jisu']],
   ])
 }
 
@@ -244,7 +249,7 @@ interface State {
   acceptedInvites: Map<string, SeedInvite>
   /** `${요청자}:${멱등성 키}` → 초대 id */
   invitedByKey: Map<string, string>
-  recent: Map<PointTypeId, UserId[]>
+  recent: Map<RecentKey, UserId[]>
 }
 
 function initialState(): State {
@@ -437,11 +442,21 @@ export function searchUsers(
   return others.filter((user) => names.has(user.name))
 }
 
-export function recentFor(pointTypeId: PointTypeId, limit: number): User[] {
-  return (state.recent.get(pointTypeId) ?? [])
-    .slice(0, limit)
+/**
+ * **내가** 그 포인트로 최근에 보낸 사람 — 계약: docs/API.md.
+ *
+ * 은행별로만 두면 그 은행에서 누가 최근에 받았는지를 아무에게나 답하게 된다.
+ * 명부보다 더 새는 쪽이다 — 명부는 누가 속하는지고 이것은 **누가 움직였는지**라,
+ * 길이가 0 이 아닌 것 하나로 감춘 은행의 존재까지 드러난다.
+ */
+export function recentFor(pointTypeId: PointTypeId, meId: UserId, limit: number): User[] {
+  const bank = state.pointTypes.get(pointTypeId)
+  if (bank === undefined || !usable(bank, meId)) return []
+  return (state.recent.get(recentKey(pointTypeId, meId)) ?? [])
     .map((id) => userById(id))
-    .filter((user): user is User => user !== undefined)
+    // 받았던 사람이 나갔으면 지금은 보낼 수 없다. 지운 것이 아니라 못 보내는 것이다
+    .filter((user): user is User => user !== undefined && usable(bank, user.id))
+    .slice(0, limit)
 }
 
 /** 이체는 관여한 사람만 읽는다 — 계약: docs/API.md */
@@ -868,11 +883,9 @@ function record(
   state.byKey.set(idempotencyScope(meId, input.idempotencyKey), transfer.id)
   state.order.unshift(transfer.id)
 
-  const previous = state.recent.get(pointTypeId) ?? []
-  state.recent.set(pointTypeId, [
-    recipient.id,
-    ...previous.filter((id) => id !== recipient.id),
-  ])
+  const key = recentKey(pointTypeId, meId)
+  const previous = state.recent.get(key) ?? []
+  state.recent.set(key, [recipient.id, ...previous.filter((id) => id !== recipient.id)])
 
   return transfer
 }
