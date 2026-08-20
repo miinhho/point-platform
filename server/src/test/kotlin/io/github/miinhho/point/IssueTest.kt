@@ -41,6 +41,7 @@ import kotlin.test.assertTrue
 @Import(TestcontainersConfiguration::class)
 class IssueTest {
     @Autowired lateinit var ledgerReset: LedgerReset
+    @Autowired lateinit var bankFixture: BankFixture
     @Autowired lateinit var restTemplate: TestRestTemplate
     @Autowired lateinit var userRepository: UserRepository
     @Autowired lateinit var pointTypeRepository: PointTypeRepository
@@ -55,7 +56,7 @@ class IssueTest {
         ledgerReset.wipe()
         issuer = save("@onmart", "온마트")
         other = save("@jisoo", "김지수")
-        point = pointTypeRepository.save(
+        point = bankFixture.open(
             PointType(
                 name = "온포인트",
                 emoji = "🔵",

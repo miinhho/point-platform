@@ -53,6 +53,7 @@ import kotlin.test.assertTrue
 @Import(TestcontainersConfiguration::class)
 class ConcurrencyTest {
     @Autowired lateinit var ledgerReset: LedgerReset
+    @Autowired lateinit var bankFixture: BankFixture
     @Autowired lateinit var restTemplate: TestRestTemplate
     @Autowired lateinit var userRepository: UserRepository
     @Autowired lateinit var pointTypeRepository: PointTypeRepository
@@ -73,7 +74,7 @@ class ConcurrencyTest {
 
         issuer = userRepository.save(user("@minho", "장민호"))
         recipient = userRepository.save(user("@jisoo", "김지수"))
-        pointType = pointTypeRepository.save(
+        pointType = bankFixture.open(
             PointType(
                 name = "금머니",
                 emoji = "💰",
@@ -478,7 +479,7 @@ class ConcurrencyTest {
     }
 
     private fun privateBank(): PointType {
-        val bank = pointTypeRepository.save(
+        val bank = bankFixture.open(
             PointType(
                 name = "동아리비",
                 emoji = "\uD83C\uDFAA",

@@ -47,6 +47,7 @@ import kotlin.test.assertTrue
 @Import(TestcontainersConfiguration::class)
 class BankPageTest {
     @Autowired lateinit var ledgerReset: LedgerReset
+    @Autowired lateinit var bankFixture: BankFixture
     @Autowired lateinit var restTemplate: TestRestTemplate
     @Autowired lateinit var userRepository: UserRepository
     @Autowired lateinit var pointTypeRepository: PointTypeRepository
@@ -70,8 +71,8 @@ class BankPageTest {
         leftBehind = save("@nara", "이나라")
         stranger = save("@mose", "정모세")
 
-        open = pointTypeRepository.save(point("온포인트", "🔵", PointVisibility.PUBLIC))
-        closed = pointTypeRepository.save(point("동아리비", "🎪", PointVisibility.PRIVATE))
+        open = bankFixture.open(point("온포인트", "🔵", PointVisibility.PUBLIC))
+        closed = bankFixture.open(point("동아리비", "🎪", PointVisibility.PRIVATE))
 
         // 은행장은 언제나 회원이다. 나간 사람은 회원이 아닌 채로 잔액만 남는다.
         membershipRepository.save(Membership(pointType = closed, user = issuer))

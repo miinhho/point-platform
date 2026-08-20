@@ -45,6 +45,7 @@ import kotlin.test.assertTrue
 @Import(TestcontainersConfiguration::class)
 class PrivateBankMembersTest {
     @Autowired lateinit var ledgerReset: LedgerReset
+    @Autowired lateinit var bankFixture: BankFixture
     @Autowired lateinit var restTemplate: TestRestTemplate
     @Autowired lateinit var userRepository: UserRepository
     @Autowired lateinit var pointTypeRepository: PointTypeRepository
@@ -68,8 +69,8 @@ class PrivateBankMembersTest {
         leftBehind = save("@nara", "이나라")
         outsider = save("@mose", "김지수")
 
-        open = pointTypeRepository.save(point("온포인트", "🔵", PointVisibility.PUBLIC))
-        closed = pointTypeRepository.save(point("동아리비", "🎪", PointVisibility.PRIVATE))
+        open = bankFixture.open(point("온포인트", "🔵", PointVisibility.PUBLIC))
+        closed = bankFixture.open(point("동아리비", "🎪", PointVisibility.PRIVATE))
 
         listOf(issuer, member).forEach { membershipRepository.save(Membership(pointType = closed, user = it)) }
         listOf(issuer, member, leftBehind).forEach {
