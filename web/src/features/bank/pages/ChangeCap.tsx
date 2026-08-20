@@ -5,7 +5,7 @@ import { toGrouped } from '@/shared/format'
 import { BackButton } from '@/shared/ui/BackButton'
 import { Line } from '@/shared/ui/Line'
 import { Body, Gutter, Header, Screen, Title } from '@/shared/ui/Screen'
-import { CapForm } from './CapForm'
+import { CapForm } from '../ui/CapForm'
 
 interface Props {
   pointType: PointType

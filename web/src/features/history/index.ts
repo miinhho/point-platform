@@ -1,3 +1,3 @@
-export { History } from './ui/History'
-export { HistoryDetail } from './ui/HistoryDetail'
-export { IssueDetail } from './ui/IssueDetail'
+export { History } from './pages/History'
+export { HistoryDetail } from './pages/HistoryDetail'
+export { IssueDetail } from './pages/IssueDetail'

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { readdirSync, readFileSync, statSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 
 /**
@@ -20,6 +20,7 @@ function tsxFiles(dir: string): string[] {
 }
 
 const FILES = SCREEN_DIRS.flatMap(tsxFiles)
+
 
 /** 주석과 i18n 키 정의를 뺀 본문 */
 /**
@@ -46,6 +47,9 @@ function sourceFiles(dir: string): string[] {
   return out
 }
 
+/** feature 소스 전부. 배럴은 뺀다 — 배럴이 자기 안을 가리키는 것은 정상이다 */
+const FEATURE_SOURCES = sourceFiles('src/features')
+
 describe('상태 규율', () => {
   // T1 이 호출부 0개인 쿼리 6개를 만들었고, 그 뒤 atom 하나가 또 그랬다 — CLAUDE.md F3
   it('export 된 atom 과 query 는 쓰는 곳이 있다', () => {
@@ -62,6 +66,69 @@ describe('상태 규율', () => {
       }
     }
     expect(orphans).toEqual([])
+  })
+})
+
+/**
+ * feature 안의 세 자리 — 규칙: CLAUDE.md 「계층이 아니라 기능으로 나눈다」
+ *
+ * `pages/` 사용자가 닿는 화면 하나 · `ui/` 그 화면을 이루는 조각 ·
+ * `model/` 화면이 쓸 데이터를 가져오고 가공하는 곳.
+ *
+ * 셋이 이름만 남고 섞이는 것은 조용히 일어난다. 섞였을 때 실제로 무엇이
+ * 나빠지는지가 있는 것만 검사한다.
+ */
+describe('feature 안의 세 자리', () => {
+  const FEATURES = readdirSync('src/features').filter((name) =>
+    statSync(join('src/features', name)).isDirectory(),
+  )
+
+  it('검사할 feature 가 있다', () => {
+    expect(FEATURES.length).toBeGreaterThan(0)
+  })
+
+  // 조각을 내보내면 다른 feature 가 그것을 쓰고, 그때부터 그 조각은 자기 화면을
+  // 따라 못 바뀐다. 공용으로 쓸 것이면 `shared/ui` 로 올라가야 한다.
+  it('배럴은 조각(ui/)을 내보내지 않는다', () => {
+    const offenders = FEATURES.filter((name) => {
+      const barrel = join('src/features', name, 'index.ts')
+      return existsSync(barrel) && readFileSync(barrel, 'utf8').includes('./ui/')
+    })
+    expect(offenders).toEqual([])
+  })
+
+  // 조각이 화면을 부르면 방향이 뒤집힌 것이다 — 그것은 더 이상 조각이 아니다.
+  it('조각이 화면을 수입하지 않는다', () => {
+    const offenders = FEATURES.flatMap((name) => {
+      const dir = join('src/features', name, 'ui')
+      return existsSync(dir)
+        ? sourceFiles(dir).filter((path) => readFileSync(path, 'utf8').includes("from '../pages/"))
+        : []
+    })
+    expect(offenders).toEqual([])
+  })
+
+  // ViewModel 이 뷰를 만들면 나눈 의미가 없다. 확장자로 막는다.
+  it('model 은 JSX 를 갖지 않는다', () => {
+    const offenders = FEATURES.flatMap((name) => {
+      const dir = join('src/features', name, 'model')
+      return existsSync(dir) ? readdirSync(dir).filter((entry) => entry.endsWith('.tsx')) : []
+    })
+    expect(offenders).toEqual([])
+  })
+
+  /*
+   * 내부 경로가 새면 그 파일은 옮길 수 없게 되고, 옮길 수 없는 파일이 생기는
+   * 순간 구조가 아니라 관습이 된다.
+   */
+  it('feature 밖에서는 배럴만 본다', () => {
+    const outside = [...sourceFiles('src/app'), ...sourceFiles('src/shared'), ...FEATURE_SOURCES]
+    const offenders = outside.flatMap((path) =>
+      [...readFileSync(path, 'utf8').matchAll(/from '(@\/features\/[a-z]+\/[^']+)'/g)].map(
+        ([, spec]) => `${path}: ${spec}`,
+      ),
+    )
+    expect(offenders).toEqual([])
   })
 })
 

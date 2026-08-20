@@ -10,7 +10,7 @@ import { Body, Gutter, Header, RowButton, Screen, Title } from '@/shared/ui/Scre
 import { PointBadge } from '@/shared/ui/PointBadge'
 import type { Invite } from '@/shared/contract'
 import { orderBalances } from '../model/order'
-import { PointCard } from './PointCard'
+import { PointCard } from '../ui/PointCard'
 
 /** 근거: docs/JOURNEY.md 여정 1 */
 export function Home() {
