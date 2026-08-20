@@ -2,6 +2,7 @@ package io.github.miinhho.point
 
 import io.github.miinhho.point.auth.LoginRequest
 import io.github.miinhho.point.auth.LoginResponse
+import io.github.miinhho.point.pointtype.ChangeCapRequest
 import io.github.miinhho.point.pointtype.InviteRepository
 import io.github.miinhho.point.pointtype.InviteRequest
 import io.github.miinhho.point.pointtype.Membership
@@ -12,8 +13,9 @@ import io.github.miinhho.point.pointtype.PointTypeRepository
 import io.github.miinhho.point.pointtype.PointVisibility
 import io.github.miinhho.point.user.User
 import io.github.miinhho.point.user.UserRepository
-import io.github.miinhho.point.wallet.Balance
-import io.github.miinhho.point.wallet.BalanceRepository
+import io.github.miinhho.point.ledger.Account
+import io.github.miinhho.point.ledger.AccountKind
+import io.github.miinhho.point.ledger.AccountRepository
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -39,12 +41,13 @@ import kotlin.test.assertTrue
 @Import(TestcontainersConfiguration::class)
 class InviteTest {
     @Autowired lateinit var ledgerReset: LedgerReset
+    @Autowired lateinit var bankFixture: BankFixture
     @Autowired lateinit var restTemplate: TestRestTemplate
     @Autowired lateinit var userRepository: UserRepository
     @Autowired lateinit var pointTypeRepository: PointTypeRepository
     @Autowired lateinit var membershipRepository: MembershipRepository
     @Autowired lateinit var inviteRepository: InviteRepository
-    @Autowired lateinit var balanceRepository: BalanceRepository
+    @Autowired lateinit var accountRepository: AccountRepository
     @Autowired lateinit var passwordEncoder: PasswordEncoder
 
     lateinit var issuer: User
@@ -59,8 +62,8 @@ class InviteTest {
         issuer = save("@onmart", "온마트")
         member = save("@jisoo", "김지수")
         outsider = save("@mose", "정모세")
-        closed = pointTypeRepository.save(point("동아리비", "🎪", PointVisibility.PRIVATE))
-        open = pointTypeRepository.save(point("온포인트", "🔵", PointVisibility.PUBLIC))
+        closed = bankFixture.open(point("동아리비", "🎪", PointVisibility.PRIVATE))
+        open = bankFixture.open(point("온포인트", "🔵", PointVisibility.PUBLIC))
         membershipRepository.save(Membership(pointType = closed, user = issuer))
         membershipRepository.save(Membership(pointType = closed, user = member))
     }
@@ -116,6 +119,35 @@ class InviteTest {
     }
 
     @Test
+    fun `수락하면 잔액이 0 이어도 지갑에 담긴다`() {
+        invite(issuer, closed, outsider)
+        assertEquals(HttpStatus.OK, accept(outsider).statusCode)
+
+        // 안 담으면 가입은 됐는데 그 은행이 어느 화면에도 없다 — 초대함은 수락으로 비었고
+        // 내역에는 아직 아무 일도 없다.
+        val wallet = assertNotNull(get(outsider, "/api/wallet").body)
+        assertTrue(wallet.contains("동아리비"), wallet)
+        assertTrue(wallet.contains("\"amount\":0"), wallet)
+        assertTrue(wallet.contains("\"membership\":\"member\""), "세 가지 0 을 가를 재료가 실려 온다: $wallet")
+
+        // 상한은 보유자에게 하는 약속이다. 카드를 주기로 했으면 그 약속이 바뀐 기록도 와야 한다.
+        val capKey = UUID.randomUUID().toString()
+        val cap = restTemplate.exchange(
+            "/api/point-types/${closed.publicId}/cap",
+            HttpMethod.PATCH,
+            HttpEntity(ChangeCapRequest(java.math.BigDecimal(2_000_000)), authOf(issuer).apply { set("Idempotency-Key", capKey) }),
+            String::class.java,
+        )
+        assertEquals(HttpStatus.OK, cap.statusCode, cap.body)
+        val history = assertNotNull(get(outsider, "/api/history?limit=10").body)
+        assertTrue(history.contains("capChange"), "지갑에 담기는 사람은 상한 변경도 본다: $history")
+
+        // 내보내지면 관계가 끊긴다. 잔액도 없으므로 담을 이유가 없다.
+        delete(issuer, "/api/point-types/${closed.publicId}/members/${publicId(outsider)}")
+        assertFalse(assertNotNull(get(outsider, "/api/wallet").body).contains("동아리비"))
+    }
+
+    @Test
     fun `회원은 살아 있는 초대를 갖지 않는다`() {
         val first = idOf(assertNotNull(invite(issuer, closed, outsider).body))
         assertEquals(HttpStatus.OK, accept(outsider).statusCode)
@@ -153,7 +185,7 @@ class InviteTest {
         // 아무 관계도 없으면 페이지 자체가 404 라, outsider 가 보이는 자리는
         // 잔액이 남은 채 나온 사람이다. 잔액이 닿을 자격을 준다.
         assertEquals(HttpStatus.NOT_FOUND, get(outsider, "/api/point-types/${closed.publicId}").statusCode)
-        balanceRepository.save(Balance(user = outsider, pointType = closed, amount = 3_000))
+        accountRepository.save(Account(pointType = closed, user = outsider, kind = AccountKind.HOLDER, balance = 3_000))
         assertTrue(bankOf(outsider, closed).contains("\"membership\":\"outsider\""), bankOf(outsider, closed))
 
         val inviteId = idOf(assertNotNull(invite(issuer, closed, outsider).body))
@@ -173,7 +205,7 @@ class InviteTest {
     @Test
     fun `내보내면 초대함이 비고 스스로 걸어 들어올 수 없다`() {
         // 잔액이 은행에 닿을 자격을 준다 — 그래야 「보이는데 못 들어온다」가 시험된다.
-        balanceRepository.save(Balance(user = outsider, pointType = closed, amount = 3_000))
+        accountRepository.save(Account(pointType = closed, user = outsider, kind = AccountKind.HOLDER, balance = 3_000))
         invite(issuer, closed, outsider)
         assertEquals(HttpStatus.OK, accept(outsider).statusCode)
 
@@ -232,7 +264,7 @@ class InviteTest {
     @Test
     fun `이미 나간 사람이 다시 나가도 204 다`() {
         // 잔액이 은행에 닿을 자격을 주므로 비회원도 이 길을 부를 수 있다.
-        balanceRepository.save(Balance(user = outsider, pointType = closed, amount = 3_000))
+        accountRepository.save(Account(pointType = closed, user = outsider, kind = AccountKind.HOLDER, balance = 3_000))
 
         // 그가 원한 것은 회원이 아니게 되는 것이고 그는 이미 회원이 아니다.
         val leaving = delete(outsider, "/api/point-types/${closed.publicId}/members/me")
@@ -241,7 +273,7 @@ class InviteTest {
 
     @Test
     fun `나가도 잔액은 남고 은행장은 나갈 수 없다`() {
-        balanceRepository.save(Balance(user = member, pointType = closed, amount = 5_000))
+        accountRepository.save(Account(pointType = closed, user = member, kind = AccountKind.HOLDER, balance = 5_000))
 
         assertEquals(HttpStatus.NO_CONTENT, delete(member, "/api/point-types/${closed.publicId}/members/me").statusCode)
         val wallet = assertNotNull(get(member, "/api/wallet").body)

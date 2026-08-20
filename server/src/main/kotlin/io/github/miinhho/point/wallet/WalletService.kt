@@ -1,5 +1,6 @@
 package io.github.miinhho.point.wallet
 
+import io.github.miinhho.point.ledger.AccountRepository
 import io.github.miinhho.point.pointtype.MembershipRepository
 import io.github.miinhho.point.pointtype.PointTypeRepository
 import io.github.miinhho.point.pointtype.PointTypeResponses
@@ -14,7 +15,7 @@ import org.springframework.transaction.annotation.Transactional
 class WalletService(
     private val userRepository: UserRepository,
     private val pointTypeRepository: PointTypeRepository,
-    private val balanceRepository: BalanceRepository,
+    private val accountRepository: AccountRepository,
     private val pointTypeResponses: PointTypeResponses,
     private val membershipRepository: MembershipRepository,
     private val transferRepository: TransferRepository,
@@ -22,17 +23,22 @@ class WalletService(
     @Transactional(readOnly = true)
     fun me(userId: Long) = requireUser(userId).toResponse(userRepository.sharedNames())
 
-    // 근거: docs/API.md — 잔액 0 이라도 내가 발행자인 포인트는 포함한다.
+    // 담는 기준은 잔액이 아니라 관계다 — 초대를 수락한 사람은 아직 아무것도 못 받았어도
+    // 그 은행의 회원이다. 안 담으면 가입은 됐는데 그 은행이 어느 화면에도 없다
+    // (홈에 카드가 없고, 초대함은 수락으로 비었고, 내역에는 아직 아무 일도 없다).
+    // 근거: docs/API.md 「아직 계약이 아닌 것」.
     @Transactional(readOnly = true)
     fun wallet(userId: Long): WalletResponse {
         val user = requireUser(userId)
-        val amountByType = balanceRepository.findByUserId(userId).associate { it.id.pointTypeId to it.amount }
+        val amountByType = accountRepository.findByUserId(userId).associate { it.pointType.id to it.balance }
+        val myMemberships = membershipRepository.pointTypeIdsOf(userId)
         val held = pointTypeRepository.findAll().filter { pointType ->
-            (amountByType[pointType.id] ?: 0) > 0 || pointType.issuer.id == userId
+            (amountByType[pointType.id] ?: 0) > 0 ||
+                pointType.issuer.id == userId ||
+                pointType.id in myMemberships
         }
         // id 로 맞춘다 — 순서로 맞추면 응답 조립이 하나를 거르는 날 잔액 카드가 조용히 사라진다.
         val responses = pointTypeResponses.of(held, userId).associateBy { it.id }
-        val myMemberships = membershipRepository.pointTypeIdsOf(userId)
         val spent = transferRepository.spentPointTypeIdsOf(userId)
         val balances = held.map { pointType ->
             val amount = amountByType[pointType.id] ?: 0

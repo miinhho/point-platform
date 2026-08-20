@@ -7,6 +7,9 @@ import org.springframework.data.jpa.repository.Query
 import java.util.UUID
 
 interface PointTypeRepository : JpaRepository<PointType, Long> {
+    // 조인으로 답한다 — 엔티티를 꺼내 issuer 를 열면 트랜잭션 밖에서 프록시가 안 열린다.
+    fun existsByNameAndIssuerHandle(name: String, handle: String): Boolean
+
     fun findByPublicId(publicId: UUID): PointType?
     fun findByIssuerIdAndIdempotencyKey(issuerId: Long, idempotencyKey: String): PointType?
 
