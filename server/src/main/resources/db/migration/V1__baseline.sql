@@ -45,10 +45,14 @@ create table accounts (
     kind          enum ('HOLDER','ISSUANCE') not null,
     balance       bigint not null,
     -- NULL 끼리는 unique 에서 안 부딪히므로 그대로 두면 한 포인트에 발행 계정이 둘 생긴다.
-    -- 0 으로 접어서 막는다. 사용자 id 는 1 부터라 겹치지 않는다.
+    -- 0 으로 접어서 막는다. users.id 가 AUTO_INCREMENT 라 0 을 넣어도 저장되지 않고
+    -- 다음 번호가 들어가므로 보유자와 겹치지 않는다 (sql_mode 에 NO_AUTO_VALUE_ON_ZERO 가 없어야 한다).
     holder_key    bigint generated always as (coalesce(user_id, 0)) stored,
     primary key (id),
     constraint uk_accounts_point_type_holder unique (point_type_id, holder_key),
+    -- kind 와 user_id 가 같은 사실을 두 번 말한다. 어긋난 행을 막지 않으면
+    -- (user_id null, HOLDER) 가 holder_key 0 을 먹고 진짜 발행 계정을 밀어낸다.
+    constraint ck_accounts_issuance_has_no_holder check ((user_id is null) = (kind = 'ISSUANCE')),
     key ix_accounts_user (user_id),
     constraint fk_accounts_point_type foreign key (point_type_id) references point_types (id),
     constraint fk_accounts_user foreign key (user_id) references users (id)

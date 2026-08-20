@@ -41,8 +41,8 @@ class DevPointTypeSeed(
                 totalIssued = 0,
             )
         }
-        // 창설 엔드포인트와 같은 자리를 지난다 — 발행 계정 없는 포인트를 남기면
-        // 상한을 보는 쪽이 잠글 행을 못 찾는다.
+        // 창설 엔드포인트와 같은 자리를 지난다 — 여기를 빠뜨렸더니 시드 은행만 발행 계정이
+        // 없었고, 시드가 테스트에서 안 돌아 실서버에 띄워 보고서야 알았다.
         pointTypeRepository.saveAll(created).forEach(accounts::openIssuance)
     }
 

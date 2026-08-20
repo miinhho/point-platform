@@ -1,11 +1,20 @@
 package io.github.miinhho.point.ledger
 
+import io.github.miinhho.point.pointtype.PointType
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Modifying
 import org.springframework.data.jpa.repository.Query
 
 interface AccountRepository : JpaRepository<Account, Long> {
     fun findByUserId(userId: Long): List<Account>
+
+    // 「포인트가 있으면 발행 계정도 있다」를 검사한다. 스키마가 못 지키는 성질이라
+    // 부팅에서 본다 — 어느 길이 빠뜨려도 그때는 소리가 난다.
+    @Query(
+        "select p.id from PointType p where p.id not in " +
+            "(select a.pointType.id from Account a where a.kind = :kind)",
+    )
+    fun pointTypeIdsWithout(kind: AccountKind): List<Long>
 
     fun findByPointTypeIdAndUserId(pointTypeId: Long, userId: Long): Account?
 
