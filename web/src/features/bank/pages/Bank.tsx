@@ -1,9 +1,7 @@
 import { Box, Button, SkeletonCircle, Text, VisuallyHidden } from '@chakra-ui/react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSetAtom } from 'jotai'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ApiError, invitesApi, invitesQuery, membersQuery, pointTypeQuery, queryKeys, walletQuery } from '@/shared/api'
 import { goAtom } from '@/app/atoms'
 import { toGrouped } from '@/shared/format'
 import { startIssueAtom, startTransferAtom } from '@/features/transfer'
@@ -16,6 +14,7 @@ import { Body, Gutter, Header, Panel, Screen, Title } from '@/shared/ui/Screen'
 import type { ReactNode } from 'react'
 import type { PointType, PointTypeId } from '@/shared/contract'
 import { formatCreated } from '../model/created'
+import { useBankPage, useJoinBank } from '../model/useBankPage'
 import { ChangeCap } from './ChangeCap'
 
 /**
@@ -24,36 +23,12 @@ import { ChangeCap } from './ChangeCap'
  */
 export function Bank({ pointTypeId, onBack }: { pointTypeId: PointTypeId; onBack: () => void }) {
   const { t } = useTranslation()
-  const bank = useQuery(pointTypeQuery(pointTypeId))
-  const pointType = bank.data
-  const wallet = useQuery(walletQuery())
+  const { pointType, balance, me, invite, isPrivate, outside, pending, failed, retry } =
+    useBankPage(pointTypeId)
   const startTransfer = useSetAtom(startTransferAtom)
   const startIssue = useSetAtom(startIssueAtom)
   const go = useSetAtom(goAtom)
-  // 수락하면 초대가 사라진다. 그래서 「초대가 있다」가 곧 「아직 회원이 아니다」다.
-  const invites = useQuery(invitesQuery())
-  const invite = invites.data?.find((candidate) => candidate.pointType.id === pointTypeId)
-  const isPrivate = pointType?.visibility === 'private'
-  /*
-   * 회원인가. 회원 목록이 회원에게만 열린다는 것이 서버의 판정이라 그것을 읽는다 —
-   * `sendable === 0` 에서 되짚으면 보류금과 구별되지 않고, 그건 규칙을 화면이 다시
-   * 계산하는 것이다. 계약: docs/API.md 「회원 자격」
-   */
-  const members = useQuery({
-    ...membersQuery(pointTypeId),
-    enabled: isPrivate && !invite,
-    retry: false,
-  })
-  /*
-   * 회원 명부가 셋으로 답한다 — 계약: docs/API.md. 「회원이 아니다」는 서버가
-   * `NOT_MEMBER` 로 말했을 때만이다. 아무 오류나 그렇게 읽으면 경로가 없거나
-   * 서버가 넘어졌을 때 회원에게 「회원이 아니에요」라고 말한다 (docs/FIELD.md W7).
-   */
-  const outside =
-    isPrivate && !invite && members.error instanceof ApiError && members.error.code === 'NOT_MEMBER'
-
   const [changingCap, setChangingCap] = useState(false)
-  const balance = wallet.data?.balances.find((b) => b.pointType.id === pointTypeId)
 
   // 못 불러온 것을 빈 화면으로 두지 않는다. 헤더는 남겨야 돌아갈 길이 보인다.
   if (!pointType) {
@@ -65,9 +40,9 @@ export function Bank({ pointTypeId, onBack }: { pointTypeId: PointTypeId; onBack
         </Header>
         <Body>
           <Loadable
-            pending={bank.isPending}
-            failed={bank.isError}
-            onRetry={() => void bank.refetch()}
+            pending={pending}
+            failed={failed}
+            onRetry={retry}
             label={t('bank.loadFailed')}
             skeleton={
               // 소개의 실제 모양 — 배지 옆 이름, 그 아래 사실 넷.
@@ -143,7 +118,7 @@ export function Bank({ pointTypeId, onBack }: { pointTypeId: PointTypeId; onBack
               <Button
                 size="xl"
                 width="full"
-                onClick={() => wallet.data && startIssue({ pointType, me: wallet.data.user })}
+                onClick={() => me && startIssue({ pointType, me })}
               >
                 {t('bank.issue')}
               </Button>
@@ -249,17 +224,7 @@ function Outside() {
  */
 function Join({ inviteId, pointTypeId }: { inviteId: string; pointTypeId: PointTypeId }) {
   const { t } = useTranslation()
-  const client = useQueryClient()
-
-  const join = useMutation({
-    mutationFn: () => invitesApi.acceptInvite(inviteId),
-    retry: false,
-    onSuccess: () => {
-      void client.invalidateQueries({ queryKey: queryKeys.invites })
-      void client.invalidateQueries({ queryKey: queryKeys.pointType(pointTypeId) })
-      void client.invalidateQueries({ queryKey: queryKeys.wallet })
-    },
-  })
+  const join = useJoinBank(pointTypeId, inviteId)
 
   return (
     <Box marginTop="block">

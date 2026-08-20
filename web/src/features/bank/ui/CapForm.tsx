@@ -1,13 +1,11 @@
 import { Box, Field, Input, Text, VisuallyHidden } from '@chakra-ui/react'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ApiError, newIdempotencyKey, pointsApi, queryKeys } from '@/shared/api'
 import type { PointType } from '@/shared/contract'
-import { abbreviate, parseInput, toGrouped } from '@/shared/format'
+import { abbreviate, toGrouped } from '@/shared/format'
 import { failureTitleKey } from '@/shared/i18n/keys'
 import { HoldButton } from '@/shared/ui/HoldButton'
 import { Panel } from '@/shared/ui/Screen'
+import { useChangeCap } from '../model/useChangeCap'
 
 /**
  * 상한 변경. 발행과 같은 무게로 다룬다 — docs/JOURNEY.md 여정 9.
@@ -15,38 +13,10 @@ import { Panel } from '@/shared/ui/Screen'
  */
 export function CapForm({ pointType, onChanged }: { pointType: PointType; onChanged: () => void }) {
   const { t } = useTranslation()
-  const client = useQueryClient()
-  const [cap, setCap] = useState('')
-  // 확정 직전에 만들지 않는다. 응답을 못 받고 다시 눌러도 이력에 두 줄이 생기면 안 된다.
-  const [idempotencyKey, setIdempotencyKey] = useState(newIdempotencyKey)
-  const capInput = useRef<HTMLInputElement>(null)
-  const [changed, setChanged] = useState(false)
-
-  const change = useMutation({
-    mutationFn: (next: number) => pointsApi.changeCap(pointType.id, next, idempotencyKey),
-    retry: false,
-    onSuccess: () => {
-      void client.invalidateQueries({ queryKey: queryKeys.pointType(pointType.id) })
-      void client.invalidateQueries({ queryKey: queryKeys.wallet })
-      void client.invalidateQueries({ queryKey: queryKeys.history })
-      setCap('')
-      setChanged(true)
-      // 또 바꿀 수 있다. 키를 물려주면 두 번째가 첫 번째의 재시도가 된다.
-      setIdempotencyKey(newIdempotencyKey())
-      onChanged()
-    },
-    // 어디를 고쳐야 하는지 포커스로도 말한다 — docs/FIELD.md S9-5 와 같은 자리다.
-    onError: (failure) => {
-      if (failure instanceof ApiError && failure.code === 'CAP_BELOW_ISSUED') {
-        capInput.current?.focus()
-      }
-    },
-  })
-
-  const next = parseInput(cap)
-  // 같은 값은 이력에 아무것도 바꾸지 않는 줄을 만든다. 상한 판정 자체는 서버가 한다.
-  const ready = next > 0 && next !== pointType.issueCap
-  const error = change.error instanceof ApiError ? change.error : null
+  const { cap, setCap, next, ready, busy, error, changed, submit, capInput } = useChangeCap(
+    pointType,
+    onChanged,
+  )
 
   return (
     <Box display="flex" flexDirection="column" gap="inset">
@@ -55,12 +25,7 @@ export function CapForm({ pointType, onChanged }: { pointType: PointType; onChan
         <Input
           ref={capInput}
           value={cap === '' ? '' : toGrouped(next)}
-          onChange={(event) => {
-            setCap(event.target.value)
-            setChanged(false)
-            // 고친 값에 낡은 판정이 붙어 있으면 화면이 거짓을 말한다.
-            if (error?.code === 'CAP_BELOW_ISSUED') change.reset()
-          }}
+          onChange={(event) => setCap(event.target.value)}
           inputMode="numeric"
           size="lg"
         />
@@ -96,8 +61,8 @@ export function CapForm({ pointType, onChanged }: { pointType: PointType; onChan
         </Text>
         <HoldButton
           label={t('cap.hold')}
-          onComplete={() => change.mutate(next)}
-          disabled={!ready || change.isPending}
+          onComplete={submit}
+          disabled={!ready || busy}
         />
       </Box>
     </Box>

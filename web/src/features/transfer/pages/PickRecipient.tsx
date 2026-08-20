@@ -1,16 +1,15 @@
 import { Box, Input, Text } from '@chakra-ui/react'
-import { useQuery } from '@tanstack/react-query'
 import { useSetAtom } from 'jotai'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { recentQuery, usersQuery } from '@/shared/api'
 import { BackButton } from '@/shared/ui/BackButton'
 import { IssuerSuffix } from '@/shared/ui/IssuerSuffix'
 import { Loadable, RowSkeleton } from '@/shared/ui/Loadable'
 import { Body, Gutter, Header, Note, RowButton, Screen, SectionLabel, Title } from '@/shared/ui/Screen'
 import { pickRecipientAtom } from '../model/atoms'
 import type { Draft } from '../model/flow'
-import { buildRecipientList, buildSearchList, type RecipientEntry } from '../model/recipientList'
+import type { RecipientEntry } from '../model/recipientList'
+import { useRecipients } from '../model/useFlowPages'
 
 /** 근거: docs/JOURNEY.md 여정 3 */
 export function PickRecipient({ draft, onBack }: { draft: Draft; onBack: () => void }) {
@@ -20,14 +19,7 @@ export function PickRecipient({ draft, onBack }: { draft: Draft; onBack: () => v
   const [query, setQuery] = useState('')
 
   const searching = query.trim().length > 0
-  // 비공개 은행이면 회원만 온다. 목록에 없는 사람에게는 보낼 수도 없다.
-  const users = useQuery(usersQuery(query.trim(), draft.pointType.id))
-  const recent = useQuery(recentQuery(draft.pointType.id))
-
-  const list = searching
-    ? buildSearchList(users.data ?? [])
-    : buildRecipientList(recent.data ?? [], users.data ?? [])
-  const total = list.recent.length + list.others.length
+  const { list, total, pending, failed, retry } = useRecipients(draft.pointType.id, query)
 
   return (
     <Screen>
@@ -60,9 +52,9 @@ export function PickRecipient({ draft, onBack }: { draft: Draft; onBack: () => v
 
       <Body marginTop="tight">
         <Loadable
-          pending={users.isPending}
-          failed={users.isError}
-          onRetry={() => void users.refetch()}
+          pending={pending}
+          failed={failed}
+          onRetry={retry}
           label={t('pick.loadFailed')}
           skeleton={
             // 사람 줄에는 오른쪽 값이 없다. 넣으면 내용이 올 때 그 자리가 접힌다

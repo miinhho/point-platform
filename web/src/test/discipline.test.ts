@@ -108,6 +108,25 @@ describe('feature 안의 세 자리', () => {
     expect(offenders).toEqual([])
   })
 
+  /*
+   * 화면이 조회를 직접 부르면 「무엇을 보여줄지」와 「무엇을 아는지」가 한 함수에
+   * 섞인다. 그러면 파생(회원인가 · 처음 받는 사람인가 · 못 불러온 것과 0 의 구별)이
+   * JSX 사이에 흩어지고, 화면을 고칠 때마다 그것을 다시 읽어야 한다.
+   */
+  it('화면은 조회를 직접 부르지 않는다 — model 이 준다', () => {
+    const offenders = FEATURES.flatMap((name) =>
+      ['pages', 'ui'].flatMap((slot) => {
+        const dir = join('src/features', name, slot)
+        return existsSync(dir)
+          ? sourceFiles(dir).filter((path) =>
+              /\b(useQuery|useMutation|useQueryClient)\b/.test(readFileSync(path, 'utf8')),
+            )
+          : []
+      }),
+    )
+    expect(offenders).toEqual([])
+  })
+
   // ViewModel 이 뷰를 만들면 나눈 의미가 없다. 확장자로 막는다.
   it('model 은 JSX 를 갖지 않는다', () => {
     const offenders = FEATURES.flatMap((name) => {

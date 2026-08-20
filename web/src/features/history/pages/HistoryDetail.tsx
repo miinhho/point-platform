@@ -1,8 +1,6 @@
 import { Box, Text } from '@chakra-ui/react'
-import { useQuery } from '@tanstack/react-query'
 import { motion } from 'motion/react'
 import { useTranslation } from 'react-i18next'
-import { transferQuery } from '@/shared/api'
 import { toGrouped } from '@/shared/format'
 import { BackButton } from '@/shared/ui/BackButton'
 import { Line } from '@/shared/ui/Line'
@@ -10,6 +8,7 @@ import { AmountSkeleton, LineSkeleton, Loadable, NameSkeleton } from '@/shared/u
 import { Body, Gutter, Header, Screen, Title } from '@/shared/ui/Screen'
 import type { PointMark, Transfer } from '@/shared/contract'
 import { formatTime } from '../model/time'
+import { useTransferDetail } from '../model/useHistory'
 
 interface Props {
   transferId: string
@@ -22,8 +21,7 @@ interface Props {
  */
 export function HistoryDetail({ transferId, onBack }: Props) {
   const { t } = useTranslation()
-  const one = useQuery(transferQuery(transferId))
-  const detail = one.data
+  const { data: detail, pending, failed, retry } = useTransferDetail(transferId)
 
   // 못 불러온 것을 빈 화면으로 두지 않는다. 헤더는 남겨야 돌아갈 길이 보인다.
   if (!detail) {
@@ -35,9 +33,9 @@ export function HistoryDetail({ transferId, onBack }: Props) {
         </Header>
         <Body>
           <Loadable
-            pending={one.isPending}
-            failed={one.isError}
-            onRetry={() => void one.refetch()}
+            pending={pending}
+            failed={failed}
+            onRetry={retry}
             label={t('history.detailFailed')}
             skeleton={
               /*

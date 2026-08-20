@@ -1,7 +1,5 @@
 import { Box, Text, VisuallyHidden } from '@chakra-ui/react'
-import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { recentQuery, walletQuery } from '@/shared/api'
 import { toGrouped } from '@/shared/format'
 import { BackButton } from '@/shared/ui/BackButton'
 import { HoldButton } from '@/shared/ui/HoldButton'
@@ -11,6 +9,7 @@ import { Body, Footer, Gutter, Header, Panel, Screen, Title } from '@/shared/ui/
 import type { PointType } from '@/shared/contract'
 import { Amount } from '../ui/Amount'
 import { amountOf, type SealedDraft } from '../model/flow'
+import { useTransferConfirm } from '../model/useFlowPages'
 
 interface Props {
   draft: SealedDraft
@@ -28,18 +27,8 @@ interface Props {
  */
 export function ConfirmTransfer({ draft, onBack, onConfirm, busy }: Props) {
   const { t } = useTranslation()
-  const wallet = useQuery(walletQuery())
-  const recent = useQuery(recentQuery(draft.pointType.id))
-
+  const { balance, held, firstTime, pending, failed, retry } = useTransferConfirm(draft)
   const amount = amountOf(draft)
-  const held = wallet.data?.balances.find((b) => b.pointType.id === draft.pointType.id)
-  /*
-   * 못 불러온 잔액을 0 으로 접으면 「보낸 뒤 남는 잔액」이 음수가 된다 — 되돌릴 수
-   * 없는 것 직전에 화면이 거짓을 말한다. 답하지 못하는 동안은 숫자를 쓰지 않는다.
-   */
-  const balance = wallet.isSuccess ? (held?.amount ?? 0) : null
-  // 처음 받는 사람인가. 경고가 아니라 사실로 한 줄 적는다.
-  const firstTime = recent.data ? !recent.data.some((user) => user.id === draft.to.id) : false
 
   return (
     <Screen>
@@ -70,9 +59,9 @@ export function ConfirmTransfer({ draft, onBack, onConfirm, busy }: Props) {
             >
               {balance === null ? (
                 <Loadable
-                  pending={wallet.isPending}
-                  failed={wallet.isError}
-                  onRetry={() => void wallet.refetch()}
+                  pending={pending}
+                  failed={failed}
+                  onRetry={retry}
                   label={t('home.loadFailed')}
                   skeleton={
                     <Box display="flex" flexDirection="column" gap="side">

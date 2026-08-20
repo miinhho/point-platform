@@ -1,12 +1,11 @@
 import { Box, Button, Text } from '@chakra-ui/react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { ApiError, membersQuery, pointTypeQuery, pointsApi, queryKeys } from '@/shared/api'
-import type { PointType, PointTypeId, User, UserId } from '@/shared/contract'
+import type { PointType, PointTypeId, User } from '@/shared/contract'
 import { failureTitleKey } from '@/shared/i18n/keys'
 import { BackButton } from '@/shared/ui/BackButton'
 import { Loadable, RowSkeleton } from '@/shared/ui/Loadable'
 import { Body, Footer, Gutter, Header, Row, Screen, Title } from '@/shared/ui/Screen'
+import { useMembersPage } from '../model/useMembersPage'
 
 interface Props {
   pointTypeId: PointTypeId
@@ -21,37 +20,11 @@ interface Props {
  */
 export function Members({ pointTypeId, onBack, onLeft }: Props) {
   const { t } = useTranslation()
-  const client = useQueryClient()
-  const { data: pointType } = useQuery(pointTypeQuery(pointTypeId))
-  const list = useQuery(membersQuery(pointTypeId))
-  const members = list.data
+  const { pointType, members, error, busy, remove, leave, pending, failed, retry } =
+    useMembersPage(pointTypeId, onLeft)
 
-  const invalidate = () => {
-    void client.invalidateQueries({ queryKey: queryKeys.members(pointTypeId) })
-    void client.invalidateQueries({ queryKey: queryKeys.pointType(pointTypeId) })
-    void client.invalidateQueries({ queryKey: queryKeys.wallet })
-  }
-
-  const remove = useMutation({
-    mutationFn: (userId: UserId) => pointsApi.removeMember(pointTypeId, userId),
-    retry: false,
-    onSuccess: invalidate,
-  })
-
-  const leave = useMutation({
-    mutationFn: () => pointsApi.leaveBank(pointTypeId),
-    retry: false,
-    onSuccess: () => {
-      invalidate()
-      onLeft()
-    },
-  })
-
+  // 은행 조회는 이 화면에 오기 전에 이미 캐시에 있다. 없으면 잠깐 비었다가 찬다.
   if (!pointType) return null
-
-  const error = [remove.error, leave.error].find(
-    (candidate): candidate is ApiError => candidate instanceof ApiError,
-  )
 
   return (
     <Screen>
@@ -65,9 +38,9 @@ export function Members({ pointTypeId, onBack, onLeft }: Props) {
 
       <Body>
         <Loadable
-          pending={list.isPending}
-          failed={list.isError}
-          onRetry={() => void list.refetch()}
+          pending={pending}
+          failed={failed}
+          onRetry={retry}
           label={t('bank.membersFailed')}
           skeleton={
             <>
@@ -77,13 +50,13 @@ export function Members({ pointTypeId, onBack, onLeft }: Props) {
             </>
           }
         >
-          {members?.map((member) => (
+          {members.map((member) => (
             <MemberRow
               key={member.id}
               member={member}
               pointType={pointType}
-              onRemove={pointType.canIssue ? () => remove.mutate(member.id) : undefined}
-              busy={remove.isPending}
+              onRemove={pointType.canIssue ? () => remove(member.id) : undefined}
+              busy={busy}
             />
           ))}
         </Loadable>
@@ -107,8 +80,8 @@ export function Members({ pointTypeId, onBack, onLeft }: Props) {
             size="lg"
             width="full"
             variant="outline"
-            disabled={leave.isPending}
-            onClick={() => leave.mutate()}
+            disabled={busy}
+            onClick={leave}
           >
             {t('bank.leave')}
           </Button>

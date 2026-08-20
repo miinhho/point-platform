@@ -1,14 +1,12 @@
 import { Box, Button, Text } from '@chakra-ui/react'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { walletQuery } from '@/shared/api'
-import { useSession } from '@/features/auth'
 import { useColorMode, type ColorModePreference } from '@/app/color-mode'
 import { resetLedger } from '@/mocks/ledger'
 import { resetSim, setSim } from '@/mocks/sim'
 import { Body, Gutter, Header, Screen, Title } from '@/shared/ui/Screen'
 import type { FailureCode } from '@/shared/contract'
+import { useInvalidateAll, useSettingsPage } from '../model/useSettingsPage'
 
 function Chip({
   selected,
@@ -27,8 +25,7 @@ const MODES: ColorModePreference[] = ['system', 'light', 'dark']
 export function Settings() {
   const { t } = useTranslation()
   const { preference, setPreference } = useColorMode()
-  const { data } = useQuery(walletQuery())
-  const { signOut } = useSession()
+  const { me, signOut } = useSettingsPage()
 
   const modeLabel = {
     system: t('settings.colorModeSystem'),
@@ -46,8 +43,8 @@ export function Settings() {
         <Section label={t('settings.account')}>
           {/* 내가 누구인지 화면에 없으면 잘못된 계정에서 보내는 실수를 알 수 없다 */}
           <Box display="flex" alignItems="baseline" gap="tight">
-            <Text textStyle="name">{data?.user.name ?? ''}</Text>
-            <Text textStyle="handle">{data?.user.handle ?? ''}</Text>
+            <Text textStyle="name">{me?.name ?? ''}</Text>
+            <Text textStyle="handle">{me?.handle ?? ''}</Text>
           </Box>
           <Button
             size="xs"
@@ -113,7 +110,7 @@ const FAILURES = [
  */
 function DevPanel() {
   const { t } = useTranslation()
-  const client = useQueryClient()
+  const invalidateAll = useInvalidateAll()
   const [latency, setLatency] = useState(400)
   const [failure, setFailure] = useState('devFailureNone')
 
@@ -163,7 +160,7 @@ function DevPanel() {
             resetSim()
             setFailure('devFailureNone')
             setLatency(400)
-            void client.invalidateQueries()
+            invalidateAll()
           }}
         >
           {t('settings.devReset')}

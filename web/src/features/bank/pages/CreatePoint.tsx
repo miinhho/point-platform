@@ -1,16 +1,14 @@
 import { Box, Field, Input, RadioCard, Text } from '@chakra-ui/react'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ApiError, newIdempotencyKey, pointsApi, queryKeys } from '@/shared/api'
 import { ALLOWED_EMOJI } from '@/shared/contract'
-import type { PointAccent, PointType, PointVisibility } from '@/shared/contract'
-import { abbreviate, parseInput, toGrouped } from '@/shared/format'
+import type { PointAccent, PointVisibility } from '@/shared/contract'
+import { abbreviate, toGrouped } from '@/shared/format'
 import { failureTitleKey } from '@/shared/i18n/keys'
 import { BackButton } from '@/shared/ui/BackButton'
 import { HoldButton } from '@/shared/ui/HoldButton'
 import { PointBadge } from '@/shared/ui/PointBadge'
 import { Body, Footer, Gutter, Header, Screen, Title } from '@/shared/ui/Screen'
+import { useCreatePoint } from '../model/useCreatePoint'
 import { PointCreated } from './PointCreated'
 
 const ACCENTS: readonly PointAccent[] = [
@@ -29,46 +27,15 @@ const ACCENTS: readonly PointAccent[] = [
 /** 근거: docs/JOURNEY.md 여정 9 */
 export function CreatePoint({ onBack }: { onBack: () => void }) {
   const { t } = useTranslation()
-  const client = useQueryClient()
-  const [name, setName] = useState('')
-  const [emoji, setEmoji] = useState<string | null>(null)
-  const [description, setDescription] = useState('')
-  const [accent, setAccent] = useState<PointAccent>('blue')
-  // 미리 골라 두지 않는다. 바꿀 수 없는 값의 기본값은 고른 적 없는 상태를 영구히 남긴다.
-  const [visibility, setVisibility] = useState<PointVisibility | null>(null)
-  const [cap, setCap] = useState('')
+  const form = useCreatePoint()
+  const {
+    name, setName, emoji, setEmoji, description, setDescription,
+    accent, setAccent, visibility, setVisibility, cap, setCap,
+    capAmount, ready, busy, error, submit, created,
+  } = form
 
-  // 확정 직전에 만들지 않는다. 응답을 못 받고 다시 눌러도 같은 키여야 한다.
-  const [idempotencyKey] = useState(newIdempotencyKey)
-  // 만들어진 결과는 주소를 갖지 않는다 — 새로고침이 무슨 뜻인지 답할 수 없다.
-  const [created, setCreated] = useState<PointType | null>(null)
-
-  const create = useMutation({
-    mutationFn: (chosen: PointVisibility) =>
-      pointsApi.createPointType(
-        {
-          name: name.trim(),
-          emoji: emoji!,
-          // 「없음」은 `null` 하나다 — 빈 문자열을 보내지 않는다.
-          description: description.trim() || null,
-          accent,
-          issueCap: parseInput(cap),
-          visibility: chosen,
-        },
-        idempotencyKey,
-      ),
-    retry: false,
-    onSuccess: (pointType) => {
-      void client.invalidateQueries({ queryKey: queryKeys.wallet })
-      setCreated(pointType)
-    },
-  })
-
+  // 결과는 장소가 아니라 방금 일어난 일이다. 주소를 주지 않는다
   if (created) return <PointCreated pointType={created} onHome={onBack} />
-
-  const capAmount = parseInput(cap)
-  const ready = name.trim() !== '' && emoji !== null && capAmount > 0 && visibility !== null
-  const error = create.error instanceof ApiError ? create.error : null
 
   return (
     <Screen>
@@ -141,8 +108,8 @@ export function CreatePoint({ onBack }: { onBack: () => void }) {
         <Box colorPalette={accent}>
           <HoldButton
             label={t('create.hold')}
-            onComplete={() => visibility && create.mutate(visibility)}
-            disabled={!ready || create.isPending}
+            onComplete={submit}
+            disabled={!ready || busy}
           />
         </Box>
       </Footer>
