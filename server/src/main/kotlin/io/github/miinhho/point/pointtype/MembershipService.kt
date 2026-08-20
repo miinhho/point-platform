@@ -2,7 +2,6 @@ package io.github.miinhho.point.pointtype
 
 import io.github.miinhho.point.shared.DomainFailureException
 import io.github.miinhho.point.shared.FailureCode
-import io.github.miinhho.point.user.User
 import io.github.miinhho.point.user.UserRepository
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -30,8 +29,9 @@ class MembershipService(
         if (membershipRepository.existsById(MembershipId(pointType.id!!, invited.id!!))) {
             throw failure(FailureCode.ALREADY_MEMBER, "이미 회원")
         }
-        // 이미 초대된 사람을 다시 초대하면 같은 초대다.
-        inviteRepository.findByPointTypeIdAndUserId(pointType.id!!, invited.id!!)?.let { return it.toResponse(issuerId) }
+        // 살아 있는 초대가 있으면 그것이 답이다. 소진된 것은 새 초대를 막지 않는다.
+        inviteRepository.findByPointTypeIdAndUserIdAndSpentAtIsNull(pointType.id!!, invited.id!!)
+            ?.let { return it.toResponse(issuerId) }
 
         val created = inviteRepository.saveAndFlush(
             Invite(pointType = pointType, user = invited, by = pointType.issuer, idempotencyKey = idempotencyKey),
@@ -39,27 +39,33 @@ class MembershipService(
         return created.toResponse(issuerId)
     }
 
-    // 회원이 된 은행의 초대는 담기지 않는다 — 수락하면 사라지는 것이 이것이다.
+    /** 같은 키로 다시 오면 그때의 결과를 준다 — 대상이 달라도 키가 답하는 질문은 하나다. */
     @Transactional(readOnly = true)
-    fun received(userId: Long): List<InviteResponse> = inviteRepository.findByUserIdOrderByCreatedAtDesc(userId)
-        .filterNot { membershipRepository.existsById(MembershipId(it.pointType.id!!, userId)) }
-        .map { it.toResponse(userId) }
+    fun findByIdempotencyKey(issuerId: Long, idempotencyKey: String): InviteResponse? =
+        inviteRepository.findByByIdAndIdempotencyKey(issuerId, idempotencyKey)?.toResponse(issuerId)
+
+    /** 살아 있는 것만 담는다 — 소진된 초대가 초대함에 남으면 내보내진 사람이 걸어 들어온다. */
+    @Transactional(readOnly = true)
+    fun received(userId: Long): List<InviteResponse> =
+        inviteRepository.findByUserIdAndSpentAtIsNullOrderByCreatedAtDesc(userId).map { it.toResponse(userId) }
 
     /**
-     * 수락. **이미 회원이면 성공이다** — 멱등은 「그가 원한 결과가 이미 있는가」로 판단하고,
-     * 수락을 누른 사람이 원한 것은 회원이 되는 것이다.
+     * 수락. 답은 **소진 여부가 아니라 지금 회원인가**로 갈린다 — 멱등의 기준이
+     * 「그가 원한 결과가 이미 있는가」이고, 수락을 누른 사람이 원한 것은 회원이 되는 것이다.
      */
     @Transactional
     fun accept(invitePublicId: String, userId: Long): PointTypeResponse {
-        // 행을 지우지 않는다. 지우면 다시 누른 사람에게 그 id 가 무엇이었는지 답할 수 없고,
-        // 「응답 못 받고 다시 누른 사람에게 실패를 주지 않는다」가 성립하지 않는다.
-        // 사라지는 것은 GET /api/invites 에서다.
         val invite = runCatching { UUID.fromString(invitePublicId) }.getOrNull()
             ?.let(inviteRepository::findByPublicId)
             ?.takeIf { it.user.id == userId }
             ?: throw failure(FailureCode.INVITE_NOT_FOUND, "초대 없음")
 
-        join(invite.pointType, invite.user)
+        if (!membershipRepository.existsById(MembershipId(invite.pointType.id!!, userId))) {
+            // 소진된 초대로는 걸어 들어올 수 없다. 내보내진 사람이 돌아오는 길이 여기서 막힌다.
+            if (invite.spentAt != null) throw failure(FailureCode.INVITE_NOT_FOUND, "소진된 초대")
+            invite.spend()
+            membershipRepository.saveAndFlush(Membership(pointType = invite.pointType, user = invite.user))
+        }
         return pointTypeResponses.of(invite.pointType, userId)
     }
 
@@ -85,12 +91,13 @@ class MembershipService(
     }
 
     // 잔액은 건드리지 않는다. 쓸 수 없는 채로 남는 것이 설계다.
-    private fun removeMember(pointType: PointType, userId: Long) =
-        membershipRepository.deleteById(MembershipId(pointType.id!!, userId))
-
-    private fun join(pointType: PointType, user: User) {
-        if (membershipRepository.existsById(MembershipId(pointType.id!!, user.id!!))) return
-        membershipRepository.saveAndFlush(Membership(pointType = pointType, user = user))
+    private fun removeMember(pointType: PointType, userId: Long) {
+        val membership = MembershipId(pointType.id!!, userId)
+        if (!membershipRepository.existsById(membership)) return
+        // 회원 자격과 그 초대가 함께 끝난다. 회원이었던 사람만이다 — 대기 중인 초대를
+        // 여기서 끝내면 계약에 없는 「초대 취소」가 된다.
+        inviteRepository.findByPointTypeIdAndUserIdAndSpentAtIsNull(pointType.id!!, userId)?.spend()
+        membershipRepository.deleteById(membership)
     }
 
     private fun requirePrivateBank(publicId: String, viewerId: Long): PointType {
