@@ -1,31 +1,29 @@
 import { Box, Button, Text } from '@chakra-ui/react'
-import { useAtomValue, useSetAtom } from 'jotai'
+import { useSetAtom } from 'jotai'
 import { useTranslation } from 'react-i18next'
 import { failureTitleKey, failureWhereKey } from '@/shared/i18n/keys'
 import { toGrouped } from '@/shared/format'
 import { IssueBanner } from '@/shared/ui/IssueBanner'
 import { IssuerSuffix } from '@/shared/ui/IssuerSuffix'
 import { Body, Gutter, Header, Screen, Title } from '@/shared/ui/Screen'
-import {
-  draftAtom,
-  editAmountAtom,
-  endFlowAtom,
-  failureAtom,
-  repickAtom,
-} from '../model/atoms'
+import { backToAmountAtom, repickAtom } from '../model/atoms'
 import { handleFailure } from '../model/failure'
-import { amountOf } from '../model/draft'
+import { amountOf, type SealedDraft } from '../model/flow'
+import type { Failure as FailureValue } from '@/shared/contract'
+
+interface Props {
+  draft: SealedDraft
+  failure: FailureValue
+  onCheck: () => void
+  /** 흐름을 접고 홈으로 */
+  onDone: () => void
+}
 
 /** 근거: docs/JOURNEY.md 여정 6 — 가장 중요한 것은 돈이 어디 있는가다 */
-export function Failure({ onCheck }: { onCheck: () => void }) {
+export function Failure({ draft, failure, onCheck, onDone }: Props) {
   const { t } = useTranslation()
-  const draft = useAtomValue(draftAtom)
-  const failure = useAtomValue(failureAtom)
-  const onEditAmount = useSetAtom(editAmountAtom)
+  const onEditAmount = useSetAtom(backToAmountAtom)
   const onRepick = useSetAtom(repickAtom)
-  const onHome = useSetAtom(endFlowAtom)
-
-  if (!draft?.to || !failure) return null
 
   const handling = handleFailure(failure.code, draft.kind)
   const unknown = failure.outcome === 'unknown'
@@ -98,7 +96,7 @@ export function Failure({ onCheck }: { onCheck: () => void }) {
               {t('failure.repick')}
             </Button>
           ) : null}
-          <Button size="xl" width="full" variant="outline" onClick={onHome}>
+          <Button size="xl" width="full" variant="outline" onClick={onDone}>
             {t('failure.home')}
           </Button>
         </Box>

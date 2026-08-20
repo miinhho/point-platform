@@ -11,6 +11,7 @@ import { BackButton } from '@/shared/ui/BackButton'
 import { HoldButton } from '@/shared/ui/HoldButton'
 import { PointBadge } from '@/shared/ui/PointBadge'
 import { Body, Gutter, Header, Screen, Title } from '@/shared/ui/Screen'
+import { PointCreated } from './PointCreated'
 
 const ACCENTS: readonly PointAccent[] = [
   'blue',
@@ -25,13 +26,8 @@ const ACCENTS: readonly PointAccent[] = [
   'lime',
 ]
 
-interface Props {
-  onBack: () => void
-  onCreated: (pointType: PointType) => void
-}
-
 /** 근거: docs/JOURNEY.md 여정 9 */
-export function CreatePoint({ onBack, onCreated }: Props) {
+export function CreatePoint({ onBack }: { onBack: () => void }) {
   const { t } = useTranslation()
   const client = useQueryClient()
   const [name, setName] = useState('')
@@ -44,6 +40,8 @@ export function CreatePoint({ onBack, onCreated }: Props) {
 
   // 확정 직전에 만들지 않는다. 응답을 못 받고 다시 눌러도 같은 키여야 한다.
   const [idempotencyKey] = useState(newIdempotencyKey)
+  // 만들어진 결과는 주소를 갖지 않는다 — 새로고침이 무슨 뜻인지 답할 수 없다.
+  const [created, setCreated] = useState<PointType | null>(null)
 
   const create = useMutation({
     mutationFn: (chosen: PointVisibility) =>
@@ -62,9 +60,11 @@ export function CreatePoint({ onBack, onCreated }: Props) {
     retry: false,
     onSuccess: (pointType) => {
       void client.invalidateQueries({ queryKey: queryKeys.wallet })
-      onCreated(pointType)
+      setCreated(pointType)
     },
   })
+
+  if (created) return <PointCreated pointType={created} onHome={onBack} />
 
   const capAmount = parseInput(cap)
   const ready = name.trim() !== '' && emoji !== null && capAmount > 0 && visibility !== null

@@ -2,7 +2,7 @@ import type { Points, PointTypeId, TransferId, UserId } from './ids'
 import type { PointMark } from './point'
 
 /**
- * 이체의 상대. 누구인지는 원장의 성질이라 서버가 싣는다 — 클라이언트가 `toId` 로
+ * 이체의 상대. 누구인지는 서버가 아는 사실이라 서버가 싣는다 — 클라이언트가 `toId` 로
  * 사용자 목록을 뒤지면 목록에 없는 순간 조용히 틀린다. 계약: docs/API.md
  */
 export interface Counterparty {
@@ -19,7 +19,7 @@ export interface Transfer {
   fromId: UserId
   toId: UserId
   amount: Points
-  /** 누구인지는 원장의 성질이다. 화면이 목록을 뒤져 맞추면 조용히 틀린다 */
+  /** 누구인지는 서버가 아는 사실이다. 화면이 목록을 뒤져 맞추면 조용히 틀린다 */
   counterparty: Counterparty
   createdAt: string
   confirmedAt: string

@@ -1,6 +1,5 @@
 import { Box, Text, VisuallyHidden, chakra } from '@chakra-ui/react'
 import { useQuery } from '@tanstack/react-query'
-import { useAtomValue } from 'jotai'
 import { useTranslation } from 'react-i18next'
 import { recentQuery, walletQuery } from '@/shared/api'
 import { toGrouped } from '@/shared/format'
@@ -11,8 +10,7 @@ import { Line } from '@/shared/ui/Line'
 import { LineSkeleton, Loadable } from '@/shared/ui/Loadable'
 import { Body, Gutter, Header, Screen, Title } from '@/shared/ui/Screen'
 import { Amount } from '../ui/Amount'
-import { draftAtom } from '../model/atoms'
-import { amountOf } from '../model/draft'
+import { amountOf, type SealedDraft } from '../model/flow'
 import { formatRate, inflationRate } from '../model/inflation'
 import type { PointType } from '@/shared/contract'
 
@@ -27,6 +25,7 @@ const Card = chakra('div', {
 })
 
 interface Props {
+  draft: SealedDraft
   onBack: () => void
   onConfirm: () => void
   /** 요청이 나가는 중. 홀드를 두 번 완료해도 두 번 보내지 않는다 */
@@ -34,13 +33,10 @@ interface Props {
 }
 
 /** 근거: docs/JOURNEY.md 여정 5 — 이 화면이 마지막 방어선이다 */
-export function Confirm({ onBack, onConfirm, busy }: Props) {
+export function Confirm({ draft, onBack, onConfirm, busy }: Props) {
   const { t } = useTranslation()
-  const draft = useAtomValue(draftAtom)
   const wallet = useQuery(walletQuery())
-  const recent = useQuery({ ...recentQuery(draft?.pointType.id ?? ''), enabled: !!draft })
-
-  if (!draft?.to) return null
+  const recent = useQuery(recentQuery(draft.pointType.id))
 
   const issuing = draft.kind === 'issue'
   const amount = amountOf(draft)
@@ -53,7 +49,7 @@ export function Confirm({ onBack, onConfirm, busy }: Props) {
   // 상한 판정은 서버가 한다. 여기서는 보낸 뒤의 값을 보여주기만 한다.
   // 처음 받는 사람인가. 경고가 아니라 사실로 한 줄 적는다.
   const firstTime =
-    !issuing && recent.data ? !recent.data.some((user) => user.id === draft.to?.id) : false
+    !issuing && recent.data ? !recent.data.some((user) => user.id === draft.to.id) : false
 
   return (
     <Screen>

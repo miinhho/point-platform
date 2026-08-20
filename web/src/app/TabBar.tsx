@@ -2,7 +2,7 @@ import { chakra } from '@chakra-ui/react'
 import { useAtomValue, useSetAtom } from 'jotai'
 import { useTranslation } from 'react-i18next'
 import { selectTabAtom, tabAtom } from './atoms'
-import { TABS, type TabName } from './navigation'
+import { TABS, type TabName } from './routes'
 
 const Bar = chakra('nav', {
   base: {

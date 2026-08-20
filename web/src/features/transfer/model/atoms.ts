@@ -1,94 +1,106 @@
 import { atom } from 'jotai'
 import { newIdempotencyKey } from '@/shared/api'
-import { goAtom, leaveFlowAtom, navAtom } from '@/app/atoms'
-import { currentScreen, popTo } from '@/app/navigation'
 import type { Failure, Issue, PointType, Transfer, User } from '@/shared/contract'
-import { seal, startDraft, withRecipient, type Draft, type DraftKind } from './draft'
+import {
+  backToAmount,
+  editAmount,
+  fail,
+  pickRecipient,
+  repick,
+  seal,
+  startIssue,
+  startTransfer,
+  stepBack,
+  succeed,
+  type AddressedDraft,
+  type FlowState,
+} from './flow'
 
-// 초안과 내비게이션을 여기서 묶는다. 쓰기 아톰 하나가 곧 사용자 행동 하나다.
-export const draftAtom = atom<Draft | null>(null)
+/**
+ * 이체·발행 흐름 하나. 열려 있으면 화면을 덮는다.
+ *
+ * 라우트가 아니다 — 진행 중인 일은 주소를 갖지 않는다(docs/REBUILD.md 「주소」).
+ * 그래서 여기 있고, 어디까지 왔는지도 이 값이 함께 안다.
+ */
+export const flowAtom = atom<FlowState | null>(null)
 
-/** 마지막 실패. 실패 화면이 읽고, 재시도하거나 떠날 때 지운다 */
-export const failureAtom = atom<Failure | null>(null)
+export const currentFlowAtom = atom((get) => get(flowAtom)?.current ?? null)
 
 export interface StartInput {
   pointType: PointType
-  kind?: DraftKind
   /** 주어지면 대상 선택을 건너뛴다. */
   to?: User
 }
 
-/** 대상이 정해져 있으면 금액 화면으로 직행한다. */
 export const startTransferAtom = atom(null, (_get, set, input: StartInput) => {
-  const draft = startDraft(input.pointType, input.kind ?? 'transfer')
-  set(draftAtom, input.to ? withRecipient(draft, input.to) : draft)
-  set(failureAtom, null)
-  set(goAtom, input.to ? { name: 'enterAmount' } : { name: 'pickRecipient' })
+  set(flowAtom, startTransfer(input.pointType, input.to))
 })
 
 /** 발행. 대상은 나 자신이므로 대상 선택이 없다 — docs/JOURNEY.md 여정 7 */
 export const startIssueAtom = atom(null, (_get, set, input: { pointType: PointType; me: User }) => {
-  set(draftAtom, withRecipient(startDraft(input.pointType, 'issue'), input.me))
-  set(failureAtom, null)
-  set(goAtom, { name: 'enterAmount' })
+  set(flowAtom, startIssue(input.pointType, input.me))
 })
 
 export const pickRecipientAtom = atom(null, (get, set, to: User) => {
-  const draft = get(draftAtom)
-  if (!draft) return
-  set(draftAtom, withRecipient(draft, to))
-  set(goAtom, { name: 'enterAmount' })
+  edit(get, set, (state) => pickRecipient(state, to))
 })
 
-/** 초안을 통째로 갈아 끼운다. 어떻게 바뀌는지는 `draft.ts` 의 순수 함수가 정한다 */
-export const editDraftAtom = atom(null, (get, set, change: (draft: Draft) => Draft) => {
-  const draft = get(draftAtom)
-  if (draft) set(draftAtom, change(draft))
-})
+export const editAmountAtom = atom(
+  null,
+  (get, set, change: (draft: AddressedDraft) => AddressedDraft) => {
+    edit(get, set, (state) => editAmount(state, change))
+  },
+)
 
 /** 확정 화면으로. 여기서 멱등성 키가 생긴다 */
 export const toConfirmAtom = atom(null, (get, set) => {
-  const draft = get(draftAtom)
-  if (!draft?.to) return
-  set(draftAtom, seal(draft, newIdempotencyKey))
-  set(goAtom, { name: 'confirm' })
+  edit(get, set, (state) => seal(state, newIdempotencyKey))
 })
 
-/** 초안을 버리지 않는다. 재시도가 같은 멱등성 키를 쓸 수 있어야 한다. */
+export const succeedAtom = atom(null, (get, set, result: Transfer | Issue) => {
+  edit(get, set, (state) => succeed(state, result))
+})
+
 export const failAtom = atom(null, (get, set, failure: Failure) => {
-  set(failureAtom, failure)
-  // 실패 화면에서 확인하다 또 실패하면 같은 화면이 자기 위에 쌓인다.
-  if (currentScreen(get(navAtom))?.name === 'failure') return
-  set(goAtom, { name: 'failure' })
+  edit(get, set, (state) => fail(state, failure))
 })
 
-/** 확정됨. 초안은 남겨 둔다 — 결과 화면이 무엇을 보냈는지 말해야 한다 */
-export const succeedAtom = atom(null, (_get, set, result: Transfer | Issue) => {
-  set(failureAtom, null)
-  set(goAtom, { name: 'result', result })
+/** 금액을 고치러 돌아간다 */
+export const backToAmountAtom = atom(null, (get, set) => {
+  edit(get, set, backToAmount)
+})
+
+/** 받는 사람을 다시 고른다 */
+export const repickAtom = atom(null, (get, set) => {
+  edit(get, set, repick)
 })
 
 /**
- * 받는 사람을 다시 고른다. 초안이 없으면 고를 대상 자체가 없으므로 플로우를 끝낸다.
- * 셸이 초안을 들여다보고 분기하면 이체를 아는 곳이 둘이 된다.
+ * 시스템 back. 되돌릴 곳이 없으면 흐름이 닫히고 **라우트는 그대로다** — 은행
+ * 페이지에서 시작한 이체를 물리면 은행 페이지로 돌아온다.
+ *
+ * @returns 흐름이 아직 열려 있는가
  */
-export const repickAtom = atom(null, (get, set) => {
-  const draft = get(draftAtom)
-  if (!draft) {
-    set(endFlowAtom)
-    return
-  }
-  set(startTransferAtom, { pointType: draft.pointType, kind: draft.kind })
+export const flowBackAtom = atom(null, (get, set): boolean => {
+  const state = get(flowAtom)
+  if (!state) return false
+  const next = stepBack(state)
+  set(flowAtom, next)
+  return next !== null
 })
 
-/** 금액을 고치러 돌아간다. 키가 버려지는 것은 `draft` 가 정한다 */
-export const editAmountAtom = atom(null, (get, set) => {
-  set(failureAtom, null)
-  set(navAtom, popTo(get(navAtom), 'enterAmount'))
-})
-
+/**
+ * 흐름을 닫는다. **어디로 가는지는 정하지 않는다** — 흐름은 자기가 어느 주소 위에
+ * 떠 있었는지 모르고, 알면 feature 가 셸을 수입한다.
+ */
 export const endFlowAtom = atom(null, (_get, set) => {
-  set(draftAtom, null)
-  set(failureAtom, null)
-  set(leaveFlowAtom)
+  set(flowAtom, null)
 })
+
+type Getter = (atom: typeof flowAtom) => FlowState | null
+type Setter = (atom: typeof flowAtom, value: FlowState | null) => void
+
+function edit(get: Getter, set: Setter, change: (state: FlowState) => FlowState): void {
+  const state = get(flowAtom)
+  if (state) set(flowAtom, change(state))
+}

@@ -4,6 +4,13 @@ export { EnterAmount } from './pages/EnterAmount'
 export { Failure } from './pages/Failure'
 export { PickRecipient } from './pages/PickRecipient'
 export { Result } from './pages/Result'
-export { endFlowAtom, startIssueAtom, startTransferAtom } from './model/atoms'
-export type { Draft, DraftKind } from './model/draft'
+export {
+  currentFlowAtom,
+  endFlowAtom,
+  flowAtom,
+  flowBackAtom,
+  startIssueAtom,
+  startTransferAtom,
+} from './model/atoms'
+export type { AddressedDraft, Draft, Flow, FlowKind, SealedDraft } from './model/flow'
 export { useSubmit } from './model/useSubmit'

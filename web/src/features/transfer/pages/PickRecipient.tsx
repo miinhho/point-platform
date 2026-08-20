@@ -1,6 +1,6 @@
 import { Box, Input, Text } from '@chakra-ui/react'
 import { useQuery } from '@tanstack/react-query'
-import { useAtomValue, useSetAtom } from 'jotai'
+import { useSetAtom } from 'jotai'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { recentQuery, usersQuery } from '@/shared/api'
@@ -8,21 +8,21 @@ import { BackButton } from '@/shared/ui/BackButton'
 import { IssuerSuffix } from '@/shared/ui/IssuerSuffix'
 import { Loadable, RowSkeleton } from '@/shared/ui/Loadable'
 import { Body, Gutter, Header, RowButton, Screen, Title } from '@/shared/ui/Screen'
-import { draftAtom, pickRecipientAtom } from '../model/atoms'
+import { pickRecipientAtom } from '../model/atoms'
+import type { Draft } from '../model/flow'
 import { buildRecipientList, buildSearchList, type RecipientEntry } from '../model/recipientList'
 
 /** 근거: docs/JOURNEY.md 여정 3 */
-export function PickRecipient({ onBack }: { onBack: () => void }) {
+export function PickRecipient({ draft, onBack }: { draft: Draft; onBack: () => void }) {
   const { t } = useTranslation()
-  const draft = useAtomValue(draftAtom)
   const pick = useSetAtom(pickRecipientAtom)
   // 검색어는 서버 상태가 아니고 다른 화면이 알 필요도 없다.
   const [query, setQuery] = useState('')
 
   const searching = query.trim().length > 0
   // 비공개 은행이면 회원만 온다. 목록에 없는 사람에게는 보낼 수도 없다.
-  const users = useQuery(usersQuery(query.trim(), draft?.pointType.id))
-  const recent = useQuery({ ...recentQuery(draft?.pointType.id ?? ''), enabled: !!draft })
+  const users = useQuery(usersQuery(query.trim(), draft.pointType.id))
+  const recent = useQuery(recentQuery(draft.pointType.id))
 
   const list = searching
     ? buildSearchList(users.data ?? [])
@@ -34,14 +34,12 @@ export function PickRecipient({ onBack }: { onBack: () => void }) {
       <Header>
         <BackButton onClick={onBack} />
         <Title>{t('pick.titleTransfer')}</Title>
-        {draft ? (
-          <Box display="flex" alignItems="baseline" gap="1.5" flexWrap="wrap">
-            <Text textStyle="caption" colorPalette={draft.pointType.accent} color="colorPalette.fg">
-              {draft.pointType.name}
-            </Text>
-            <IssuerSuffix pointType={draft.pointType} />
-          </Box>
-        ) : null}
+        <Box display="flex" alignItems="baseline" gap="1.5" flexWrap="wrap">
+          <Text textStyle="caption" colorPalette={draft.pointType.accent} color="colorPalette.fg">
+            {draft.pointType.name}
+          </Text>
+          <IssuerSuffix pointType={draft.pointType} />
+        </Box>
       </Header>
 
       {/* 자동 포커스를 두지 않는다 — 키보드가 목록의 3분의 2를 덮는다 (FIELD.md R2) */}

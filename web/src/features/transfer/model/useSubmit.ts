@@ -9,11 +9,11 @@ import {
   type CreateTransferInput,
 } from '@/shared/api'
 import type { Failure, Issue, Transfer } from '@/shared/contract'
-import { draftAtom, failAtom, succeedAtom } from './atoms'
-import { amountOf, type DraftKind } from './draft'
+import { currentFlowAtom, failAtom, succeedAtom } from './atoms'
+import { amountOf, type FlowKind, type SealedDraft } from './flow'
 
 export interface SubmitVariables {
-  kind: DraftKind
+  kind: FlowKind
   input: CreateTransferInput
   /** 확정 화면에서 만든 키. 뮤테이션이 만들지 않는다 — 재시도가 같은 키여야 한다 */
   idempotencyKey: string
@@ -59,42 +59,45 @@ function toFailure(error: unknown): Failure {
 
 /** 확정과 확인. 근거: docs/JOURNEY.md 여정 5·6 */
 export function useSubmit() {
-  const draft = useAtomValue(draftAtom)
+  const flow = useAtomValue(currentFlowAtom)
   const succeed = useSetAtom(succeedAtom)
   const fail = useSetAtom(failAtom)
   const mutation = useSubmitMutation()
 
-  const submit = useCallback(() => {
-    if (!draft?.to || !draft.idempotencyKey || mutation.isPending) return
-    mutation.mutate(
-      {
-        kind: draft.kind,
-        input: {
-          pointTypeId: draft.pointType.id,
-          toId: draft.to.id,
-          amount: amountOf(draft),
+  const send = useCallback(
+    (draft: SealedDraft) => {
+      if (mutation.isPending) return
+      mutation.mutate(
+        {
+          kind: draft.kind,
+          input: { pointTypeId: draft.pointType.id, toId: draft.to.id, amount: amountOf(draft) },
+          idempotencyKey: draft.idempotencyKey,
         },
-        idempotencyKey: draft.idempotencyKey,
-      },
-      {
-        onSuccess: (transfer) => succeed(transfer),
-        onError: (error) => fail(toFailure(error)),
-      },
-    )
-  }, [draft, mutation, succeed, fail])
+        {
+          onSuccess: (result) => succeed(result),
+          onError: (error) => fail(toFailure(error)),
+        },
+      )
+    },
+    [mutation, succeed, fail],
+  )
+
+  const submit = useCallback(() => {
+    if (flow?.step === 'confirm') send(flow.draft)
+  }, [flow, send])
 
   /**
    * 결과를 모를 때 누르는 것. 재시도가 아니라 조회다.
    * 이미 일어났으면 완료로 가고, 안 일어났으면 그때 보낸다.
    */
   const check = useCallback(() => {
-    const key = draft?.idempotencyKey
-    if (!key) return
+    if (flow?.step !== 'failure') return
+    const { draft } = flow
     void transfersApi
-      .transferByKey(key)
-      .then((transfer) => (transfer ? succeed(transfer) : submit()))
+      .transferByKey(draft.idempotencyKey)
+      .then((transfer) => (transfer ? succeed(transfer) : send(draft)))
       .catch((error: unknown) => fail(toFailure(error)))
-  }, [draft, succeed, submit, fail])
+  }, [flow, succeed, send, fail])
 
   return { submit, check, busy: mutation.isPending }
 }

@@ -22,6 +22,9 @@ beforeAll(async () => {
 beforeEach(() => {
   resetSim()
   setSim({ latencyMs: 0, jitterMs: 0 })
+  // 주소는 문서에 붙어 있어 테스트끼리 새어 나간다. 앞 테스트가 들어간 화면에서
+  // 다음 테스트가 시작하면 순서에 따라 결과가 달라진다.
+  if (typeof document !== 'undefined') history.replaceState(null, '', '/')
 })
 
 afterEach(async () => {

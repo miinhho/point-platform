@@ -45,7 +45,7 @@ export interface PointType {
   issuerName: string
   /** 발행자의 핸들. 이름·기호·색과 달리 흉내낼 수 없어 사칭 판단의 근거가 된다. */
   issuerHandle: string
-  /** 원장 전체에서 이 이름을 쓰는 포인트가 둘 이상인가. 내 지갑에는 한쪽만 올 수 있다. */
+  /** 전체에서 이 이름을 쓰는 포인트가 둘 이상인가. 내 지갑에는 한쪽만 올 수 있다. */
   nameIsShared: boolean
   /** 내가 이 포인트를 발행할 수 있는가. 클라이언트가 판정하지 않는다. */
   canIssue: boolean

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { buildRecipientList, buildSearchList } from './recipientList'
 import type { User } from '@/shared/contract'
 
-/** `nameIsShared` 는 서버가 원장 전체에서 판정해 실어 준다 — 계약: docs/API.md */
+/** `nameIsShared` 는 서버가 전체에서 판정해 실어 준다 — 계약: docs/API.md */
 const member = (id: string, name: string, handle: string, nameIsShared = false): User => ({
   id,
   name,

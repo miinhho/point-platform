@@ -1,6 +1,6 @@
 import { Button, Text } from '@chakra-ui/react'
 import { useQuery } from '@tanstack/react-query'
-import { useAtomValue, useSetAtom } from 'jotai'
+import { useSetAtom } from 'jotai'
 import { useTranslation } from 'react-i18next'
 import { walletQuery } from '@/shared/api'
 import { toGrouped } from '@/shared/format'
@@ -10,18 +10,21 @@ import { Body, Gutter, Header, Screen, Title } from '@/shared/ui/Screen'
 import { IssuerSuffix } from '@/shared/ui/IssuerSuffix'
 import { Amount } from '../ui/Amount'
 import { Keypad } from '../ui/Keypad'
-import { draftAtom, editDraftAtom, toConfirmAtom } from '../model/atoms'
-import { amountOf, appendDigit, clearAmount, isReady, removeDigit } from '../model/draft'
+import { editAmountAtom, toConfirmAtom } from '../model/atoms'
+import { amountOf, appendDigit, clearAmount, isReady, removeDigit } from '../model/flow'
+import type { AddressedDraft } from '../model/flow'
 
 /** 근거: docs/JOURNEY.md 여정 4 */
-export function EnterAmount({ onBack }: { onBack: () => void }) {
+interface Props {
+  draft: AddressedDraft
+  onBack: () => void
+}
+
+export function EnterAmount({ draft, onBack }: Props) {
   const { t } = useTranslation()
-  const draft = useAtomValue(draftAtom)
-  const edit = useSetAtom(editDraftAtom)
+  const edit = useSetAtom(editAmountAtom)
   const next = useSetAtom(toConfirmAtom)
   const wallet = useQuery(walletQuery())
-
-  if (!draft?.to) return null
 
   const issuing = draft.kind === 'issue'
   // 서버가 실어 준 값을 표시할 뿐이다. 같은 규칙을 클라이언트가 다시 계산하지 않는다.
