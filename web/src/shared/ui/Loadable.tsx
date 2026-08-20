@@ -28,13 +28,13 @@ export function Loadable({ pending, failed, onRetry, label, skeleton, children }
 
   if (failed) {
     return (
-      <Gutter paddingTop="8">
-        <Box role="alert" display="flex" flexDirection="column" gap="1" alignItems="center">
+      <Gutter paddingTop="part">
+        <Box role="alert" display="flex" flexDirection="column" gap="bond" alignItems="center">
           <Text textStyle="support">{label}</Text>
           {/* 조회는 돈을 움직이지 않는다. 실패 문구는 그것을 늘 말한다 */}
           <Text textStyle="caption">{t('common.loadFailedWhere')}</Text>
         </Box>
-        <Button size="lg" width="full" variant="outline" marginTop="5" onClick={onRetry}>
+        <Button size="lg" width="full" variant="outline" marginTop="block" onClick={onRetry}>
           {t('common.retry')}
         </Button>
       </Gutter>
@@ -65,7 +65,7 @@ export function RowSkeleton({
   return (
     <Row aria-hidden>
       {avatar ? <SkeletonCircle boxSize="avatar" flexShrink={0} /> : null}
-      <Box flex={1} minW={0} display="flex" flexDirection="column" gap="2">
+      <Box flex={1} minW={0} display="flex" flexDirection="column" gap="tight">
         <Skeleton height="4" width="40%" />
         {caption ? <Skeleton height="3" width="24%" /> : null}
       </Box>
@@ -77,7 +77,7 @@ export function RowSkeleton({
 /** 라벨과 값 한 줄 */
 export function LineSkeleton() {
   return (
-    <Box aria-hidden display="flex" justifyContent="space-between" gap="4">
+    <Box aria-hidden display="flex" justifyContent="space-between" gap="inset">
       <Skeleton height="3" width="20%" />
       <Skeleton height="3" width="32%" />
     </Box>

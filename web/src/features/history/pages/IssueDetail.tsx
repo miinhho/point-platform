@@ -38,7 +38,7 @@ export function IssueDetail({ issueId, onBack }: Props) {
       </Header>
 
       <Body>
-        <Gutter paddingTop="4">
+        <Gutter paddingTop="inset">
           <Loadable
             pending={one.isPending}
             failed={one.isError}
@@ -47,10 +47,10 @@ export function IssueDetail({ issueId, onBack }: Props) {
             skeleton={
               <Box display="flex" flexDirection="column">
                 <NameSkeleton width="28%" />
-                <Box marginTop="2">
+                <Box marginTop="tight">
                   <AmountSkeleton />
                 </Box>
-                <Box marginTop="6" display="flex" flexDirection="column" gap="4">
+                <Box marginTop="block" display="flex" flexDirection="column" gap="inset">
                   <LineSkeleton />
                   <LineSkeleton />
                   <LineSkeleton />
@@ -69,7 +69,7 @@ export function IssueDetail({ issueId, onBack }: Props) {
                   </motion.div>
                 </Box>
 
-                <Box marginTop="6" display="flex" flexDirection="column">
+                <Box marginTop="block" display="flex" flexDirection="column">
                   <Line
                     divided
                     label={t('history.supplyAfter')}

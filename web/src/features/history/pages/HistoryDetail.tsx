@@ -45,16 +45,16 @@ export function HistoryDetail({ transferId, onBack }: Props) {
                 아래 줄. 균일한 줄 넷을 두면 제일 큰 둘에 자리가 없어 내용이 오는
                 순간 통째로 재배치된다.
               */
-              <Gutter paddingTop="4" display="flex" flexDirection="column">
+              <Gutter paddingTop="inset" display="flex" flexDirection="column">
                 <NameSkeleton />
-                <Box marginTop="2">
+                <Box marginTop="tight">
                   <LineSkeleton />
                 </Box>
-                <Box marginTop="5" display="flex" flexDirection="column" gap="2">
+                <Box marginTop="block" display="flex" flexDirection="column" gap="tight">
                   <NameSkeleton width="28%" />
                   <AmountSkeleton />
                 </Box>
-                <Box marginTop="6">
+                <Box marginTop="block">
                   <LineSkeleton />
                 </Box>
               </Gutter>
@@ -75,7 +75,7 @@ export function HistoryDetail({ transferId, onBack }: Props) {
       </Header>
 
       <Body>
-        <Gutter paddingTop="4">
+        <Gutter paddingTop="inset">
           <Sent transfer={detail.transfer} point={detail.point} />
         </Gutter>
       </Body>
@@ -112,7 +112,7 @@ function Sent({ transfer, point }: PartProps) {
         {other.handle}
       </Text>
 
-      <Box marginTop="5" colorPalette={point.accent}>
+      <Box marginTop="block" colorPalette={point.accent}>
         <Text textStyle="label" color="colorPalette.fg">
           {point.name}
         </Text>
@@ -121,7 +121,7 @@ function Sent({ transfer, point }: PartProps) {
         </motion.div>
       </Box>
 
-      <Box marginTop="6" display="flex" flexDirection="column">
+      <Box marginTop="block" display="flex" flexDirection="column">
         <Line divided label={t('history.at')} value={formatTime(transfer.confirmedAt)} />
       </Box>
     </>

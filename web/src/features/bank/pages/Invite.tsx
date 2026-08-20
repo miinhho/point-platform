@@ -58,12 +58,12 @@ export function Invite({ pointTypeId, onBack }: Props) {
           spellCheck={false}
           enterKeyHint="search"
           size="lg"
-          borderRadius="l2"
+          borderRadius="panel"
           bg="bg.panel"
         />
       </Gutter>
 
-      <Body marginTop="2">
+      <Body marginTop="tight">
         {candidates.map((user) =>
           invited.has(user.id) ? (
             <Candidate key={user.id} user={user} note={t('bank.invited')} />
@@ -79,7 +79,7 @@ export function Invite({ pointTypeId, onBack }: Props) {
 
         {candidates.length === 0 ? (
           <Gutter>
-            <Text textStyle="caption" paddingBlock="8" textAlign="center">
+            <Text textStyle="caption" paddingBlock="part" textAlign="center">
               {t('pick.notFound', { query: query.trim() })}
             </Text>
           </Gutter>

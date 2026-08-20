@@ -7,7 +7,7 @@ import { historyQuery } from '@/shared/api'
 import { toGrouped } from '@/shared/format'
 import { goAtom } from '@/app/atoms'
 import { Loadable, RowSkeleton } from '@/shared/ui/Loadable'
-import { Body, Gutter, Header, Row, RowButton, Screen, Title } from '@/shared/ui/Screen'
+import { Body, Header, Note, Row, RowButton, Screen, Title } from '@/shared/ui/Screen'
 import type { CapChange, PointMark, Issue, Transfer } from '@/shared/contract'
 import { formatTime } from '../model/time'
 
@@ -39,13 +39,7 @@ export function History() {
             </>
           }
         >
-          {data?.length === 0 ? (
-            <Gutter>
-              <Text textStyle="caption" textAlign="center" paddingBlock="8">
-                {t('history.empty')}
-              </Text>
-            </Gutter>
-          ) : null}
+          {data?.length === 0 ? <Note>{t('history.empty')}</Note> : null}
 
           {data?.map((entry) =>
             entry.type === 'transfer' ? (

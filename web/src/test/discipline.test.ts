@@ -182,6 +182,48 @@ describe('화면 규율', () => {
     expect(offenders).toEqual([])
   })
 
+  /*
+   * 여백은 이 앱에서 가장 많이 손으로 고르던 값이다. 같은 뜻의 사이가 화면마다
+   * 다르면 그것이 화면을 제각각으로 보이게 한다 — 토큰 이름은 `system.ts` 에 있다.
+   */
+  it('여백을 수치로 지정하지 않는다', () => {
+    const raw = /\b(margin|padding|gap)[A-Za-z]*="[\d.]+"/
+    const offenders = FILES.flatMap((path) =>
+      code(path)
+        .split('\n')
+        .map((line, i) => ({ line: line.trim(), n: i + 1 }))
+        .filter(({ line }) => raw.test(line))
+        .map(({ line, n }) => `${path}:${n} ${line.slice(0, 48)}`),
+    )
+    expect(offenders).toEqual([])
+  })
+
+  // `l1`·`l2`·`l3` 는 Chakra 의 것이다. 우리 것이 아니면 우리가 못 바꾼다.
+  it('모서리는 우리 토큰으로만 쓴다', () => {
+    const offenders = FILES.flatMap((path) =>
+      code(path)
+        .split('\n')
+        .filter((line) => /borderRadius="(l\d|[\d.]+(px|rem))"/.test(line))
+        .map((line) => `${path}: ${line.trim().slice(0, 48)}`),
+    )
+    expect(offenders).toEqual([])
+  })
+
+  /*
+   * `red.fg` 는 「빨강」이라고 적혀 있지 「상한을 넘었다」라고 적혀 있지 않다.
+   * 뜻이 이름에 없으면 나중에 한쪽만 바꿀 수 없다 — 의도 토큰이 `system.ts` 에 있다.
+   */
+  it('뜻 없는 팔레트 색을 화면이 직접 부르지 않는다', () => {
+    const raw = /(?:bg|color|borderColor)="(?:red|green|orange|blue|teal|gray|pink|purple)\./
+    const offenders = FILES.flatMap((path) =>
+      code(path)
+        .split('\n')
+        .filter((line) => raw.test(line))
+        .map((line) => `${path}: ${line.trim().slice(0, 48)}`),
+    )
+    expect(offenders).toEqual([])
+  })
+
   it('색은 시맨틱 토큰이나 colorPalette 로만 쓴다', () => {
     // `bg="blue.500"` 처럼 **수치 스케일**을 직접 부르는 것만 막는다.
     // `red.fg` 같은 시맨틱 슬롯(fg·solid·subtle·muted·contrast·emphasized)은 정상이다.

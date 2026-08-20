@@ -42,7 +42,7 @@ export function PointCard({ balance, isMine, onOpen, onBank }: Props) {
       <PointBadge emoji={pointType.emoji} />
 
       <Box flex={1} minW={0}>
-        <Box display="flex" alignItems="baseline" gap="1.5">
+        <Box display="flex" alignItems="baseline" gap="bond">
           <Text textStyle="name">{pointType.name}</Text>
         </Box>
         <IssuerSuffix pointType={pointType} />

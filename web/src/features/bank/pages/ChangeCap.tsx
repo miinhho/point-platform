@@ -37,8 +37,8 @@ export function ChangeCap({ pointType, onDone }: Props) {
       </Header>
 
       <Body>
-        <Gutter paddingTop="4" display="flex" flexDirection="column" gap="5">
-          <Box display="flex" flexDirection="column" gap="2">
+        <Gutter paddingTop="inset" display="flex" flexDirection="column" gap="block">
+          <Box display="flex" flexDirection="column" gap="tight">
             <Line label={t('bank.cap')} value={toGrouped(pointType.issueCap)} />
             <Line label={t('bank.supply')} value={toGrouped(pointType.totalIssued)} />
           </Box>

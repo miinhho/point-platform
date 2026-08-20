@@ -45,14 +45,14 @@ export function Settings() {
       <Body>
         <Section label={t('settings.account')}>
           {/* 내가 누구인지 화면에 없으면 잘못된 계정에서 보내는 실수를 알 수 없다 */}
-          <Box display="flex" alignItems="baseline" gap="2">
+          <Box display="flex" alignItems="baseline" gap="tight">
             <Text textStyle="name">{data?.user.name ?? ''}</Text>
             <Text textStyle="handle">{data?.user.handle ?? ''}</Text>
           </Box>
           <Button
             size="xs"
             variant="outline"
-            marginTop="3"
+            marginTop="side"
             onClick={() => {
               // 서버 토큰을 버리고 캐시를 지운다. 남기면 다음 사람이 내 잔액을 본다.
               signOut()
@@ -63,7 +63,7 @@ export function Settings() {
         </Section>
 
         <Section label={t('settings.colorMode')}>
-          <Box role="radiogroup" aria-label={t('settings.colorMode')} display="flex" gap="2">
+          <Box role="radiogroup" aria-label={t('settings.colorMode')} display="flex" gap="tight">
             {MODES.map((mode) => (
               <Chip
                 key={mode}
@@ -87,9 +87,9 @@ export function Settings() {
 
 function Section({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <Gutter paddingTop="5">
+    <Gutter paddingTop="block">
       <Text textStyle="caption">{label}</Text>
-      <Box marginTop="2">{children}</Box>
+      <Box marginTop="tight">{children}</Box>
     </Gutter>
   )
 }
@@ -120,7 +120,7 @@ function DevPanel() {
   return (
     <>
       <Section label={t('settings.dev')}>
-        <Box display="flex" gap="2">
+        <Box display="flex" gap="tight">
           {LATENCIES.map(({ key, value }) => (
             <Chip
               key={key}
@@ -138,7 +138,7 @@ function DevPanel() {
       </Section>
 
       <Section label={t('settings.devFailure')}>
-        <Box display="flex" flexWrap="wrap" gap="2">
+        <Box display="flex" flexWrap="wrap" gap="tight">
           {FAILURES.map(({ key, code, lost }) => (
             <Chip
               key={key}
@@ -168,7 +168,7 @@ function DevPanel() {
         >
           {t('settings.devReset')}
         </Chip>
-        <Text textStyle="caption" marginTop="3">
+        <Text textStyle="caption" marginTop="side">
           {t('settings.devNote')}
         </Text>
       </Section>

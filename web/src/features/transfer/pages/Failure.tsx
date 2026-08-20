@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { failureTitleKey, failureWhereKey } from '@/shared/i18n/keys'
 import { toGrouped } from '@/shared/format'
 import { IssuerSuffix } from '@/shared/ui/IssuerSuffix'
-import { Body, Gutter, Header, Screen, Title } from '@/shared/ui/Screen'
+import { Body, Footer, Gutter, Header, Panel, Screen, Title } from '@/shared/ui/Screen'
 import { backToAmountAtom, repickAtom } from '../model/atoms'
 import { handleFailure } from '../model/failure'
 import { amountOf, type SealedDraft } from '../model/flow'
@@ -35,50 +35,43 @@ export function Failure({ draft, failure, onCheck, onDone }: Props) {
       </Header>
 
       <Body>
-        <Gutter paddingTop="4">
+        <Gutter paddingTop="inset">
           <Text role="status" aria-live="assertive" textStyle="headline">
             {t(failureTitleKey(failure.code))}
           </Text>
 
           {/* 이 화면에서 가장 중요한 한 줄이다. 결과를 모를 때는 단정하지 않는다. */}
-          <Box
-            marginTop="4"
-            padding="4"
-            borderRadius="l2"
-            borderWidth="1px"
-            bg={unknown ? 'pending.subtle' : 'bg.panel'}
-            borderColor={unknown ? 'pending.fg' : 'border'}
-          >
+          <Panel marginTop="inset" raised={!unknown} pending={unknown}>
             <Text textStyle="caption">
               {unknown ? t('failure.unknownLabel') : t('failure.whereLabel')}
             </Text>
-            <Text textStyle="body" marginTop="1">
+            <Text textStyle="body" marginTop="bond">
               {t(failureWhereKey(failure.code, draft.kind))}
             </Text>
-          </Box>
+          </Panel>
 
           {/* 입력을 버리지 않았다는 것을 보여준다. */}
-          <Box marginTop="4" padding="4" borderRadius="l2" bg="bg.panel">
+          <Panel marginTop="inset">
             <Text textStyle="caption">
               {t(issuing ? 'failure.draftLabelIssue' : 'failure.draftLabel')}
             </Text>
             {issuing ? null : (
-              <Box display="flex" alignItems="baseline" gap="2" marginTop="1">
+              <Box display="flex" alignItems="baseline" gap="tight" marginTop="bond">
                 <Text textStyle="name">{draft.to.name}</Text>
                 <Text textStyle="handle">{draft.to.handle}</Text>
               </Box>
             )}
-            <Box display="flex" alignItems="baseline" gap="1.5" marginTop="2" flexWrap="wrap">
+            <Box display="flex" alignItems="baseline" gap="bond" marginTop="tight" flexWrap="wrap">
               <Text textStyle="caption">{draft.pointType.name}</Text>
               <IssuerSuffix pointType={draft.pointType} />
             </Box>
             <Text textStyle="balance">{toGrouped(amountOf(draft))}</Text>
-          </Box>
+          </Panel>
         </Gutter>
       </Body>
 
-      <Gutter paddingBottom="4">
-        <Box colorPalette={draft.pointType.accent} display="flex" flexDirection="column" gap="2">
+      <Footer>
+        <Box colorPalette={draft.pointType.accent} display="flex" flexDirection="column" gap="tight">
           {handling.retryable ? (
             <Button size="xl" width="full" onClick={onCheck}>
               {t('failure.check')}
@@ -103,7 +96,7 @@ export function Failure({ draft, failure, onCheck, onDone }: Props) {
             {t('failure.home')}
           </Button>
         </Box>
-      </Gutter>
+      </Footer>
     </Screen>
   )
 }

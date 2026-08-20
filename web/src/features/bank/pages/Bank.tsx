@@ -12,7 +12,7 @@ import { IssuerSuffix } from '@/shared/ui/IssuerSuffix'
 import { Line } from '@/shared/ui/Line'
 import { PointBadge } from '@/shared/ui/PointBadge'
 import { LineSkeleton, Loadable, NameSkeleton } from '@/shared/ui/Loadable'
-import { Body, Gutter, Header, Screen, Title } from '@/shared/ui/Screen'
+import { Body, Gutter, Header, Panel, Screen, Title } from '@/shared/ui/Screen'
 import type { ReactNode } from 'react'
 import type { PointType, PointTypeId } from '@/shared/contract'
 import { formatCreated } from '../model/created'
@@ -71,12 +71,12 @@ export function Bank({ pointTypeId, onBack }: { pointTypeId: PointTypeId; onBack
             label={t('bank.loadFailed')}
             skeleton={
               // 소개의 실제 모양 — 배지 옆 이름, 그 아래 사실 넷.
-              <Gutter paddingTop="4">
-                <Box display="flex" alignItems="center" gap="3">
+              <Gutter paddingTop="inset">
+                <Box display="flex" alignItems="center" gap="side">
                   <SkeletonCircle boxSize="avatar" flexShrink={0} />
                   <NameSkeleton />
                 </Box>
-                <Box marginTop="5" display="flex" flexDirection="column" gap="3">
+                <Box marginTop="block" display="flex" flexDirection="column" gap="side">
                   {[0, 1, 2, 3].map((row) => (
                     <LineSkeleton key={row} />
                   ))}
@@ -105,7 +105,7 @@ export function Bank({ pointTypeId, onBack }: { pointTypeId: PointTypeId; onBack
       </Header>
 
       <Body>
-        <Gutter paddingTop="4" paddingBottom="8" colorPalette={pointType.accent}>
+        <Gutter paddingTop="inset" paddingBottom="part" colorPalette={pointType.accent}>
           {invite ? <Join inviteId={invite.id} pointTypeId={pointTypeId} /> : null}
 
           {/* 나온 사람의 Attention 은 「왜 못 쓰나」다. 잔액보다 먼저 온다 */}
@@ -156,12 +156,12 @@ export function Bank({ pointTypeId, onBack }: { pointTypeId: PointTypeId; onBack
           ) : null}
 
           {/* 회원이 아닌 사람도 보는 소개. 은행장에게는 남에게 보이는 얼굴이라 마지막이다 */}
-          <Box marginTop="8">
+          <Box marginTop="part">
             <Intro pointType={pointType} />
           </Box>
 
           {pointType.canIssue && isPrivate ? (
-            <Box marginTop="4">
+            <Box marginTop="inset">
               <Button
                 size="sm"
                 width="full"
@@ -175,7 +175,7 @@ export function Bank({ pointTypeId, onBack }: { pointTypeId: PointTypeId; onBack
 
           {/* 회원이지만 은행장은 아닌 사람 — 명부는 볼 수 있으나 그의 주된 일이 아니다 */}
           {isPrivate && !invite && !outside && !pointType.canIssue ? (
-            <Box marginTop="4">
+            <Box marginTop="inset">
               <Button
                 size="sm"
                 width="full"
@@ -206,10 +206,10 @@ interface SectionProps {
  */
 function Section({ label, value, action, onAction, children }: SectionProps) {
   return (
-    <Box marginTop="6" display="flex" flexDirection="column" gap="3">
+    <Box marginTop="block" display="flex" flexDirection="column" gap="side">
       <Box>
         <Text textStyle="caption">{label}</Text>
-        <Box display="flex" alignItems="baseline" justifyContent="space-between" gap="3">
+        <Box display="flex" alignItems="baseline" justifyContent="space-between" gap="side">
           <Text textStyle="balance">{value}</Text>
           {action && onAction ? (
             <Button size="sm" variant="ghost" flexShrink={0} onClick={onAction}>
@@ -231,15 +231,15 @@ function Outside() {
   const { t } = useTranslation()
 
   return (
-    <Box padding="4" borderRadius="l2" bg="bg.panel">
+    <Panel>
       <Text textStyle="support">{t('bank.outsider')}</Text>
-      <Text textStyle="caption" marginTop="1">
+      <Text textStyle="caption" marginTop="bond">
         {t('bank.outsiderWhy')}
       </Text>
-      <Text textStyle="caption" marginTop="2">
+      <Text textStyle="caption" marginTop="tight">
         {t('bank.outsiderKeeps')}
       </Text>
-    </Box>
+    </Panel>
   )
 }
 
@@ -262,7 +262,7 @@ function Join({ inviteId, pointTypeId }: { inviteId: string; pointTypeId: PointT
   })
 
   return (
-    <Box marginTop="6">
+    <Box marginTop="block">
       <VisuallyHidden aria-live="polite">{join.isSuccess ? t('bank.joined') : ''}</VisuallyHidden>
       <Button
         size="xl"
@@ -285,7 +285,7 @@ function Intro({ pointType }: { pointType: PointType }) {
 
   return (
     <>
-      <Box display="flex" alignItems="center" gap="3">
+      <Box display="flex" alignItems="center" gap="side">
         <PointBadge emoji={pointType.emoji} />
         <Box flex={1} minW={0}>
           <Text textStyle="name">{pointType.name}</Text>
@@ -293,7 +293,7 @@ function Intro({ pointType }: { pointType: PointType }) {
         </Box>
       </Box>
 
-      <Box marginTop="4" display="flex" flexDirection="column" gap="2">
+      <Box marginTop="inset" display="flex" flexDirection="column" gap="tight">
         <Line label={t('bank.issuer')} value={pointType.issuerHandle} />
         <Line label={t('bank.created')} value={formatCreated(pointType.createdAt)} />
         <Line label={t('bank.supply')} value={toGrouped(pointType.totalIssued)} />
@@ -307,12 +307,12 @@ function Intro({ pointType }: { pointType: PointType }) {
         글이 앱이 보증한 글처럼 보이면 안 된다. 근거: docs/JOURNEY.md 여정 10
       */}
       {pointType.description ? (
-        <Box marginTop="4" padding="4" borderRadius="l2" bg="bg.panel">
+        <Panel marginTop="inset">
           <Text textStyle="caption">{t('bank.descriptionLabel')}</Text>
-          <Text textStyle="support" marginTop="1">
+          <Text textStyle="support" marginTop="bond">
             {pointType.description}
           </Text>
-        </Box>
+        </Panel>
       ) : null}
     </>
   )

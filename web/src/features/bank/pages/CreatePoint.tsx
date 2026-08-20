@@ -10,7 +10,7 @@ import { failureTitleKey } from '@/shared/i18n/keys'
 import { BackButton } from '@/shared/ui/BackButton'
 import { HoldButton } from '@/shared/ui/HoldButton'
 import { PointBadge } from '@/shared/ui/PointBadge'
-import { Body, Gutter, Header, Screen, Title } from '@/shared/ui/Screen'
+import { Body, Footer, Gutter, Header, Screen, Title } from '@/shared/ui/Screen'
 import { PointCreated } from './PointCreated'
 
 const ACCENTS: readonly PointAccent[] = [
@@ -78,7 +78,7 @@ export function CreatePoint({ onBack }: { onBack: () => void }) {
       </Header>
 
       <Body>
-        <Gutter paddingTop="2" display="flex" flexDirection="column" gap="5">
+        <Gutter paddingTop="tight" display="flex" flexDirection="column" gap="block">
           <Field.Root>
             <Field.Label>{t('create.name')}</Field.Label>
             <Input
@@ -127,15 +127,15 @@ export function CreatePoint({ onBack }: { onBack: () => void }) {
           <Preview name={name} emoji={emoji} accent={accent} />
 
           {error ? (
-            <Text role="alert" textStyle="support" color="red.fg">
+            <Text role="alert" textStyle="support" color="failed.fg">
               {t(failureTitleKey(error.code))}
             </Text>
           ) : null}
         </Gutter>
       </Body>
 
-      <Gutter paddingTop="3" paddingBottom="4">
-        <Text textStyle="caption" textAlign="center" marginBottom="2">
+      <Footer>
+        <Text textStyle="caption" textAlign="center" marginBottom="tight">
           {t('create.irreversible')}
         </Text>
         <Box colorPalette={accent}>
@@ -145,7 +145,7 @@ export function CreatePoint({ onBack }: { onBack: () => void }) {
             disabled={!ready || create.isPending}
           />
         </Box>
-      </Gutter>
+      </Footer>
     </Screen>
   )
 }
@@ -166,15 +166,15 @@ function Preview({
     <Box>
       <Text textStyle="caption">{t('create.preview')}</Text>
       <Box
-        marginTop="2"
+        marginTop="tight"
         colorPalette={accent}
         display="flex"
         alignItems="center"
-        gap="3"
+        gap="side"
         borderWidth="1px"
         borderColor="border"
-        borderRadius="l2"
-        padding="3"
+        borderRadius="panel"
+        padding="side"
       >
         <PointBadge emoji={emoji ?? ''} />
         <Text textStyle="name">{name}</Text>
@@ -202,13 +202,13 @@ function VisibilityPicker({
       onValueChange={({ value: next }) => next && onChange(next as PointVisibility)}
     >
       <RadioCard.Label textStyle="label">{t('create.visibility')}</RadioCard.Label>
-      <Box marginTop="2" display="flex" gap="3">
+      <Box marginTop="tight" display="flex" gap="side">
         {(['public', 'private'] as const).map((option) => (
           <RadioCard.Item key={option} value={option} flex={1} minW={0}>
             <RadioCard.ItemHiddenInput />
             <RadioCard.ItemControl
               alignItems="start"
-              paddingBlock="3"
+              paddingBlock="side"
               borderColor={option === value ? 'colorPalette.solid' : 'border'}
             >
               <RadioCard.ItemContent>
@@ -228,7 +228,7 @@ function VisibilityPicker({
           </RadioCard.Item>
         ))}
       </Box>
-      <Text textStyle="caption" marginTop="2">
+      <Text textStyle="caption" marginTop="tight">
         {t('create.visibilityFixed')}
       </Text>
     </RadioCard.Root>
@@ -254,14 +254,14 @@ function EmojiPicker({
       onValueChange={({ value: next }) => next && onChange(next)}
     >
       <RadioCard.Label textStyle="label">{t('create.emoji')}</RadioCard.Label>
-      <Box marginTop="2" display="grid" gridTemplateColumns="repeat(6, 1fr)" gap="2">
+      <Box marginTop="tight" display="grid" gridTemplateColumns="repeat(6, 1fr)" gap="tight">
         {ALLOWED_EMOJI.map((option) => (
           <RadioCard.Item key={option} value={option} minW={0}>
             <RadioCard.ItemHiddenInput />
             <RadioCard.ItemText srOnly>{option}</RadioCard.ItemText>
             <RadioCard.ItemControl
               justifyContent="center"
-              paddingBlock="2"
+              paddingBlock="tight"
               borderWidth={option === value ? '3px' : '1px'}
               borderColor={option === value ? 'fg' : 'border'}
             >
@@ -270,7 +270,7 @@ function EmojiPicker({
           </RadioCard.Item>
         ))}
       </Box>
-      <Text textStyle="caption" marginTop="2">
+      <Text textStyle="caption" marginTop="tight">
         {t('create.emojiHint')}
       </Text>
     </RadioCard.Root>
@@ -298,7 +298,7 @@ function AccentPicker({
         색을 고르는 자리에서 색이 안 보이는 것이다. 선택은 색이 아니라 테두리와 체크가
         말한다 — 선택 표시와 색 표시가 같은 채널을 쓰면 둘 다 못 한다.
       */}
-      <Box marginTop="2" display="grid" gridTemplateColumns="repeat(5, 1fr)" gap="2">
+      <Box marginTop="tight" display="grid" gridTemplateColumns="repeat(5, 1fr)" gap="tight">
         {ACCENTS.map((accent) => (
           <RadioCard.Item key={accent} value={accent} colorPalette={accent} minW={0}>
             <RadioCard.ItemHiddenInput />
@@ -306,7 +306,7 @@ function AccentPicker({
             <RadioCard.ItemText srOnly>{t(`create.accents.${accent}`)}</RadioCard.ItemText>
             <RadioCard.ItemControl
               justifyContent="center"
-              paddingBlock="3"
+              paddingBlock="side"
               bg="colorPalette.solid"
               color="colorPalette.contrast"
               borderWidth={accent === value ? '3px' : '1px'}

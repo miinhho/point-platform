@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { walletQuery } from '@/shared/api'
 import { toGrouped } from '@/shared/format'
 import type { Issue, Transfer } from '@/shared/contract'
-import { Body, Gutter, Screen } from '@/shared/ui/Screen'
+import { Body, Footer, Gutter, Screen } from '@/shared/ui/Screen'
 import { SentMark } from '@/shared/ui/SentMark'
 import type { SealedDraft } from '../model/flow'
 
@@ -35,15 +35,15 @@ export function Result({ draft, result, onDone }: Props) {
   return (
     <Screen>
       <Body>
-        <Gutter paddingTop="10">
+        <Gutter paddingTop="open">
           <Box colorPalette={point.accent}>
             <SentMark />
-            <Text role="status" aria-live="polite" textStyle="headline" marginTop="4">
+            <Text role="status" aria-live="polite" textStyle="headline" marginTop="inset">
               {issued ? t('result.titleIssue') : t('result.titleTransfer')}
             </Text>
             {issued ? null : <Text textStyle="support">{draft.to.name}</Text>}
 
-            <Box marginTop="6">
+            <Box marginTop="block">
               <Text textStyle="label" color="colorPalette.fg">
                 {point.name}
               </Text>
@@ -51,14 +51,14 @@ export function Result({ draft, result, onDone }: Props) {
             </Box>
 
             <Box
-              marginTop="6"
-              paddingTop="4"
+              marginTop="block"
+              paddingTop="inset"
               borderTopWidth="1px"
               borderColor="border"
               display="flex"
               justifyContent="space-between"
               alignItems="baseline"
-              gap="3"
+              gap="side"
             >
               {/* 발행은 잔액이 아니라 유통량을 말한다 */}
               <Text textStyle="caption">
@@ -78,11 +78,11 @@ export function Result({ draft, result, onDone }: Props) {
         </Gutter>
       </Body>
 
-      <Gutter paddingBottom="4">
+      <Footer>
         <Button size="xl" width="full" colorPalette={point.accent} onClick={onDone}>
           {t('common.ok')}
         </Button>
-      </Gutter>
+      </Footer>
     </Screen>
   )
 }

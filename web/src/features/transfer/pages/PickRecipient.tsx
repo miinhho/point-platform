@@ -7,7 +7,7 @@ import { recentQuery, usersQuery } from '@/shared/api'
 import { BackButton } from '@/shared/ui/BackButton'
 import { IssuerSuffix } from '@/shared/ui/IssuerSuffix'
 import { Loadable, RowSkeleton } from '@/shared/ui/Loadable'
-import { Body, Gutter, Header, RowButton, Screen, Title } from '@/shared/ui/Screen'
+import { Body, Gutter, Header, Note, RowButton, Screen, SectionLabel, Title } from '@/shared/ui/Screen'
 import { pickRecipientAtom } from '../model/atoms'
 import type { Draft } from '../model/flow'
 import { buildRecipientList, buildSearchList, type RecipientEntry } from '../model/recipientList'
@@ -34,7 +34,7 @@ export function PickRecipient({ draft, onBack }: { draft: Draft; onBack: () => v
       <Header>
         <BackButton onClick={onBack} />
         <Title>{t('pick.titleTransfer')}</Title>
-        <Box display="flex" alignItems="baseline" gap="1.5" flexWrap="wrap">
+        <Box display="flex" alignItems="baseline" gap="bond" flexWrap="wrap">
           <Text textStyle="caption" colorPalette={draft.pointType.accent} color="colorPalette.fg">
             {draft.pointType.name}
           </Text>
@@ -53,12 +53,12 @@ export function PickRecipient({ draft, onBack }: { draft: Draft; onBack: () => v
           spellCheck={false}
           enterKeyHint="search"
           size="lg"
-          borderRadius="l2"
+          borderRadius="panel"
           bg="bg.panel"
         />
       </Gutter>
 
-      <Body marginTop="2">
+      <Body marginTop="tight">
         <Loadable
           pending={users.isPending}
           failed={users.isError}
@@ -86,11 +86,7 @@ export function PickRecipient({ draft, onBack }: { draft: Draft; onBack: () => v
           ) : null}
 
           {total === 0 ? (
-            <Gutter>
-              <Text textStyle="caption" paddingBlock="8" textAlign="center">
-                {searching ? t('pick.notFound', { query: query.trim() }) : t('pick.empty')}
-              </Text>
-            </Gutter>
+            <Note>{searching ? t('pick.notFound', { query: query.trim() }) : t('pick.empty')}</Note>
           ) : null}
         </Loadable>
       </Body>
@@ -101,11 +97,7 @@ export function PickRecipient({ draft, onBack }: { draft: Draft; onBack: () => v
 function Section({ label, children }: { label?: string; children: React.ReactNode }) {
   return (
     <>
-      {label ? (
-        <Gutter paddingTop="3" paddingBottom="1">
-          <Text textStyle="caption">{label}</Text>
-        </Gutter>
-      ) : null}
+      {label ? <SectionLabel>{label}</SectionLabel> : null}
       {children}
     </>
   )
@@ -151,7 +143,7 @@ function RecipientRow({ entry, onPick }: { entry: RecipientEntry; onPick: RowsPr
       </Box>
 
       <Box flex={1} minW={0}>
-        <Box display="flex" alignItems="baseline" gap="2">
+        <Box display="flex" alignItems="baseline" gap="tight">
           <Text textStyle="name">{user.name}</Text>
           {pulledUp ? <Text textStyle="caption">{t('pick.notSentBefore')}</Text> : null}
         </Box>

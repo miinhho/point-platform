@@ -6,7 +6,16 @@ import { invitesQuery, walletQuery } from '@/shared/api'
 import { startTransferAtom } from '@/features/transfer'
 import { goAtom } from '@/app/atoms'
 import { Loadable, RowSkeleton } from '@/shared/ui/Loadable'
-import { Body, Gutter, Header, RowButton, Screen, Title } from '@/shared/ui/Screen'
+import {
+  Body,
+  Footer,
+  Header,
+  Note,
+  RowButton,
+  Screen,
+  SectionLabel,
+  Title,
+} from '@/shared/ui/Screen'
 import { PointBadge } from '@/shared/ui/PointBadge'
 import type { Invite } from '@/shared/contract'
 import { orderBalances } from '../model/order'
@@ -51,9 +60,7 @@ export function Home() {
           {/* 초대를 열면 은행 페이지가 열린다. 판단할 것은 거기 다 있다 — 여정 10 */}
           {invites.data?.length ? (
             <>
-              <Gutter paddingTop="3" paddingBottom="1">
-                <Text textStyle="caption">{t('home.invites')}</Text>
-              </Gutter>
+              <SectionLabel>{t('home.invites')}</SectionLabel>
               {invites.data.map((invite) => (
                 <InviteRow
                   key={invite.id}
@@ -77,8 +84,9 @@ export function Home() {
         </Loadable>
 
         {/* 목록 끝에 둔다 — 계좌 목록 아래의 「계좌 개설」과 같은 자리다 */}
+        {/* 목록 끝에 둔다 — 계좌 목록 아래의 「계좌 개설」과 같은 자리다 */}
         {data ? (
-          <Gutter paddingTop="4" paddingBottom="6">
+          <Footer>
             <Button
               size="lg"
               width="full"
@@ -87,7 +95,7 @@ export function Home() {
             >
               {t('create.entry')}
             </Button>
-          </Gutter>
+          </Footer>
         ) : null}
       </Body>
     </Screen>
@@ -110,14 +118,3 @@ function InviteRow({ invite, onOpen }: { invite: Invite; onOpen: () => void }) {
   )
 }
 
-function Note({ children, role }: { children: string; role?: 'status' | 'alert' }) {
-  return (
-    <Gutter>
-      <Box role={role} paddingBlock="8">
-        <Text textStyle="caption" textAlign="center">
-          {children}
-        </Text>
-      </Box>
-    </Gutter>
-  )
-}

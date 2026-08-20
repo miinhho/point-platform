@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next'
 import { walletQuery } from '@/shared/api'
 import { toGrouped } from '@/shared/format'
 import { BackButton } from '@/shared/ui/BackButton'
-import { Body, Gutter, Header, Screen, Title } from '@/shared/ui/Screen'
+import { Body, Footer, Gutter, Header, Screen, Title } from '@/shared/ui/Screen'
 import { Amount } from '../ui/Amount'
 import { Keypad } from '../ui/Keypad'
 import { editAmountAtom, toConfirmAtom } from '../model/atoms'
@@ -42,16 +42,16 @@ export function EnterTransferAmount({
         <BackButton onClick={onBack} />
         <Title>
           {draft.to.name}
-          <Text as="span" textStyle="handle" marginInlineStart="2">
+          <Text as="span" textStyle="handle" marginInlineStart="tight">
             {draft.to.handle}
           </Text>
         </Title>
       </Header>
 
       <Body>
-        <Gutter paddingTop="6">
+        <Gutter paddingTop="block">
           <Amount pointType={draft.pointType} amount={amount} over={over} />
-          <Text textStyle="support" color={over ? 'red.fg' : undefined} marginTop="5">
+          <Text textStyle="support" color={over ? 'overLimit.fg' : undefined} marginTop="block">
             {t(over ? 'amount.over' : 'amount.ceiling', { amount: toGrouped(ceiling) })}
           </Text>
         </Gutter>
@@ -63,7 +63,7 @@ export function EnterTransferAmount({
         onClear={() => edit(clearAmount)}
       />
 
-      <Gutter paddingTop="2" paddingBottom="4">
+      <Footer>
         {/* 누를 수 없는 버튼을 감추지 않는다. 자리가 사라지면 다음에 뭘 할지 알 수 없다. */}
         <Button
           size="xl"
@@ -74,7 +74,7 @@ export function EnterTransferAmount({
         >
           {t('amount.next')}
         </Button>
-      </Gutter>
+      </Footer>
     </Screen>
   )
 }

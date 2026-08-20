@@ -16,7 +16,7 @@ export function PointBadge({ emoji }: { emoji: string }) {
       aria-hidden
       flexShrink={0}
       boxSize="avatar"
-      borderRadius="l2"
+      borderRadius="panel"
       bg="colorPalette.subtle"
       borderWidth="1px"
       borderColor="colorPalette.muted"

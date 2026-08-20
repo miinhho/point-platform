@@ -6,7 +6,7 @@ import type { PointType, PointTypeId, User, UserId } from '@/shared/contract'
 import { failureTitleKey } from '@/shared/i18n/keys'
 import { BackButton } from '@/shared/ui/BackButton'
 import { Loadable, RowSkeleton } from '@/shared/ui/Loadable'
-import { Body, Gutter, Header, Row, Screen, Title } from '@/shared/ui/Screen'
+import { Body, Footer, Gutter, Header, Row, Screen, Title } from '@/shared/ui/Screen'
 
 interface Props {
   pointTypeId: PointTypeId
@@ -89,8 +89,8 @@ export function Members({ pointTypeId, onBack, onLeft }: Props) {
         </Loadable>
 
         {error ? (
-          <Gutter paddingTop="3">
-            <Text role="alert" textStyle="support" color="red.fg">
+          <Gutter paddingTop="side">
+            <Text role="alert" textStyle="support" color="failed.fg">
               {t(failureTitleKey(error.code))}
             </Text>
           </Gutter>
@@ -99,8 +99,8 @@ export function Members({ pointTypeId, onBack, onLeft }: Props) {
 
       {/* 은행장은 나갈 수 없다. 누를 수 없는 버튼이 아니라 버튼이 없어야 한다 */}
       {pointType.canIssue ? null : (
-        <Gutter paddingTop="3" paddingBottom="4">
-          <Text textStyle="caption" textAlign="center" marginBottom="2">
+        <Footer>
+          <Text textStyle="caption" textAlign="center">
             {t('bank.leaveKeeps')}
           </Text>
           <Button
@@ -112,7 +112,7 @@ export function Members({ pointTypeId, onBack, onLeft }: Props) {
           >
             {t('bank.leave')}
           </Button>
-        </Gutter>
+        </Footer>
       )}
     </Screen>
   )
@@ -132,7 +132,7 @@ function MemberRow({ member, pointType, onRemove, busy }: MemberRowProps) {
   return (
     <Row>
       <Box flex={1} minW={0}>
-        <Box display="flex" alignItems="baseline" gap="2">
+        <Box display="flex" alignItems="baseline" gap="tight">
           <Text textStyle="name">{member.name}</Text>
           {isIssuer ? <Text textStyle="caption">{t('bank.issuerBadge')}</Text> : null}
         </Box>

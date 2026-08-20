@@ -7,6 +7,7 @@ import type { PointType } from '@/shared/contract'
 import { abbreviate, parseInput, toGrouped } from '@/shared/format'
 import { failureTitleKey } from '@/shared/i18n/keys'
 import { HoldButton } from '@/shared/ui/HoldButton'
+import { Panel } from '@/shared/ui/Screen'
 
 /**
  * 상한 변경. 발행과 같은 무게로 다룬다 — docs/JOURNEY.md 여정 9.
@@ -48,7 +49,7 @@ export function CapForm({ pointType, onChanged }: { pointType: PointType; onChan
   const error = change.error instanceof ApiError ? change.error : null
 
   return (
-    <Box display="flex" flexDirection="column" gap="4">
+    <Box display="flex" flexDirection="column" gap="inset">
       <Field.Root invalid={error?.code === 'CAP_BELOW_ISSUED'}>
         <Field.Label>{t('cap.next')}</Field.Label>
         <Input
@@ -76,7 +77,7 @@ export function CapForm({ pointType, onChanged }: { pointType: PointType; onChan
       <Effect issueCap={pointType.issueCap} next={next} />
 
       {error && error.code !== 'CAP_BELOW_ISSUED' ? (
-        <Text role="alert" textStyle="support" color="red.fg">
+        <Text role="alert" textStyle="support" color="failed.fg">
           {t(failureTitleKey(error.code))}
         </Text>
       ) : null}
@@ -89,8 +90,8 @@ export function CapForm({ pointType, onChanged }: { pointType: PointType; onChan
         그 자리는 그 화면의 주된 행동이 앉는 자리다. 밀림은 화면을 통째로 내주는
         것으로 푼다(`ChangeCap`). 근거: docs/MOTION.md
       */}
-      <Box paddingTop="2">
-        <Text textStyle="caption" textAlign="center" marginBottom="2">
+      <Box paddingTop="tight">
+        <Text textStyle="caption" textAlign="center" marginBottom="tight">
           {t('cap.irreversible')}
         </Text>
         <HoldButton
@@ -109,13 +110,13 @@ function Effect({ issueCap, next }: { issueCap: number; next: number }) {
   if (next <= 0 || next === issueCap) return null
 
   return (
-    <Box padding="4" borderRadius="l2" bg="bg.panel">
+    <Panel>
       <Text textStyle="caption">{t('cap.holdersLabel')}</Text>
-      <Text textStyle="body" marginTop="1">
+      <Text textStyle="body" marginTop="bond">
         {t(next > issueCap ? 'cap.holdersRaised' : 'cap.holdersLowered', {
           amount: abbreviate(next) || toGrouped(next),
         })}
       </Text>
-    </Box>
+    </Panel>
   )
 }

@@ -25,16 +25,16 @@ export function SignIn() {
   return (
     <Screen>
       <Body>
-        <Gutter paddingTop="16">
+        <Gutter paddingTop="open">
           <Text textStyle="headline">{t('auth.title')}</Text>
           <Text textStyle="support">{t('auth.subtitle')}</Text>
 
           <Box
             asChild
-            marginTop="8"
+            marginTop="part"
             display="flex"
             flexDirection="column"
-            gap="3"
+            gap="side"
           >
             <form
               onSubmit={(event) => {
@@ -70,7 +70,7 @@ export function SignIn() {
               </Field.Root>
 
               {error ? (
-                <Text role="alert" textStyle="support" color="red.fg">
+                <Text role="alert" textStyle="support" color="failed.fg">
                   {t(failureTitleKey(error.code))}
                 </Text>
               ) : null}
@@ -79,7 +79,7 @@ export function SignIn() {
                 type="submit"
                 size="xl"
                 width="full"
-                marginTop="2"
+                marginTop="tight"
                 loading={login.isPending}
                 disabled={handle.trim() === '' || password === ''}
               >
@@ -88,7 +88,7 @@ export function SignIn() {
             </form>
           </Box>
 
-          <Text textStyle="caption" marginTop="6">
+          <Text textStyle="caption" marginTop="block">
             {t('auth.hint')}
           </Text>
         </Gutter>
