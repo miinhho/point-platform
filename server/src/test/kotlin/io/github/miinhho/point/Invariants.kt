@@ -6,6 +6,8 @@ import io.github.miinhho.point.pointtype.PointTypeRepository
 import org.junit.jupiter.api.extension.AfterEachCallback
 import org.junit.jupiter.api.extension.ExtensionContext
 import org.springframework.context.ApplicationContext
+import org.springframework.core.annotation.AnnotatedElementUtils
+import org.springframework.test.context.BootstrapWith
 import org.springframework.test.context.junit.jupiter.SpringExtension
 import kotlin.test.assertEquals
 
@@ -18,25 +20,31 @@ import kotlin.test.assertEquals
  */
 class Invariants : AfterEachCallback {
     override fun afterEach(context: ExtensionContext) {
-        // 볼 것이 없는 테스트가 있다 — 스프링을 안 띄우는 것(계약 파싱)과, 띄우되
-        // 리포지토리가 없는 것(부팅 가드처럼 컨텍스트만 세우는 것)이다.
-        val spring = runCatching { SpringExtension.getApplicationContext(context) }.getOrNull() ?: return
-        val pointTypes = spring.bean(PointTypeRepository::class.java) ?: return
+        // 스프링 테스트가 아닌 것이 있다 — 계약 파싱과 상수 비교. 볼 판이 없다.
+        // 컨텍스트 유무로는 못 가른다: SpringExtension 은 애너테이션이 없는 클래스에도
+        // 빈 컨텍스트를 만들어 준다.
+        val testClass = context.testClass.orElse(null) ?: return
+        if (AnnotatedElementUtils.findMergedAnnotation(testClass, BootstrapWith::class.java) == null) return
 
-        everyPointTypeHasIssuanceAccount(spring, pointTypes)
+        everyPointTypeHasIssuanceAccount(SpringExtension.getApplicationContext(context))
     }
 
     /** 깨지면 상한을 보는 쪽이 잠글 행을 못 찾는다. */
-    private fun everyPointTypeHasIssuanceAccount(spring: ApplicationContext, pointTypes: PointTypeRepository) {
-        val accounts = spring.bean(AccountRepository::class.java) ?: return
+    private fun everyPointTypeHasIssuanceAccount(spring: ApplicationContext) {
         // 지연 프록시의 식별자는 초기화 없이 읽힌다.
-        val withIssuance = accounts.findAll()
+        val withIssuance = spring.repository(AccountRepository::class.java).findAll()
             .filter { it.kind == AccountKind.ISSUANCE }
             .mapNotNull { it.pointType.id }
             .toSet()
-        val missing = pointTypes.findAll().mapNotNull { it.id }.filterNot { it in withIssuance }
+        val missing = spring.repository(PointTypeRepository::class.java).findAll()
+            .mapNotNull { it.id }
+            .filterNot { it in withIssuance }
         assertEquals(emptyList(), missing, "발행 계정 없는 포인트가 있다")
     }
 
-    private fun <T : Any> ApplicationContext.bean(type: Class<T>): T? = getBeanProvider(type).getIfAvailable()
+    // 스프링이 떴는데 리포지토리가 없는 것은 「볼 것이 없다」가 아니라 설정이 바뀐 것이다.
+    // 조용히 넘기면 이 검사가 꺼진 것과 볼 것이 없는 것이 같아 보인다.
+    private fun <T : Any> ApplicationContext.repository(type: Class<T>): T =
+        getBeanProvider(type).getIfAvailable()
+            ?: error("${type.simpleName} 없이 스프링이 떴다 — 불변식이 볼 판을 잃었다")
 }
