@@ -129,7 +129,12 @@ class InviteTest {
             HttpStatus.NO_CONTENT,
             delete(issuer, "/api/point-types/${closed.publicId}/members/${publicId(outsider)}").statusCode,
         )
-        assertNoLiveInvite(outsider, "내보내기는 회원 자격만 끝낸다")
+        // 여기서 assertNoLiveInvite 는 아무것도 안 본다 — 회원이 아니라 교집합이 무조건 빈다.
+        // 걸어 들어오는 길을 막는 것은 「내보낸 뒤 살아 있는 초대가 없다」 쪽이다.
+        assertTrue(
+            inviteRepository.pointTypeIdsInvitedTo(outsider.id!!).isEmpty(),
+            "내보내기 뒤에 살아 있는 초대가 남으면 스스로 걸어 들어온다",
+        )
 
         val second = idOf(assertNotNull(invite(issuer, closed, outsider).body))
         assertEquals(HttpStatus.OK, accept(outsider).statusCode)
