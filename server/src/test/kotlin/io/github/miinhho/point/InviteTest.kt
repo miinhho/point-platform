@@ -225,6 +225,16 @@ class InviteTest {
     }
 
     @Test
+    fun `이미 나간 사람이 다시 나가도 204 다`() {
+        // 잔액이 은행에 닿을 자격을 주므로 비회원도 이 길을 부를 수 있다.
+        balanceRepository.save(Balance(user = outsider, pointType = closed, amount = 3_000))
+
+        // 그가 원한 것은 회원이 아니게 되는 것이고 그는 이미 회원이 아니다.
+        val leaving = delete(outsider, "/api/point-types/${closed.publicId}/members/me")
+        assertEquals(HttpStatus.NO_CONTENT, leaving.statusCode, leaving.body)
+    }
+
+    @Test
     fun `나가도 잔액은 남고 은행장은 나갈 수 없다`() {
         balanceRepository.save(Balance(user = member, pointType = closed, amount = 5_000))
 
