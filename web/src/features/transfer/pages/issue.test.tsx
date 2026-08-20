@@ -2,6 +2,8 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { screen, waitFor } from '@testing-library/react'
 import { userEvent } from '@testing-library/user-event'
+import { http, HttpResponse } from 'msw'
+import { server } from '@/mocks/node'
 import { balanceOf, SEED_ISSUER as ME } from '@/mocks/ledger'
 import { renderApp, signInAs } from '@/test/render'
 import App from '@/app/App'
@@ -73,9 +75,38 @@ describe('여정 7 — 발행', () => {
     expect(screen.getByText(/\+8\.3%/)).toBeTruthy()
   })
 
-  it('발행 띠가 모든 발행 화면에 붙는다 — 색이 아니라 구조로 구분한다', async () => {
+  /*
+   * 발행 화면은 이체 화면을 빌려 쓰지 않는다. 빌려 쓰면 「받는 사람」 칸이 남고,
+   * 빈칸은 채워지려 한다 — 규칙: CLAUDE.md 「비어야 할 칸은 비운다」
+   */
+  it('화면마다 제목이 발행이라고 말한다', async () => {
+    const user = await atAmount()
+    expect(screen.getByRole('button', { name: '발행 확인' })).toBeTruthy()
+
+    for (const digit of '100000') await user.click(screen.getByRole('button', { name: digit }))
+    await user.click(screen.getByRole('button', { name: '발행 확인' }))
+    expect(await screen.findByText('이렇게 발행할까요?')).toBeTruthy()
+    await settle()
+    expect(screen.getByRole('button', { name: '꾹 눌러서 발행' })).toBeTruthy()
+  })
+
+  it('발행이 실패하면 「보내지 못했어요」라고 하지 않는다', async () => {
+    server.use(
+      http.post('*/api/issues', () =>
+        HttpResponse.json(
+          { code: 'CAP_EXCEEDED', outcome: 'none', message: '' },
+          { status: 409 },
+        ),
+      ),
+    )
     await startIssue()
-    expect(screen.getByText('발행')).toBeTruthy()
+    await hold(750)
+
+    expect(await screen.findByText('발행하지 못했어요', {}, { timeout: 3000 })).toBeTruthy()
+    expect(screen.queryByText('보내지 못했어요')).toBeNull()
+    // 발행에는 받는 사람이 없다. 그 줄을 비운다
+    expect(screen.getByText('발행하려던 것')).toBeTruthy()
+    expect(document.body.textContent).not.toContain('@minho')
   })
 
   it('확정하면 내 지갑으로 들어오고 유통량이 늘어난다', async () => {

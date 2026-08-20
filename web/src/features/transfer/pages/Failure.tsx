@@ -3,7 +3,6 @@ import { useSetAtom } from 'jotai'
 import { useTranslation } from 'react-i18next'
 import { failureTitleKey, failureWhereKey } from '@/shared/i18n/keys'
 import { toGrouped } from '@/shared/format'
-import { IssueBanner } from '@/shared/ui/IssueBanner'
 import { IssuerSuffix } from '@/shared/ui/IssuerSuffix'
 import { Body, Gutter, Header, Screen, Title } from '@/shared/ui/Screen'
 import { backToAmountAtom, repickAtom } from '../model/atoms'
@@ -27,12 +26,12 @@ export function Failure({ draft, failure, onCheck, onDone }: Props) {
 
   const handling = handleFailure(failure.code, draft.kind)
   const unknown = failure.outcome === 'unknown'
+  const issuing = draft.kind === 'issue'
 
   return (
     <Screen>
-      {draft.kind === 'issue' ? <IssueBanner /> : null}
       <Header>
-        <Title>{t('failure.heading')}</Title>
+        <Title>{t(issuing ? 'failure.headingIssue' : 'failure.heading')}</Title>
       </Header>
 
       <Body>
@@ -60,11 +59,15 @@ export function Failure({ draft, failure, onCheck, onDone }: Props) {
 
           {/* 입력을 버리지 않았다는 것을 보여준다. */}
           <Box marginTop="4" padding="4" borderRadius="l2" bg="bg.panel">
-            <Text textStyle="caption">{t('failure.draftLabel')}</Text>
-            <Box display="flex" alignItems="baseline" gap="2" marginTop="1">
-              <Text textStyle="name">{draft.to.name}</Text>
-              <Text textStyle="handle">{draft.to.handle}</Text>
-            </Box>
+            <Text textStyle="caption">
+              {t(issuing ? 'failure.draftLabelIssue' : 'failure.draftLabel')}
+            </Text>
+            {issuing ? null : (
+              <Box display="flex" alignItems="baseline" gap="2" marginTop="1">
+                <Text textStyle="name">{draft.to.name}</Text>
+                <Text textStyle="handle">{draft.to.handle}</Text>
+              </Box>
+            )}
             <Box display="flex" alignItems="baseline" gap="1.5" marginTop="2" flexWrap="wrap">
               <Text textStyle="caption">{draft.pointType.name}</Text>
               <IssuerSuffix pointType={draft.pointType} />

@@ -8,8 +8,10 @@ import { Bank, CreatePoint, Invite, Members } from '@/features/bank'
 import { History, HistoryDetail, IssueDetail } from '@/features/history'
 import { Settings } from '@/features/settings'
 import {
-  Confirm,
-  EnterAmount,
+  ConfirmIssue,
+  ConfirmTransfer,
+  EnterIssueAmount,
+  EnterTransferAmount,
   Failure,
   PickRecipient,
   Result,
@@ -71,11 +73,23 @@ function FlowScreen({ flow, actions }: { flow: Flow; actions: FlowActions }): Re
   switch (flow.step) {
     case 'pickRecipient':
       return <PickRecipient draft={flow.draft} onBack={actions.back} />
+    // 발행은 이체가 아니다 — 흐름이 짧고 화면도 다르다. 계약: docs/API.md
     case 'enterAmount':
-      return <EnterAmount draft={flow.draft} onBack={actions.back} />
+      return flow.draft.kind === 'issue' ? (
+        <EnterIssueAmount draft={flow.draft} onBack={actions.back} />
+      ) : (
+        <EnterTransferAmount draft={flow.draft} onBack={actions.back} />
+      )
     case 'confirm':
-      return (
-        <Confirm
+      return flow.draft.kind === 'issue' ? (
+        <ConfirmIssue
+          draft={flow.draft}
+          onBack={actions.back}
+          onConfirm={actions.submit}
+          busy={actions.busy}
+        />
+      ) : (
+        <ConfirmTransfer
           draft={flow.draft}
           onBack={actions.back}
           onConfirm={actions.submit}

@@ -222,8 +222,6 @@ export const ko = {
     /** 되돌릴 수 없는 것 직전이 마지막 방어선이다 — 여정 10 */
     firstUse: '이 포인트를 처음 써요',
     firstUseIssuer: '만든 사람',
-    /** 발행은 색이 아니라 구조로 구분한다. 화면 위에 늘 붙어 있는 띠다 */
-    issueBanner: '발행',
     supplyNow: '지금 총 유통량',
     supplyAfter: '발행 뒤 총 유통량',
     supplyChange: '유통량 변화',
@@ -247,10 +245,12 @@ export const ko = {
 
   failure: {
     heading: '보내지 못했어요',
+    headingIssue: '발행하지 못했어요',
     whereLabel: '포인트는 여기 있어요',
     /** 결과를 모를 때. 단정하지 않는다는 뜻이다 */
     unknownLabel: '지금 확실한 것',
     draftLabel: '보내려던 것',
+    draftLabelIssue: '발행하려던 것',
     /** 결과를 모를 때는 "다시 보내기" 가 아니다 */
     check: '확인하기',
     editAmount: '금액 고치기',
