@@ -132,14 +132,19 @@ export default function App() {
   )
 
   /*
-   * 사람이 바뀌면 앞사람의 화면을 물려주지 않는다.
-   * 첫 렌더에서는 하지 않는다 — 주소로 들어온 화면을 그 자리에서 홈으로 되돌린다.
+   * 사람이 **바뀌면** 앞사람의 화면을 물려주지 않는다.
+   *
+   * 처음 알게 된 것은 바뀐 것이 아니다. 토큰은 메모리에만 있어서 새로고침하면 반드시
+   * 로그인을 한 번 지나는데, 그 `null → 사람` 을 「바뀌었다」로 읽으면 주소로 들어온
+   * 화면이 홈으로 떨어진다. 공유 링크를 연 사람은 자기가 무엇을 열려 했는지 모른다.
+   * 관측: docs/FIELD.md W11
    */
   const userId = session.data?.id ?? null
-  const lastUser = useRef(userId)
+  const lastUser = useRef<string | null>(null)
   useEffect(() => {
-    if (lastUser.current === userId) return
+    const previous = lastUser.current
     lastUser.current = userId
+    if (previous === null || previous === userId) return
     resetNav()
     endFlow()
   }, [userId, resetNav, endFlow])

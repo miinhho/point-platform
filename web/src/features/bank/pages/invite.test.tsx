@@ -51,6 +51,11 @@ describe('초대받은 사람이 들어온다', () => {
     await user.click(await screen.findByRole('button', { name: /@jisu/ }))
     await screen.findByText('초대했어요')
 
+    /*
+     * 사람을 바꾸는 것은 실제로는 새 세션이다 — 토큰이 메모리에만 있어서 새로고침을
+     * 지난다. 주소를 두고 오면 앞사람이 보던 화면에서 시작하게 된다.
+     */
+    history.replaceState(null, '', '/')
     await signInAs('@jisu')
     renderApp(<App />)
     return user
@@ -99,16 +104,23 @@ describe('초대받은 사람이 들어온다', () => {
    * 눌러도 404 인 자리가 거기서 난다.
    */
   it('은행 페이지가 초대 목록을 읽지 않는다', async () => {
-    const user = await invited()
-    await screen.findByText('받은 초대')
+    await openInvite().then((user) => user.click(screen.getByRole('button', { name: /@jisu/ })))
+    await screen.findByText('초대했어요')
+    await signInAs('@jisu')
 
-    // 초대함 화면은 읽는다 — 누가 나를 불렀나가 거기 있다. 그 뒤부터 센다
+    /*
+     * **주소로 바로 들어간다.** 초대함을 지나면 그 화면이 이미 `['invites']` 를
+     * 채워 두므로, 은행 페이지가 그것을 읽어도 캐시가 답해 요청이 안 나간다 —
+     * 그러면 이 단언은 코드가 아니라 캐시 상태를 재게 된다.
+     */
     const asked: string[] = []
     server.events.on('request:start', ({ request }) => asked.push(new URL(request.url).pathname))
 
-    await user.click(await screen.findByRole('button', { name: /동아리회비/ }))
+    history.replaceState(null, '', '/points/pt_cl')
+    renderApp(<App />)
     await screen.findByRole('button', { name: '들어가기' })
 
+    expect(asked).toContain('/api/point-types/pt_cl')
     expect(asked).not.toContain('/api/invites')
   })
 
