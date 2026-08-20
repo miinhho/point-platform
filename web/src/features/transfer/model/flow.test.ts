@@ -28,6 +28,7 @@ const ON: PointType = {
   createdAt: '2024-01-01T00:00:00.000Z',
   visibility: 'public',
   memberCount: null,
+  membership: null,
   nameIsShared: false,
   accent: 'blue',
   totalIssued: 50_000_000,

@@ -6,6 +6,7 @@ import type {
   Issue,
   IssueDetail,
   IssueId,
+  Membership,
   PointAccent,
   PointVisibility,
   PointType,
@@ -64,9 +65,10 @@ function seedUsers(): SeedUser[] {
 }
 
 /** 하나는 내가 발행자, 둘은 보유자다. 그 조합이 실제 상태다. */
+/** 씨앗은 보는 사람과 무관한 것만 갖는다. 나머지는 `viewOf` 가 요청자 기준으로 낸다 */
 type SeedPoint = Omit<
   PointType,
-  'canIssue' | 'issuableHeadroom' | 'nameIsShared' | 'memberCount'
+  'canIssue' | 'issuableHeadroom' | 'nameIsShared' | 'memberCount' | 'membership'
 >
 
 function seedPointTypes(): SeedPoint[] {
@@ -377,7 +379,15 @@ export function viewOf(pointType: SeedPoint, userId: UserId): PointType {
     // 공개 은행에는 회원 개념이 없다. 0 이 아니라 null 이어야 그 차이가 남는다.
     memberCount:
       pointType.visibility === 'private' ? (state.members.get(pointType.id)?.size ?? 0) : null,
+    membership: membershipOf(pointType, userId),
   }
+}
+
+/** 계약: docs/API.md 「membership 을 서버가 싣는다」 */
+function membershipOf(pointType: SeedPoint, userId: UserId): Membership | null {
+  if (pointType.visibility === 'public') return null
+  if (isMember(pointType.id, userId)) return 'member'
+  return isInvited(pointType.id, userId) ? 'invited' : 'outsider'
 }
 
 /**
@@ -643,30 +653,39 @@ export function invite(
 }
 
 /**
- * 수락하면 초대가 사라지고 회원이 된다.
+ * 수락. **초대가 아니라 은행을 가리킨다** — 계약: docs/API.md.
  *
- * **이미 회원인데 다시 수락하면 성공이다.** 멱등은 「그가 원한 결과가 이미 있는가」로
- * 판단한다 — 수락을 누른 사람이 원한 것은 회원이 되는 것이고 그는 이미 회원이다.
- * 응답을 못 받고 다시 누른 사람에게 실패를 돌려주면 안 된다. 초대(은행장의 행동)에서
- * `ALREADY_MEMBER` 인 것과 뒤집힌 것처럼 보이지만 기준은 하나다. 계약: docs/API.md
+ * 답이 셋이고 어느 것도 초대 id 로 갈리지 않는다.
+ * 지금 회원이면 성공 · 회원이 아니고 초대가 살아 있으면 회원이 되고 소진 ·
+ * 회원이 아니고 소진됐으면 `404 INVITE_NOT_FOUND`.
+ *
+ * **닿지 않는 은행은 없는 은행이다.** 그 답을 받으려면 이미 닿는 사람이어야 하므로,
+ * 관계 없는 사람에게는 어느 은행 id 든 `POINT_TYPE_NOT_FOUND` 다 — 안 그러면 코드가
+ * 그 은행의 존재를 알려 준다. 계약: docs/API.md 「수락의 실패는 두 갈래」
+ *
+ * 첫째가 성공인 것은 멱등이 「그가 원한 결과가 이미 있는가」로 판단하기 때문이다.
+ * 수락을 누른 사람이 원한 것은 회원이 되는 것이고 그는 이미 회원이다. 초대(은행장의
+ * 행동)에서 `ALREADY_MEMBER` 인 것과 뒤집힌 것처럼 보이지만 기준은 하나다.
  */
-export function acceptInvite(meId: UserId, inviteId: string): PointType {
-  const invite = state.invites.get(inviteId)
-  if (!invite || invite.toId !== meId) {
-    const done = state.acceptedInvites.get(inviteId)
-    if (done && done.toId === meId && isMember(done.pointTypeId, meId)) {
-      return viewOf(requirePointType(done.pointTypeId), meId)
-    }
-    // 남의 초대가 있다는 것을 알려 주면 그 은행에 누가 초대됐는지가 샌다.
-    throw new LedgerError('INVITE_NOT_FOUND')
-  }
+export function acceptInvite(meId: UserId, pointTypeId: PointTypeId): PointType {
+  const pointType = state.pointTypes.get(pointTypeId)
+  if (!pointType || !reachable(pointType, meId)) throw new LedgerError('POINT_TYPE_NOT_FOUND')
+  if (isMember(pointTypeId, meId)) return viewOf(pointType, meId)
 
-  const members = state.members.get(invite.pointTypeId) ?? new Set<UserId>()
+  const invite = [...state.invites.values()].find(
+    (candidate) => candidate.pointTypeId === pointTypeId && candidate.toId === meId,
+  )
+  // 남의 초대가 있다는 것을 알려 주면 그 은행에 누가 초대됐는지가 샌다.
+  if (!invite) throw new LedgerError('INVITE_NOT_FOUND')
+
+  const members = state.members.get(pointTypeId) ?? new Set<UserId>()
   members.add(meId)
-  state.members.set(invite.pointTypeId, members)
-  state.invites.delete(inviteId)
-  state.acceptedInvites.set(inviteId, invite)
-  return viewOf(requirePointType(invite.pointTypeId), meId)
+  state.members.set(pointTypeId, members)
+  // 지우지 않고 소진 표시를 남긴다 — 지우면 다시 누른 사람에게 그 초대가 어떻게
+  // 됐는지 답할 수 없다. 계약: docs/API.md
+  state.invites.delete(invite.id)
+  state.acceptedInvites.set(invite.id, invite)
+  return viewOf(pointType, meId)
 }
 
 /**

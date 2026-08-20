@@ -223,8 +223,13 @@ export const ko = {
     firstUse: '이 포인트를 처음 써요',
     firstUseIssuer: '만든 사람',
     supplyNow: '지금 총 유통량',
-    supplyAfter: '발행 뒤 총 유통량',
-    supplyChange: '유통량 변화',
+    /*
+     * 예상과 사실을 같게 보이지 않는다 — 계약: docs/API.md.
+     * 「지금」과 「상한」은 사실이라 표시가 없고, 발행 뒤 값과 변화율만 예상이다.
+     * 그래서 이 화면 안에서 둘이 갈린다.
+     */
+    supplyAfter: '발행 뒤 총 유통량 (예상)',
+    supplyChange: '유통량 변화 (예상)',
     supplyFirst: '첫 발행',
     cap: '발행 상한',
     /** 화면은 바뀌지 않는다. 진행 중이라는 사실은 소리로만 전한다 — docs/JOURNEY.md 여정 5 */

@@ -7,7 +7,7 @@ import { join } from 'node:path'
  *
  * oxlint 로는 JSX 프롭 값의 의미를 판정할 수 없어서 테스트로 강제한다.
  */
-const SCREEN_DIRS = ['src/features', 'src/app']
+const SCREEN_DIRS = ['src/features', 'src/app', 'src/shared/ui']
 
 function tsxFiles(dir: string): string[] {
   const out: string[] = []
@@ -206,7 +206,9 @@ describe('화면 규율', () => {
    * 다르면 그것이 화면을 제각각으로 보이게 한다 — 토큰 이름은 `system.ts` 에 있다.
    */
   it('여백을 수치로 지정하지 않는다', () => {
-    const raw = /\b(margin|padding|gap)[A-Za-z]*="[\d.]+"/
+    // Chakra 축약형까지 본다. `mt="5"` 가 통과하면 규칙이 이름만 남는다.
+    const raw =
+      /\b(m|mt|mr|mb|ml|mx|my|p|pt|pr|pb|pl|px|py|gap|rowGap|columnGap|margin[A-Za-z]*|padding[A-Za-z]*)=(?:"[\d.]+"|\{[\d.]+\})/
     const offenders = FILES.flatMap((path) =>
       code(path)
         .split('\n')
@@ -222,7 +224,7 @@ describe('화면 규율', () => {
     const offenders = FILES.flatMap((path) =>
       code(path)
         .split('\n')
-        .filter((line) => /borderRadius="(l\d|[\d.]+(px|rem))"/.test(line))
+        .filter((line) => /\b(borderRadius|rounded[A-Za-z]*)="(l\d|[\d.]+(px|rem|em))"/.test(line))
         .map((line) => `${path}: ${line.trim().slice(0, 48)}`),
     )
     expect(offenders).toEqual([])
@@ -233,7 +235,8 @@ describe('화면 규율', () => {
    * 뜻이 이름에 없으면 나중에 한쪽만 바꿀 수 없다 — 의도 토큰이 `system.ts` 에 있다.
    */
   it('뜻 없는 팔레트 색을 화면이 직접 부르지 않는다', () => {
-    const raw = /(?:bg|color|borderColor)="(?:red|green|orange|blue|teal|gray|pink|purple)\./
+    const raw =
+      /(?:bg|background|color|borderColor)="(?:red|green|orange|blue|teal|gray|pink|purple)\./
     const offenders = FILES.flatMap((path) =>
       code(path)
         .split('\n')
