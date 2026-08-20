@@ -15,7 +15,7 @@ import java.time.Instant
 import java.time.temporal.ChronoUnit
 import java.util.UUID
 
-// 거절도 취소도 없다 — 수락하면 사라지고 회원이 된다 (docs/API.md 「회원 자격」).
+// 거절도 취소도 없다. 수락·나가기·내보내기 셋에서 소진된다 (docs/API.md 「회원 자격」).
 @Entity
 @Table(name = "invites", indexes = [Index(name = "ix_invites_user", columnList = "user_id, created_at")])
 class Invite(
@@ -38,6 +38,15 @@ class Invite(
     @Column(name = "created_at", nullable = false, updatable = false)
     val createdAt: Instant = Instant.now().truncatedTo(ChronoUnit.MICROS),
 ) {
+    /** 소진된 때. 행은 남는다 — 다시 누른 사람에게 그 초대가 어떻게 됐는지 답해야 한다. */
+    @Column(name = "spent_at")
+    var spentAt: Instant? = null
+        protected set
+
+    fun spend() {
+        if (spentAt == null) spentAt = Instant.now().truncatedTo(ChronoUnit.MICROS)
+    }
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     var id: Long? = null

@@ -114,6 +114,73 @@ class InviteTest {
     }
 
     @Test
+    fun `내가 무엇인지는 서버가 싣는다`() {
+        // 아무 관계도 없으면 페이지 자체가 404 라, outsider 가 보이는 자리는
+        // 잔액이 남은 채 나온 사람이다. 잔액이 닿을 자격을 준다.
+        assertEquals(HttpStatus.NOT_FOUND, get(outsider, "/api/point-types/${closed.publicId}").statusCode)
+        balanceRepository.save(Balance(user = outsider, pointType = closed, amount = 3_000))
+        assertTrue(bankOf(outsider, closed).contains("\"membership\":\"outsider\""), bankOf(outsider, closed))
+
+        val inviteId = idOf(assertNotNull(invite(issuer, closed, outsider).body))
+        assertTrue(bankOf(outsider, closed).contains("\"membership\":\"invited\""), bankOf(outsider, closed))
+
+        post(outsider, "/api/invites/$inviteId/accept")
+        assertTrue(bankOf(outsider, closed).contains("\"membership\":\"member\""), bankOf(outsider, closed))
+
+        delete(issuer, "/api/point-types/${closed.publicId}/members/${publicId(outsider)}")
+        assertTrue(bankOf(outsider, closed).contains("\"membership\":\"outsider\""), "소진된 초대는 invited 가 아니다")
+
+        assertTrue(bankOf(issuer, closed).contains("\"membership\":\"member\""), "은행장은 언제나 회원이다")
+        // 공개 은행에는 회원 개념이 없다. outsider 로 두면 화면이 그릴 자리를 찾는다.
+        assertTrue(bankOf(outsider, open).contains("\"membership\":null"), bankOf(outsider, open))
+    }
+
+    @Test
+    fun `내보내면 초대함에서도 사라지고 옛 초대로는 돌아올 수 없다`() {
+        val inviteId = idOf(assertNotNull(invite(issuer, closed, outsider).body))
+        assertEquals(HttpStatus.OK, post(outsider, "/api/invites/$inviteId/accept").statusCode)
+
+        assertEquals(
+            HttpStatus.NO_CONTENT,
+            delete(issuer, "/api/point-types/${closed.publicId}/members/${publicId(outsider)}").statusCode,
+        )
+
+        assertEquals("[]", get(outsider, "/api/invites").body, "내보내진 사람의 초대함은 비어 있다")
+
+        // 은행장에게는 초대를 취소할 길이 없다. 옛 초대가 살아 있으면 내보내기가 무효가 된다.
+        val walkBack = post(outsider, "/api/invites/$inviteId/accept")
+        assertEquals(HttpStatus.NOT_FOUND, walkBack.statusCode, walkBack.body)
+        assertFalse(assertNotNull(get(issuer, "/api/point-types/${closed.publicId}/members").body).contains("@mose"))
+    }
+
+    @Test
+    fun `내보낸 사람을 다시 초대하면 새 초대가 선다`() {
+        val first = idOf(assertNotNull(invite(issuer, closed, outsider).body))
+        post(outsider, "/api/invites/$first/accept")
+        delete(issuer, "/api/point-types/${closed.publicId}/members/${publicId(outsider)}")
+
+        val again = invite(issuer, closed, outsider)
+        assertEquals(HttpStatus.CREATED, again.statusCode, again.body)
+        val second = idOf(assertNotNull(again.body))
+        assertTrue(second != first, "소진된 초대를 되살리지 않고 새로 만든다")
+
+        // 되살리는 것은 은행장의 새 의사다.
+        assertEquals(HttpStatus.OK, post(outsider, "/api/invites/$second/accept").statusCode)
+    }
+
+    @Test
+    fun `같은 키로 다른 사람을 초대하면 그때 만든 초대를 준다`() {
+        val key = UUID.randomUUID().toString()
+        val first = inviteWithKey(key, outsider)
+        assertEquals(HttpStatus.CREATED, first.statusCode, first.body)
+
+        // 회원이면 ALREADY_MEMBER 로 먼저 걸려 키 충돌에 닿지 못한다.
+        val second = inviteWithKey(key, save("@taeyun", "박태윤"))
+        assertEquals(HttpStatus.OK, second.statusCode, second.body)
+        assertEquals(idOf(assertNotNull(first.body)), idOf(assertNotNull(second.body)), "키가 답하는 것은 그때의 결과다")
+    }
+
+    @Test
     fun `남의 초대와 없는 초대는 같은 404 다`() {
         val inviteId = idOf(assertNotNull(invite(issuer, closed, outsider).body))
         val theirs = post(member, "/api/invites/$inviteId/accept")
@@ -154,6 +221,19 @@ class InviteTest {
 
     private fun invite(who: User, bank: PointType, target: User) =
         post(who, "/api/point-types/${bank.publicId}/invites", InviteRequest(publicId(target)))
+
+    private fun inviteWithKey(key: String, target: User): ResponseEntity<String> {
+        val headers = authOf(issuer).apply { set("Idempotency-Key", key) }
+        return restTemplate.exchange(
+            "/api/point-types/${closed.publicId}/invites",
+            HttpMethod.POST,
+            HttpEntity(InviteRequest(publicId(target)), headers),
+            String::class.java,
+        )
+    }
+
+    private fun bankOf(who: User, bank: PointType) =
+        assertNotNull(get(who, "/api/point-types/${bank.publicId}").body)
 
     private fun idOf(body: String) = assertNotNull(Regex("\"id\":\"([^\"]+)\"").find(body)).groupValues[1]
 

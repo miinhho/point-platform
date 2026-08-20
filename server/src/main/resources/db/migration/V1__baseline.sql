@@ -125,16 +125,22 @@ create table memberships (
 create table invites (
     id              bigint      not null auto_increment,
     created_at      datetime(6) not null,
+    -- 소진된 초대는 지우지 않는다. 지우면 다시 누른 사람에게 그 초대가 어떻게 됐는지
+    -- 답할 수 없다 (docs/API.md 「회원 자격」).
+    spent_at        datetime(6) null,
     idempotency_key varchar(36) not null,
     public_id       binary(16)  not null,
     by_id           bigint      not null,
     point_type_id   bigint      not null,
     user_id         bigint      not null,
+    -- 살아 있는 동안만 값이 있다. MySQL 에 부분 인덱스가 없어서, 소진된 행이 재초대를
+    -- 막지 않게 하려면 이 열에 unique 를 거는 수밖에 없다 — NULL 끼리는 부딪히지 않는다.
+    live_user_id    bigint generated always as (if(spent_at is null, user_id, null)) stored,
     primary key (id),
     constraint uk_invites_public_id unique (public_id),
     -- 「이미 초대된 사람을 다시 초대하면 같은 초대를 돌려준다」의 방어선이다.
     -- 조회로는 동시에 온 둘이 모두 비어 있다고 본다.
-    constraint uk_invites_point_type_user unique (point_type_id, user_id),
+    constraint uk_invites_point_type_live_user unique (point_type_id, live_user_id),
     constraint uk_invites_by_key unique (by_id, idempotency_key),
     key ix_invites_user (user_id, created_at),
     constraint fk_invites_by foreign key (by_id) references users (id),

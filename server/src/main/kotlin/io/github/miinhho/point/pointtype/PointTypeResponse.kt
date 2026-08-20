@@ -26,12 +26,19 @@ data class PointTypeResponse(
     val visibility: String,
     /** 비공개 은행의 회원 수. 공개 은행에는 회원이 없으므로 `null` 이다. */
     val memberCount: Long?,
+    /** 보는 사람이 `"member"` · `"invited"` · `"outsider"` 중 무엇인가. 공개면 `null`. */
+    val membership: String?,
 )
 
 // canIssue·issuableHeadroom 은 보는 사람에 따라 다르다 — 서버가 판정해 실어 준다.
 // nameIsShared 는 다르다. 겹침은 원장의 성질이라 누가 보든 같다.
 // 인자를 강제한다 — 기본값을 주면 내보내는 경로가 하나 늘 때 조용히 빠진다.
-fun PointType.toResponse(viewerId: Long, sharedNames: Set<String>, memberCount: Long?) = PointTypeResponse(
+fun PointType.toResponse(
+    viewerId: Long,
+    sharedNames: Set<String>,
+    memberCount: Long?,
+    membership: String?,
+) = PointTypeResponse(
     id = publicId.toString(),
     name = name,
     emoji = emoji,
@@ -48,4 +55,5 @@ fun PointType.toResponse(viewerId: Long, sharedNames: Set<String>, memberCount: 
     createdAt = createdAt,
     visibility = visibility.name.lowercase(),
     memberCount = memberCount,
+    membership = membership,
 )

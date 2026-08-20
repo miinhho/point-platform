@@ -2,6 +2,9 @@ package io.github.miinhho.point
 
 import io.github.miinhho.point.pointtype.ChangeCapRequest
 import io.github.miinhho.point.pointtype.CreatePointTypeRequest
+import io.github.miinhho.point.pointtype.InviteRequest
+import io.github.miinhho.point.pointtype.Membership
+import io.github.miinhho.point.pointtype.MembershipRepository
 import io.github.miinhho.point.auth.LoginRequest
 import io.github.miinhho.point.auth.LoginResponse
 import io.github.miinhho.point.auth.RefreshRequest
@@ -56,6 +59,7 @@ class ConcurrencyTest {
     @Autowired lateinit var transferRepository: TransferRepository
     @Autowired lateinit var refreshTokenRepository: RefreshTokenRepository
     @Autowired lateinit var capChangeRepository: CapChangeRepository
+    @Autowired lateinit var membershipRepository: MembershipRepository
     @Autowired lateinit var passwordEncoder: PasswordEncoder
 
     private lateinit var issuer: User
@@ -377,6 +381,29 @@ class ConcurrencyTest {
         }
     }
 
+    @Test
+    fun `같은 초대를 동시에 두 번 수락해도 둘 다 회원이 된 것을 본다`() {
+        val bank = privateBank()
+        val inviteId = inviteIdOf(invite(login("@minho").accessToken, bank, recipient))
+        val token = login(recipient.handle).accessToken
+
+        val responses = inParallel(2) { accept(token, inviteId) }
+
+        // 응답을 못 받고 다시 누른 사람에게 실패를 주지 않는다 — 그가 원한 결과가 이미 있다.
+        responses.forEach { assertEquals(HttpStatus.OK, it.statusCode, it.body) }
+    }
+
+    @Test
+    fun `같은 사람을 동시에 두 번 초대해도 초대는 하나다`() {
+        val bank = privateBank()
+        val token = login("@minho").accessToken
+
+        val responses = inParallel(2) { invite(token, bank, recipient) }
+
+        responses.forEach { assertTrue(it.statusCode.is2xxSuccessful, it.body) }
+        assertEquals(1, responses.map { inviteIdOf(it) }.distinct().size, "진 쪽도 같은 초대를 본다")
+    }
+
     private fun user(handle: String, name: String) =
         User(name = name, handle = handle, passwordHash = passwordEncoder.encode("point")!!)
 
@@ -432,6 +459,39 @@ class ConcurrencyTest {
         }
         return restTemplate.exchange("/api/point-types", HttpMethod.POST, HttpEntity(body, headers), String::class.java)
     }
+
+    private fun privateBank(): PointType {
+        val bank = pointTypeRepository.save(
+            PointType(
+                name = "동아리비",
+                emoji = "\uD83C\uDFAA",
+                issuer = issuer,
+                accent = PointAccent.BLUE,
+                visibility = PointVisibility.PRIVATE,
+                issueCap = 1_000_000,
+                totalIssued = 0,
+            ),
+        )
+        membershipRepository.save(Membership(pointType = bank, user = issuer))
+        return bank
+    }
+
+    private fun invite(token: String, bank: PointType, target: User) =
+        postJson("/api/point-types/" + bank.publicId + "/invites", token, InviteRequest(publicId(target)))
+
+    private fun accept(token: String, inviteId: String) =
+        postJson("/api/invites/$inviteId/accept", token, "")
+
+    private fun postJson(path: String, token: String, body: Any): ResponseEntity<String> {
+        val headers = HttpHeaders().apply {
+            setBearerAuth(token)
+            set("Idempotency-Key", UUID.randomUUID().toString())
+        }
+        return restTemplate.exchange(path, HttpMethod.POST, HttpEntity(body, headers), String::class.java)
+    }
+
+    private fun inviteIdOf(response: ResponseEntity<String>) =
+        assertNotNull(transferIdOf(response.body), response.body)
 
     /** 모든 요청이 같은 순간에 출발하게 맞춘다 — 어긋나면 동시성이 시험되지 않는다. */
     private fun <T : Any> inParallel(count: Int, call: () -> ResponseEntity<T>): List<ResponseEntity<T>> {
