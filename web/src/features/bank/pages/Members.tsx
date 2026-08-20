@@ -23,7 +23,7 @@ export function Members({ pointTypeId, onBack, onLeft }: Props) {
   const { t } = useTranslation()
   const {
     pointType, members, error, busy, remove, leave,
-    pending, failed, retry, bankPending, bankFailed, retryBank,
+    pending, failed, retry, bankPending, bankFailed, bankAbsent, retryBank,
   } = useMembersPage(pointTypeId, onLeft)
   // 회원만 보는 명부다. 막혀 있으면 은행 페이지로 대체한다 — docs/REBUILD.md 「주소」
   useBankGate(pointTypeId, 'member')
@@ -43,6 +43,8 @@ export function Members({ pointTypeId, onBack, onLeft }: Props) {
           <Loadable
             pending={bankPending}
             failed={bankFailed}
+            absent={bankAbsent}
+            absentLabel={t('bank.absent')}
             onRetry={retryBank}
             label={t('bank.loadFailed')}
             skeleton={

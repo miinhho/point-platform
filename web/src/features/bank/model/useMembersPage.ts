@@ -13,6 +13,7 @@ export interface MembersPageView {
    */
   bankPending: boolean
   bankFailed: boolean
+  bankAbsent: boolean
   retryBank: () => void
   pointType: PointType | null
   members: User[]
@@ -60,6 +61,7 @@ export function useMembersPage(pointTypeId: PointTypeId, onLeft: () => void): Me
     retry: list.retry,
     bankPending: bank.pending,
     bankFailed: bank.failed,
+    bankAbsent: bank.absent,
     retryBank: bank.retry,
     pointType: bank.data,
     members: list.data ?? [],

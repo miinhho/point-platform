@@ -37,6 +37,7 @@ export const ko = {
     empty: '아직 보낸 것이 없어요',
     loadFailed: '내역을 불러오지 못했어요',
     detailFailed: '이 내역을 불러오지 못했어요',
+    detailAbsent: '이 기록은 볼 수 없어요',
     /** 발행 줄. 상대 자리를 비우고 무엇을 발행했는지만 말한다 */
     issuedTo: '{{name}} 발행',
     detailTitleTransfer: '이체 내역',
@@ -132,6 +133,8 @@ export const ko = {
   bank: {
     title: '은행',
     loadFailed: '이 은행을 불러오지 못했어요',
+    /** 못 불러온 것이 아니라 답이다. 다시 하는 길을 주지 않는다 — 규칙: CLAUDE.md */
+    absent: '이 은행은 볼 수 없어요',
     membersFailed: '회원을 불러오지 못했어요',
     /** 앱이 보증한 글이 아니라는 것을 라벨이 말한다 — 여정 10 */
     descriptionLabel: '발행자가 쓴 소개',

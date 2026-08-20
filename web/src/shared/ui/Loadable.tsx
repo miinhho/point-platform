@@ -8,6 +8,13 @@ interface Props {
   pending: boolean
   /** 조회가 실패했는가. 빈 결과와 절대 같은 화면이 되면 안 된다 */
   failed: boolean
+  /**
+   * 없다는 **답**을 받았는가. 다시 해도 같으므로 다시 하는 길을 주지 않는다 —
+   * 답인 것에 「다시 시도」를 주면 영원히 같은 답을 받는다
+   */
+  absent?: boolean
+  /** 없다고 말하는 한 줄. `absent` 일 때 쓴다 */
+  absentLabel?: string
   onRetry: () => void
   /** 무엇을 못 불러왔는가. 「불러오지 못했어요」만으로는 어디를 다시 볼지 알 수 없다 */
   label: string
@@ -23,8 +30,27 @@ interface Props {
  * 「가졌던 0」을 가르려고 애쓰는데, 「못 불러온 것」이 그 둘과 같아 보이면 그 노력이
  * 통째로 무너진다. 근거: CLAUDE.md · docs/JOURNEY.md 여정 1
  */
-export function Loadable({ pending, failed, onRetry, label, skeleton, children }: Props) {
+export function Loadable({
+  pending,
+  failed,
+  absent,
+  absentLabel,
+  onRetry,
+  label,
+  skeleton,
+  children,
+}: Props) {
   const { t } = useTranslation()
+
+  if (absent && absentLabel) {
+    return (
+      <Gutter paddingTop="part">
+        <Box role="status" display="flex" flexDirection="column" gap="bond" alignItems="center">
+          <Text textStyle="support">{absentLabel}</Text>
+        </Box>
+      </Gutter>
+    )
+  }
 
   if (failed) {
     return (

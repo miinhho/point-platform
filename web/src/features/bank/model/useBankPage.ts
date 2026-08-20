@@ -6,6 +6,8 @@ import type { Balance, PointType, PointTypeId, User } from '@/shared/contract'
 export interface BankPageView {
   pending: boolean
   failed: boolean
+  /** 이 은행은 나에게 없다는 **답**을 받았다 */
+  absent: boolean
   retry: () => void
   pointType: PointType | null
   /** 내 잔액. 없으면 이 포인트를 갖고 있지 않다 */
@@ -35,6 +37,7 @@ export function useBankPage(pointTypeId: PointTypeId): BankPageView {
   return {
     pending: bank.pending,
     failed: bank.failed,
+    absent: bank.absent,
     retry: bank.retry,
     pointType,
     balance: wallet.data?.balances.find((b) => b.pointType.id === pointTypeId) ?? null,
