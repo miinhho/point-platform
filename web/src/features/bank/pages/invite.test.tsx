@@ -2,6 +2,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { screen, waitFor } from '@testing-library/react'
 import { userEvent } from '@testing-library/user-event'
+import { http, HttpResponse } from 'msw'
 import { server } from '@/mocks/node'
 import { renderApp, signInAs } from '@/test/render'
 import App from '@/app/App'
@@ -132,5 +133,28 @@ describe('초대받은 사람이 들어온다', () => {
     await waitFor(() =>
       expect(screen.queryByRole('button', { name: '들어가기' })).toBeNull(),
     )
+  })
+})
+
+/*
+ * 거르지 못한 목록을 「초대할 수 있는 사람들」로 보여주면, 거기서 고른 사람이
+ * `ALREADY_MEMBER` 라는 막다른 답을 만난다 — 후보에서 회원을 빼는 것이 바로 그것을
+ * 막으려던 것이다. 규칙: CLAUDE.md 「없는 것과 못 불러온 것을 같게 보이지 않는다」
+ */
+describe('거르지 못한 후보를 보여주지 않는다', () => {
+  it('회원 조회가 실패하면 후보 대신 실패를 말한다', async () => {
+    server.use(
+      http.get('*/api/users', ({ request }) => {
+        // 거르는 쪽만 넘어뜨린다. 전역 검색은 그대로 돈다
+        if (!new URL(request.url).searchParams.get('pointTypeId')) return
+        return HttpResponse.json({ code: 'SERVER', outcome: 'none', message: '' }, { status: 500 })
+      }),
+    )
+    history.replaceState(null, '', '/points/pt_cl/invite')
+    renderApp(<App />)
+
+    expect(await screen.findByRole('button', { name: '다시 시도' })).toBeTruthy()
+    // `@jisoo` 는 이미 `pt_cl` 의 회원이다. 거르지 못한 채로 뜨면 안 된다
+    expect(screen.queryByText('@jisoo')).toBeNull()
   })
 })
