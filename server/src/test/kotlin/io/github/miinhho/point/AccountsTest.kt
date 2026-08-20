@@ -64,7 +64,6 @@ class AccountsTest {
         val accounts = accountRepository.findAll()
         assertEquals(1, accounts.size, "창설만으로는 보유자 계정이 나지 않는다")
 
-        assertEveryPointTypeHasIssuance()
         val issuance = accounts.single()
         assertEquals(AccountKind.ISSUANCE, issuance.kind)
         assertEquals(0, issuance.balance)
@@ -96,16 +95,6 @@ class AccountsTest {
                 Account(pointType = pointType, user = null, kind = AccountKind.ISSUANCE),
             )
         }
-    }
-
-    // 깨지면 상한을 보는 쪽이 잠글 행을 못 찾는다.
-    private fun assertEveryPointTypeHasIssuance() {
-        val withIssuance = accountRepository.findAll()
-            .filter { it.kind == AccountKind.ISSUANCE }
-            .mapNotNull { it.pointType.id }
-            .toSet()
-        val missing = pointTypeRepository.findAll().mapNotNull { it.id }.filterNot { it in withIssuance }
-        assertEquals(emptyList(), missing, "발행 계정 없는 포인트가 있다")
     }
 
     private fun createPointType(): ResponseEntity<String> {

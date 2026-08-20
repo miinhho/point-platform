@@ -5,7 +5,6 @@ import org.springframework.data.jpa.repository.Query
 import java.util.UUID
 
 interface InviteRepository : JpaRepository<Invite, Long> {
-    fun findByPublicId(publicId: UUID): Invite?
 
     // 키는 「내가 같은 요청을 두 번 보냈나」에 답한다 — 임자와 함께 찾는다.
     fun findByByIdAndIdempotencyKey(byId: Long, idempotencyKey: String): Invite?
