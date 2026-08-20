@@ -338,7 +338,7 @@ class ConcurrencyTest {
     }
 
     @Test
-    fun `창설을 같은 키로 다시 보내면 자기가 만든 기호에 SYMBOL_TAKEN 이 나지 않는다`() {
+    fun `창설을 같은 키로 다시 보내면 새로 만들지 않고 그때 것을 준다`() {
         val token = login("@minho").accessToken
         val key = UUID.randomUUID().toString()
         val body = CreatePointTypeRequest("동네빵집", "🍞", null, "orange", BigDecimal(1_000_000), "public")
@@ -347,7 +347,7 @@ class ConcurrencyTest {
         assertEquals(HttpStatus.CREATED, first.statusCode)
 
         val replay = postPointType(token, key, body)
-        assertEquals(HttpStatus.OK, replay.statusCode, "자기가 방금 만든 것에 SYMBOL_TAKEN 이 나면 안 된다")
+        assertEquals(HttpStatus.OK, replay.statusCode, "이미 성공한 요청을 실패로 되돌리면 안 된다")
         assertEquals(publicIdOf(first.body), publicIdOf(replay.body))
     }
 
