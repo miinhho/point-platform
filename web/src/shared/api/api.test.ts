@@ -690,7 +690,7 @@ describe('초대와 수락', () => {
     expect(invited).toMatchObject({ byHandle: '@minho' })
     expect(invited.pointType).toMatchObject({ id: 'pt_cl', name: '동아리회비' })
 
-    await endpoints.acceptInvite(invited.id)
+    await endpoints.acceptInvite('pt_cl')
     expect(await endpoints.invites()).toEqual([])
     // 이제 목록에도 담기고 받는 사람으로도 뜬다.
     expect((await endpoints.pointTypes()).map((t) => t.id)).toContain('pt_cl')
@@ -742,19 +742,22 @@ describe('초대와 수락', () => {
     expect((await endpoints.createInvite('pt_cl', 'u_jisu', k)).id).toBe(first.id)
   })
 
-  // 남의 초대 id 로 물어도 없을 때와 같은 답이어야 한다.
-  // 남의 초대가 있다는 것을 알려 주면 그 은행에 누가 초대됐는지가 샌다.
-  it('남의 초대와 없는 초대가 같은 답이다', async () => {
-    const invited = await endpoints.createInvite('pt_cl', 'u_jisu', key())
+  /*
+   * 초대받지 않은 사람이 수락해도 「그 은행에 초대가 있다」를 알 수 없어야 한다.
+   * 알려 주면 누가 초대됐는지가 샌다. 계약: docs/API.md 「회원 자격」
+   */
+  it('초대받지 않은 사람의 수락은 초대가 없을 때와 같은 답이다', async () => {
+    await endpoints.createInvite('pt_cl', 'u_jisu', key())
 
-    await expect(endpoints.acceptInvite(invited.id)).rejects.toMatchObject({
-      code: 'INVITE_NOT_FOUND',
-      status: 404,
-    })
-    await expect(endpoints.acceptInvite('iv_nope')).rejects.toMatchObject({
-      code: 'INVITE_NOT_FOUND',
-      status: 404,
-    })
+    /*
+     * `@taeyun` 은 `pt_cl` 의 회원도 초대받은 사람도 아니고 잔액도 없다 — 계약이
+     * 말하는 「아무 관계 없는 사람」이다. **`code` 까지 본다.** 상태만 보면 있는 은행과
+     * 없는 은행이 갈리는 것을 놓치고, 새는 것이 정확히 그 `code` 다.
+     */
+    setTokens(await endpoints.login({ handle: '@taeyun', password: 'point' }))
+    const expected = { code: 'POINT_TYPE_NOT_FOUND', status: 404 }
+    await expect(endpoints.acceptInvite('pt_cl')).rejects.toMatchObject(expected)
+    await expect(endpoints.acceptInvite('pt_nope')).rejects.toMatchObject(expected)
     await asMe()
   })
 
@@ -782,13 +785,32 @@ describe('초대와 수락', () => {
    * 회원이 되는 것이고 그는 이미 회원이다 — 응답을 못 받고 다시 누른 사람에게 실패를
    * 돌려주면 안 된다. 초대에서 409 인 것과 뒤집힌 것처럼 보이지만 기준은 하나다.
    */
-  it('같은 초대를 두 번 수락해도 성공이다', async () => {
+  // 멱등은 「그가 원한 결과가 이미 있는가」로 판단한다. 그는 이미 회원이다
+  it('두 번 수락해도 성공이다', async () => {
     await endpoints.createInvite('pt_cl', 'u_jisu', key())
     await asJisu()
-    const [invited] = await endpoints.invites()
 
-    await endpoints.acceptInvite(invited.id)
-    expect(await endpoints.acceptInvite(invited.id)).toMatchObject({ id: 'pt_cl' })
+    await endpoints.acceptInvite('pt_cl')
+    expect(await endpoints.acceptInvite('pt_cl')).toMatchObject({ id: 'pt_cl' })
+  })
+
+  /*
+   * 초대는 소진되면 새 행이 난다. 수락이 초대를 가리켰다면 화면이 쥔 id 가 낡아
+   * **「초대받았어요」라고 떠 있는데 눌러도 404** 인 자리가 생겼다.
+   * 은행을 가리키면 그 부류가 통째로 없다. 계약: docs/API.md
+   */
+  it('내보내졌다가 다시 초대받은 사람이 수락할 수 있다', async () => {
+    await endpoints.createInvite('pt_cl', 'u_jisu', key())
+    await asJisu()
+    await endpoints.acceptInvite('pt_cl')
+
+    await asMe()
+    await endpoints.removeMember('pt_cl', 'u_jisu')
+    await endpoints.createInvite('pt_cl', 'u_jisu', key())
+
+    await asJisu()
+    expect((await endpoints.pointType('pt_cl')).membership).toBe('invited')
+    expect(await endpoints.acceptInvite('pt_cl')).toMatchObject({ id: 'pt_cl' })
   })
 })
 
@@ -881,10 +903,10 @@ describe('나가기와 내보내기', () => {
 
   it('다시 초대받으면 그대로 되살아난다', async () => {
     await endpoints.removeMember('pt_cl', 'u_jisoo')
-    const invited = await endpoints.createInvite('pt_cl', 'u_jisoo', key())
+    await endpoints.createInvite('pt_cl', 'u_jisoo', key())
 
     await asJisoo()
-    await endpoints.acceptInvite(invited.id)
+    await endpoints.acceptInvite('pt_cl')
     const held = (await endpoints.wallet()).balances.find((b) => b.pointType.id === 'pt_cl')
     expect(held).toMatchObject({ amount: 30_000, sendable: 30_000 })
   })
@@ -1131,5 +1153,90 @@ describe('토큰 갱신', () => {
     expect(wallet.user.id).toBe(ME)
     expect(users.length).toBeGreaterThan(0)
     expect(types.length).toBeGreaterThan(0)
+  })
+})
+
+/**
+ * 무엇을 증명하고 무엇을 증명하지 않는가.
+ *
+ * **증명한다**: Mock 이 계약에서 멀어지지 않는다.
+ * **증명하지 않는다**: 실서버가 계약을 지킨다. 여기서 도는 것은 MSW 핸들러뿐이라
+ * 서버의 같은 결함(초대 행을 남겨 내보낸 사람이 걸어 들어온 것 — `aed8d72`)은
+ * 이 테스트로 잡히지 않았고 앞으로도 안 잡힌다.
+ *
+ * 그래도 두는 이유는 그 결함이 Mock 에는 **우연히** 없었기 때문이다. 우연은
+ * 다음 변경에서 사라진다.
+ */
+describe('Mock 이 회원 자격 계약에서 멀어지지 않는다', () => {
+  it('내보낸 사람의 초대함에 그 은행이 남지 않는다', async () => {
+    await endpoints.createInvite('pt_cl', 'u_jisu', key())
+
+    setTokens(await endpoints.login({ handle: '@jisu', password: 'point' }))
+    expect(await endpoints.invites()).toHaveLength(1)
+    await endpoints.acceptInvite('pt_cl')
+    // 수락하면 소진된다
+    await expect(endpoints.invites()).resolves.toEqual([])
+
+    /*
+     * 잔액을 남긴 채 내보낸다. **이쪽이 날카로운 경우다** — 잔액이 있으면 그 은행에
+     * 여전히 닿으므로 은행 페이지가 보이고, 그래서 「닿는데 초대가 없다」는 답을
+     * 실제로 받는다. 잔액이 없으면 은행 자체가 안 보여서 다른 문에서 막힌다.
+     */
+    setTokens(await endpoints.login({ handle: '@minho', password: 'point' }))
+    await endpoints.createTransfer({ pointTypeId: 'pt_cl', toId: 'u_jisu', amount: 100 }, key())
+    await endpoints.removeMember('pt_cl', 'u_jisu')
+
+    setTokens(await endpoints.login({ handle: '@jisu', password: 'point' }))
+    // 남아 있으면 내보내진 사람이 스스로 걸어 들어온다. 은행장에게는 막을 수단이 없다
+    await expect(endpoints.invites()).resolves.toEqual([])
+    expect((await endpoints.pointType('pt_cl')).membership).toBe('outsider')
+
+    /*
+     * 목록에서 숨기는 것만으로는 부족하다. 목록을 안 거치고 바로 수락하는 길이
+     * 있으므로 그 문도 닫혀 있어야 「걸어 들어오지 못한다」가 참이다.
+     */
+    await expect(endpoints.acceptInvite('pt_cl')).rejects.toMatchObject({
+      code: 'INVITE_NOT_FOUND',
+      status: 404,
+    })
+  })
+
+  it('소진된 뒤 다시 초대하면 새 초대가 온다 — 되살리는 것은 은행장의 새 의사다', async () => {
+    await endpoints.createInvite('pt_cl', 'u_jisu', key())
+    setTokens(await endpoints.login({ handle: '@jisu', password: 'point' }))
+    const first = (await endpoints.invites())[0]
+    await endpoints.acceptInvite('pt_cl')
+
+    setTokens(await endpoints.login({ handle: '@minho', password: 'point' }))
+    await endpoints.removeMember('pt_cl', 'u_jisu')
+    const again = await endpoints.createInvite('pt_cl', 'u_jisu', key())
+    expect(again.id).not.toBe(first.id)
+  })
+})
+
+describe('membership 을 서버가 싣는다', () => {
+  it('공개 은행에는 회원 개념이 없다 — null 이다', async () => {
+    const open = await endpoints.pointType('pt_on')
+    expect(open.membership).toBeNull()
+  })
+
+  it('회원 · 초대받은 사람 · 나온 사람이 셋으로 갈린다', async () => {
+    expect((await endpoints.pointType('pt_cl')).membership).toBe('member')
+
+    await endpoints.createInvite('pt_cl', 'u_jisu', key())
+    setTokens(await endpoints.login({ handle: '@jisu', password: 'point' }))
+    expect((await endpoints.pointType('pt_cl')).membership).toBe('invited')
+
+    await endpoints.acceptInvite('pt_cl')
+    expect((await endpoints.pointType('pt_cl')).membership).toBe('member')
+
+    // 나온 사람에게 은행 페이지가 보이려면 잔액이 남아 있어야 한다 — 잔액 행이
+    // 이미 닿았다는 증거다. 계약: docs/API.md 「회원 자격」
+    setTokens(await endpoints.login({ handle: '@minho', password: 'point' }))
+    await endpoints.createTransfer({ pointTypeId: 'pt_cl', toId: 'u_jisu', amount: 100 }, key())
+
+    setTokens(await endpoints.login({ handle: '@jisu', password: 'point' }))
+    await endpoints.leaveBank('pt_cl')
+    expect((await endpoints.pointType('pt_cl')).membership).toBe('outsider')
   })
 })

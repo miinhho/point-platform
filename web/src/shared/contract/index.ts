@@ -7,7 +7,14 @@
 export type { IssueId, Points, PointTypeId, TransferId, UserId } from './ids'
 export type { User } from './user'
 export { ALLOWED_EMOJI } from './point'
-export type { CapChange, PointAccent, PointMark, PointType, PointVisibility } from './point'
+export type {
+  CapChange,
+  Membership,
+  PointAccent,
+  PointMark,
+  PointType,
+  PointVisibility,
+} from './point'
 export type { Balance, Wallet } from './wallet'
 export type { Counterparty, Transfer, TransferDetail } from './transfer'
 export type { Issue, IssueDetail } from './issue'

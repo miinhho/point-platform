@@ -87,15 +87,22 @@ export function useSubmit() {
   }, [flow, send])
 
   /**
-   * 결과를 모를 때 누르는 것. 재시도가 아니라 조회다.
+   * 결과를 모를 때 누르는 것. **재시도가 아니라 조회다.**
    * 이미 일어났으면 완료로 가고, 안 일어났으면 그때 보낸다.
+   *
+   * 발행과 이체는 다른 원장에 있으므로 묻는 곳도 다르다. 이체 쪽에만 물으면
+   * 발행은 언제나 「안 일어났다」로 읽혀 조회가 조용히 재전송이 된다.
    */
   const check = useCallback(() => {
     if (flow?.step !== 'failure') return
     const { draft } = flow
-    void transfersApi
-      .transferByKey(draft.idempotencyKey)
-      .then((transfer) => (transfer ? succeed(transfer) : send(draft)))
+    const ask =
+      draft.kind === 'issue'
+        ? issuesApi.issueByKey(draft.idempotencyKey)
+        : transfersApi.transferByKey(draft.idempotencyKey)
+
+    void ask
+      .then((done) => (done ? succeed(done) : send(draft)))
       .catch((error: unknown) => fail(toFailure(error)))
   }, [flow, succeed, send, fail])
 

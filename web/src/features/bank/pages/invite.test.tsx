@@ -2,6 +2,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { screen, waitFor } from '@testing-library/react'
 import { userEvent } from '@testing-library/user-event'
+import { server } from '@/mocks/node'
 import { renderApp, signInAs } from '@/test/render'
 import App from '@/app/App'
 
@@ -50,6 +51,11 @@ describe('초대받은 사람이 들어온다', () => {
     await user.click(await screen.findByRole('button', { name: /@jisu/ }))
     await screen.findByText('초대했어요')
 
+    /*
+     * 사람을 바꾸는 것은 실제로는 새 세션이다 — 토큰이 메모리에만 있어서 새로고침을
+     * 지난다. 주소를 두고 오면 앞사람이 보던 화면에서 시작하게 된다.
+     */
+    history.replaceState(null, '', '/')
     await signInAs('@jisu')
     renderApp(<App />)
     return user
@@ -87,6 +93,35 @@ describe('초대받은 사람이 들어온다', () => {
     await user.click(await screen.findByRole('button', { name: /동아리회비/ }))
     await screen.findByRole('heading', { name: '동아리회비' })
     expect(document.body.textContent).not.toMatch(/거절|무시하기/)
+  })
+
+  /*
+   * 수락은 은행을 가리킨다 — 계약: docs/API.md. 그래서 은행 페이지가 초대 목록을
+   * 읽을 이유가 없다.
+   *
+   * 읽으면 화면이 초대 **id** 를 쥐게 되고, 초대는 소진되면 새 행이 나므로 그 값은
+   * 낡는다. 내보내졌다가 다시 초대받은 사람에게 「초대받았어요」라고 떠 있는데
+   * 눌러도 404 인 자리가 거기서 난다.
+   */
+  it('은행 페이지가 초대 목록을 읽지 않는다', async () => {
+    await openInvite().then((user) => user.click(screen.getByRole('button', { name: /@jisu/ })))
+    await screen.findByText('초대했어요')
+    await signInAs('@jisu')
+
+    /*
+     * **주소로 바로 들어간다.** 초대함을 지나면 그 화면이 이미 `['invites']` 를
+     * 채워 두므로, 은행 페이지가 그것을 읽어도 캐시가 답해 요청이 안 나간다 —
+     * 그러면 이 단언은 코드가 아니라 캐시 상태를 재게 된다.
+     */
+    const asked: string[] = []
+    server.events.on('request:start', ({ request }) => asked.push(new URL(request.url).pathname))
+
+    history.replaceState(null, '', '/points/pt_cl')
+    renderApp(<App />)
+    await screen.findByRole('button', { name: '들어가기' })
+
+    expect(asked).toContain('/api/point-types/pt_cl')
+    expect(asked).not.toContain('/api/invites')
   })
 
   it('들어가면 초대가 사라지고 회원이 된다', async () => {
