@@ -5,29 +5,24 @@ import io.github.miinhho.point.user.UserRepository
 import io.github.miinhho.point.user.normalizeHandle
 import org.springframework.http.ResponseEntity
 import org.springframework.security.authentication.BadCredentialsException
-import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 
-// 핸들 부재와 암호 불일치의 응답 시간을 맞추는 용도. 실제 사용자 것이 아니다.
-private const val DUMMY_PASSWORD_HASH = "\$2b\$12\$UZ2ychI/VegX4Y49IunpneznkG8wKOg7jfFy7LIg7rNKH4E32.vuC"
-
 @RestController
 @RequestMapping("/api/auth")
 class AuthController(
     private val userRepository: UserRepository,
-    private val passwordEncoder: PasswordEncoder,
+    private val passwordCheck: PasswordCheck,
     private val jwtService: JwtService,
     private val refreshTokenService: RefreshTokenService,
 ) {
     @PostMapping("/login")
     fun login(@RequestBody body: LoginRequest): LoginResponse {
         val found = userRepository.findByHandle(normalizeHandle(body.handle))
-        // 핸들이 없어도 BCrypt 를 한 번 돌려 시간을 맞춘다 — 앞단의 요청 수 제한은
-        // 응답 시간차로 존재 여부가 새는 것을 대신 막지 못한다.
-        val matches = passwordEncoder.matches(body.password, found?.passwordHash ?: DUMMY_PASSWORD_HASH)
+        // 요청 수 제한은 이것을 대신 막지 못한다 — 핸들 목록을 만드는 데는 계정당 한 번이면 된다.
+        val matches = passwordCheck.matches(body.password, found?.passwordHash)
         val user = found?.takeIf { matches } ?: throw BadCredentialsException("핸들 또는 암호가 틀림")
 
         return LoginResponse(
