@@ -92,6 +92,37 @@ useful, and not independent. Where this document previously said "self-review", 
 
 ---
 
+## 커밋 메시지
+
+`type(scope): 한 줄` — Conventional Commits. **제목만 형식이고 본문은 지금 그대로다.**
+
+```
+fix(server): 초대는 소진된다 — 내보낸 사람이 옛 초대로 돌아왔다
+
+removeMember 가 memberships 만 지우고 초대 행을 남겨서 ...
+```
+
+| type | 언제 |
+|---|---|
+| `feat` | 사용자가 할 수 있는 일이 늘었다 |
+| `fix` | 하던 것이 틀렸다 |
+| `refactor` | 동작이 그대로다 |
+| `test` | 테스트만 |
+| `docs` | 문서만 |
+| `chore` | 빌드·설정·도구 |
+
+scope 는 **자리 이름**이다 — `web` · `server` · `contract`(`docs/API.md`) · `field` ·
+`workflow` · `ledger`.
+
+**`!` 는 계약이 바뀔 때만 붙인다.** `feat(contract)!:` 처럼. 이 저장소에서 「깨진다」는
+뜻은 하나다 — **프론트와 백엔드가 둘 다 따라와야 한다.** 이력에서 그것만 찾을 수 있으면
+된다.
+
+**본문에 무엇이 잘못됐고 왜 그렇게 고쳤는지를 적는다.** 문서에서 근거 서사를 걷어낸
+자리가 여기다. 제목은 검색용이고 본문이 기록이다.
+
+PR 제목도 같은 형식이다.
+
 ## 세션마다 워크트리, 변경마다 PR
 
 **커밋에 남의 파일이 섞이는 것은 워크트리를 공유해서다.** `git add` 가 다른 세션의 진행
