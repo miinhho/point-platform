@@ -2,6 +2,7 @@ package io.github.miinhho.point
 
 import io.github.miinhho.point.auth.LoginRequest
 import io.github.miinhho.point.auth.LoginResponse
+import io.github.miinhho.point.pointtype.ChangeCapRequest
 import io.github.miinhho.point.pointtype.InviteRepository
 import io.github.miinhho.point.pointtype.InviteRequest
 import io.github.miinhho.point.pointtype.Membership
@@ -115,6 +116,35 @@ class InviteTest {
         // 응답을 못 받고 다시 눌러도 실패를 주지 않는다 — 그가 원한 결과가 이미 있다.
         val again = accept(outsider)
         assertEquals(HttpStatus.OK, again.statusCode, again.body)
+    }
+
+    @Test
+    fun `수락하면 잔액이 0 이어도 지갑에 담긴다`() {
+        invite(issuer, closed, outsider)
+        assertEquals(HttpStatus.OK, accept(outsider).statusCode)
+
+        // 안 담으면 가입은 됐는데 그 은행이 어느 화면에도 없다 — 초대함은 수락으로 비었고
+        // 내역에는 아직 아무 일도 없다.
+        val wallet = assertNotNull(get(outsider, "/api/wallet").body)
+        assertTrue(wallet.contains("동아리비"), wallet)
+        assertTrue(wallet.contains("\"amount\":0"), wallet)
+        assertTrue(wallet.contains("\"membership\":\"member\""), "세 가지 0 을 가를 재료가 실려 온다: $wallet")
+
+        // 상한은 보유자에게 하는 약속이다. 카드를 주기로 했으면 그 약속이 바뀐 기록도 와야 한다.
+        val capKey = UUID.randomUUID().toString()
+        val cap = restTemplate.exchange(
+            "/api/point-types/${closed.publicId}/cap",
+            HttpMethod.PATCH,
+            HttpEntity(ChangeCapRequest(java.math.BigDecimal(2_000_000)), authOf(issuer).apply { set("Idempotency-Key", capKey) }),
+            String::class.java,
+        )
+        assertEquals(HttpStatus.OK, cap.statusCode, cap.body)
+        val history = assertNotNull(get(outsider, "/api/history?limit=10").body)
+        assertTrue(history.contains("capChange"), "지갑에 담기는 사람은 상한 변경도 본다: $history")
+
+        // 내보내지면 관계가 끊긴다. 잔액도 없으므로 담을 이유가 없다.
+        delete(issuer, "/api/point-types/${closed.publicId}/members/${publicId(outsider)}")
+        assertFalse(assertNotNull(get(outsider, "/api/wallet").body).contains("동아리비"))
     }
 
     @Test
