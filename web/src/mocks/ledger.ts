@@ -657,14 +657,19 @@ export function invite(
  *
  * 답이 셋이고 어느 것도 초대 id 로 갈리지 않는다.
  * 지금 회원이면 성공 · 회원이 아니고 초대가 살아 있으면 회원이 되고 소진 ·
- * 회원이 아니고 소진됐으면 `404`.
+ * 회원이 아니고 소진됐으면 `404 INVITE_NOT_FOUND`.
+ *
+ * **닿지 않는 은행은 없는 은행이다.** 그 답을 받으려면 이미 닿는 사람이어야 하므로,
+ * 관계 없는 사람에게는 어느 은행 id 든 `POINT_TYPE_NOT_FOUND` 다 — 안 그러면 코드가
+ * 그 은행의 존재를 알려 준다. 계약: docs/API.md 「수락의 실패는 두 갈래」
  *
  * 첫째가 성공인 것은 멱등이 「그가 원한 결과가 이미 있는가」로 판단하기 때문이다.
  * 수락을 누른 사람이 원한 것은 회원이 되는 것이고 그는 이미 회원이다. 초대(은행장의
  * 행동)에서 `ALREADY_MEMBER` 인 것과 뒤집힌 것처럼 보이지만 기준은 하나다.
  */
 export function acceptInvite(meId: UserId, pointTypeId: PointTypeId): PointType {
-  const pointType = requirePointType(pointTypeId)
+  const pointType = state.pointTypes.get(pointTypeId)
+  if (!pointType || !reachable(pointType, meId)) throw new LedgerError('POINT_TYPE_NOT_FOUND')
   if (isMember(pointTypeId, meId)) return viewOf(pointType, meId)
 
   const invite = [...state.invites.values()].find(

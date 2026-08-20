@@ -749,9 +749,15 @@ describe('초대와 수락', () => {
   it('초대받지 않은 사람의 수락은 초대가 없을 때와 같은 답이다', async () => {
     await endpoints.createInvite('pt_cl', 'u_jisu', key())
 
-    // @taeyun 은 초대받지 않았다. 그 은행에 남의 초대가 있다는 사실이 새면 안 된다
+    /*
+     * `@taeyun` 은 `pt_cl` 의 회원도 초대받은 사람도 아니고 잔액도 없다 — 계약이
+     * 말하는 「아무 관계 없는 사람」이다. **`code` 까지 본다.** 상태만 보면 있는 은행과
+     * 없는 은행이 갈리는 것을 놓치고, 새는 것이 정확히 그 `code` 다.
+     */
     setTokens(await endpoints.login({ handle: '@taeyun', password: 'point' }))
-    await expect(endpoints.acceptInvite('pt_cl')).rejects.toMatchObject({ status: 404 })
+    const expected = { code: 'POINT_TYPE_NOT_FOUND', status: 404 }
+    await expect(endpoints.acceptInvite('pt_cl')).rejects.toMatchObject(expected)
+    await expect(endpoints.acceptInvite('pt_nope')).rejects.toMatchObject(expected)
     await asMe()
   })
 
@@ -1171,18 +1177,23 @@ describe('Mock 이 회원 자격 계약에서 멀어지지 않는다', () => {
     // 수락하면 소진된다
     await expect(endpoints.invites()).resolves.toEqual([])
 
+    /*
+     * 잔액을 남긴 채 내보낸다. **이쪽이 날카로운 경우다** — 잔액이 있으면 그 은행에
+     * 여전히 닿으므로 은행 페이지가 보이고, 그래서 「닿는데 초대가 없다」는 답을
+     * 실제로 받는다. 잔액이 없으면 은행 자체가 안 보여서 다른 문에서 막힌다.
+     */
     setTokens(await endpoints.login({ handle: '@minho', password: 'point' }))
+    await endpoints.createTransfer({ pointTypeId: 'pt_cl', toId: 'u_jisu', amount: 100 }, key())
     await endpoints.removeMember('pt_cl', 'u_jisu')
 
     setTokens(await endpoints.login({ handle: '@jisu', password: 'point' }))
     // 남아 있으면 내보내진 사람이 스스로 걸어 들어온다. 은행장에게는 막을 수단이 없다
     await expect(endpoints.invites()).resolves.toEqual([])
+    expect((await endpoints.pointType('pt_cl')).membership).toBe('outsider')
 
     /*
      * 목록에서 숨기는 것만으로는 부족하다. 목록을 안 거치고 바로 수락하는 길이
      * 있으므로 그 문도 닫혀 있어야 「걸어 들어오지 못한다」가 참이다.
-     *
-     * 계약: 회원이 아니고 초대가 소진됐으면 `404`.
      */
     await expect(endpoints.acceptInvite('pt_cl')).rejects.toMatchObject({
       code: 'INVITE_NOT_FOUND',
