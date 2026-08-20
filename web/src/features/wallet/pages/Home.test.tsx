@@ -99,6 +99,67 @@ describe('홈', () => {
     expect(screen.getByRole('button', { name: '동네빵집 자세히' })).toBeTruthy()
   })
 
+  /*
+   * 셋을 따로따로는 이미 재고 있었다. 따로 재면 각자 자기 문구를 말하는 것만 알 수 있고
+   * **서로 다르게 말하는지**는 모른다 — 그것이 이 앱이 여정 1 에서 가르려던 것이다.
+   * 실서버 시드의 모양 그대로다(`@jisoo` 발행자 0 · `@jisu` 회원 0 · `@mose` 나간 뒤 잔액).
+   */
+  it('0 이 셋이고 한 화면에서 서로 다르게 말한다', async () => {
+    server.use(
+      walletOf([
+        { pointType: { ...point('pt_mine', '동네빵집', '🍞', '장민호', 'orange'), canIssue: true }, amount: 0 },
+        { pointType: { ...point('pt_new', '동아리비', '🎪', '온마트', 'purple'), visibility: 'private', membership: 'member' }, amount: 0 },
+        { pointType: point('pt_spent', '금머니', '💎', '온마트', 'pink'), amount: 0 },
+      ]),
+    )
+    renderApp(<Home />)
+    await screen.findByText('동아리비')
+
+    expect(screen.getByText('발행해서 채울 수 있어요')).toBeTruthy()
+    expect(screen.getByText('들어왔어요. 아직 받은 것이 없어요')).toBeTruthy()
+    expect(screen.getByText('보낼 잔액이 없어요')).toBeTruthy()
+  })
+
+  /*
+   * 값이 같으니 **문구만이 가른다.** 그런데 흐림은 문구보다 먼저 눈에 닿는다 —
+   * 흐려진 것을 읽을 이유가 없다고 판단한 뒤에 문구를 안 읽는다. 다음에 할 일이
+   * 있는 둘은 흐리지 않는다. 근거: docs/MOTION.md Attention
+   */
+  it('할 일이 남은 0 은 흐려지지 않는다', async () => {
+    server.use(
+      walletOf([
+        { pointType: { ...point('pt_mine', '동네빵집', '🍞', '장민호', 'orange'), canIssue: true }, amount: 0 },
+        { pointType: { ...point('pt_new', '동아리비', '🎪', '온마트', 'purple'), visibility: 'private', membership: 'member' }, amount: 0 },
+        { pointType: point('pt_spent', '금머니', '💎', '온마트', 'pink'), amount: 0 },
+      ]),
+    )
+    renderApp(<Home />)
+    await screen.findByText('동아리비')
+
+    expect(cardOpacity('동네빵집')).toBe('1')
+    expect(cardOpacity('동아리비')).toBe('1')
+    expect(cardOpacity('금머니')).toBe('0.55')
+  })
+
+  /*
+   * 넷째는 0 이 아니다. **가진 것이 보이는데 보낼 수 없는 것**이라 값을 읽고
+   * 누르러 가는 사람에게만 걸린다 — 관측: docs/FIELD.md, 실서버 `@mose`.
+   */
+  it('가진 것이 있는데 못 쓰는 카드는 0 셋 중 어느 것과도 다르게 말한다', async () => {
+    server.use(
+      walletOf([
+        { pointType: { ...point('pt_left', '동아리비', '🎪', '온마트', 'purple'), visibility: 'private', membership: 'outsider' }, amount: 30_000, sendable: 0 },
+        { pointType: { ...point('pt_new', '동아리비', '🎪', '온마트', 'purple'), visibility: 'private', membership: 'member' }, amount: 0 },
+      ]),
+    )
+    renderApp(<Home />)
+    await screen.findByText('30,000')
+
+    expect(screen.getByText('지금은 보낼 수 없어요')).toBeTruthy()
+    expect(screen.getByText('들어왔어요. 아직 받은 것이 없어요')).toBeTruthy()
+    expect(screen.queryByText('보낼 잔액이 없어요')).toBeNull()
+  })
+
   it('이름이 겹치는 포인트에만 발행자 부제가 붙는다', async () => {
     renderApp(<Home />)
     await screen.findByText('금머니')
