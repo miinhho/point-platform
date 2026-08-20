@@ -57,9 +57,33 @@ const focusRings = Object.fromEntries(
 const config = defineConfig({
   theme: {
     tokens: {
+      /**
+       * 여백은 크기가 아니라 **무엇을 가르는가**로 고른다. 화면마다 손으로 고르면
+       * 같은 뜻의 사이가 화면마다 달라지고, 그것이 화면을 제각각으로 보이게 한다.
+       */
       spacing: {
-        /** 화면 좌우 여백. 모든 화면이 같은 값을 쓴다 */
+        /** 화면 좌우. 모든 화면이 같은 값을 쓴다 */
         gutter: { value: '20px' },
+        /** 한 몸으로 읽혀야 하는 둘 — 라벨과 그 값 */
+        bond: { value: '4px' },
+        /** 같은 덩어리 안의 줄들 */
+        tight: { value: '8px' },
+        /** 나란히 놓인 것 — 배지와 이름 */
+        side: { value: '12px' },
+        /** 덩어리 안쪽. 화면이 시작하는 자리 */
+        inset: { value: '16px' },
+        /** 덩어리와 덩어리 */
+        block: { value: '24px' },
+        /** 화면의 단락 */
+        part: { value: '32px' },
+        /** 결과 화면처럼 위를 비워 두는 자리 */
+        open: { value: '40px' },
+      },
+      radii: {
+        /** 누르는 것 — 버튼·키·아이콘 */
+        control: { value: '10px' },
+        /** 면 — 카드·배지·입력 */
+        panel: { value: '14px' },
       },
       colors: addedScales,
       sizes: {
@@ -85,6 +109,17 @@ const config = defineConfig({
         verify: {
           fg: { value: { base: '{colors.orange.700}', _dark: '{colors.orange.300}' } },
           subtle: { value: { base: '{colors.orange.50}', _dark: '{colors.orange.950}' } },
+        },
+        /**
+         * 입력이 상한을 넘었다. 사용자가 고치면 풀린다.
+         * 지금 실패와 같은 색이지만 뜻이 달라 이름이 둘이다 — 한쪽만 바꿀 수 있다.
+         */
+        overLimit: {
+          fg: { value: { base: '{colors.red.600}', _dark: '{colors.red.400}' } },
+        },
+        /** 요청이 실패했다. 사용자가 고칠 수 없을 수도 있다 */
+        failed: {
+          fg: { value: { base: '{colors.red.600}', _dark: '{colors.red.400}' } },
         },
       },
     },

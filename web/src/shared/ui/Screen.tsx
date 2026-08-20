@@ -16,11 +16,64 @@ export const Screen = chakra('div', {
 
 export const Gutter = chakra('div', { base: { paddingInline: 'gutter' } })
 
+/**
+ * 화면 하단의 행동 자리. 엄지가 제일 잘 닿는 곳이라 **그 화면의 주된 행동 하나**가
+ * 앉는다. 화면마다 여백을 손으로 고르면 버튼이 화면마다 다른 높이에 선다.
+ * 근거: docs/MOTION.md 「공간의 배분」
+ */
+export const Footer = chakra('div', {
+  base: {
+    flexShrink: 0,
+    paddingInline: 'gutter',
+    paddingTop: 'side',
+    paddingBottom: 'inset',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 'tight',
+  },
+})
+
+/** 사실을 담는 면. 화면이 저마다 상자를 정의하면 같은 뜻의 상자가 화면마다 달라진다 */
+export const Panel = chakra('div', {
+  base: { bg: 'bg.panel', borderRadius: 'panel', padding: 'inset' },
+  variants: {
+    /** 테두리를 두른 면. 화면의 주인공일 때만 */
+    raised: { true: { borderWidth: '1px', borderColor: 'border' } },
+    /** 확정되지 않은 것. 완료와 같은 색일 수 없다 */
+    pending: {
+      true: { bg: 'pending.subtle', borderWidth: '1px', borderColor: 'pending.fg' },
+    },
+  },
+})
+
+/** 목록의 소제목. 줄과 줄 사이가 아니라 묶음 앞에 온다 */
+export const SectionLabel = chakra('div', {
+  base: {
+    paddingInline: 'gutter',
+    paddingTop: 'side',
+    paddingBottom: 'bond',
+    textStyle: 'caption',
+  },
+})
+
+/**
+ * 목록이 비었다는 한 줄. **실패와 같아 보이면 안 된다** — 실패는 `Loadable` 이
+ * 맡는다. 규칙: CLAUDE.md 「없는 것과 못 불러온 것을 같게 보이지 않는다」
+ */
+export const Note = chakra('p', {
+  base: {
+    paddingInline: 'gutter',
+    paddingBlock: 'part',
+    textStyle: 'caption',
+    textAlign: 'center',
+  },
+})
+
 export const Header = chakra('header', {
   base: {
     display: 'flex',
     alignItems: 'center',
-    gap: '2',
+    gap: 'tight',
     minHeight: '52px',
     flexShrink: 0,
     paddingInline: 'gutter',
@@ -52,9 +105,10 @@ export const interactive = {
 const rowBase = {
   display: 'flex',
   alignItems: 'center',
-  gap: '3',
+  gap: 'side',
   width: '100%',
   textAlign: 'start',
+  // 실기기 실측에서 이 높이가 오터치 없이 눌렸다 — docs/FIELD.md R2-7
   paddingBlock: '3.5',
   paddingInline: 'gutter',
 } as const
