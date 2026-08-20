@@ -10,14 +10,23 @@ import org.springframework.transaction.annotation.Transactional
 class PointTypeResponses(
     private val pointTypeRepository: PointTypeRepository,
     private val membershipRepository: MembershipRepository,
+    private val bankAccess: BankAccess,
 ) {
     fun of(pointType: PointType, viewerId: Long): PointTypeResponse = of(listOf(pointType), viewerId).first()
 
     fun of(pointTypes: List<PointType>, viewerId: Long): List<PointTypeResponse> {
         val sharedNames = pointTypeRepository.sharedNames()
         val memberCounts = memberCounts(pointTypes)
+        // 은행마다 물으면 N+1 이다 — 보는 사람 기준으로 한 번씩만 모은다.
+        val memberOf = bankAccess.memberOf(viewerId)
+        val invitedTo = bankAccess.invitedTo(viewerId)
         return pointTypes.map { pointType ->
-            pointType.toResponse(viewerId, sharedNames, memberCounts[pointType.id])
+            pointType.toResponse(
+                viewerId,
+                sharedNames,
+                memberCounts[pointType.id],
+                bankAccess.membershipOf(pointType, memberOf, invitedTo),
+            )
         }
     }
 

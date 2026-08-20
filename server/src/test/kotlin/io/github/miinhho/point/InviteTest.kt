@@ -114,6 +114,28 @@ class InviteTest {
     }
 
     @Test
+    fun `내가 무엇인지는 서버가 싣는다`() {
+        // 아무 관계도 없으면 페이지 자체가 404 라, outsider 가 보이는 자리는
+        // 잔액이 남은 채 나온 사람이다. 잔액이 닿을 자격을 준다.
+        assertEquals(HttpStatus.NOT_FOUND, get(outsider, "/api/point-types/${closed.publicId}").statusCode)
+        balanceRepository.save(Balance(user = outsider, pointType = closed, amount = 3_000))
+        assertTrue(bankOf(outsider, closed).contains("\"membership\":\"outsider\""), bankOf(outsider, closed))
+
+        val inviteId = idOf(assertNotNull(invite(issuer, closed, outsider).body))
+        assertTrue(bankOf(outsider, closed).contains("\"membership\":\"invited\""), bankOf(outsider, closed))
+
+        post(outsider, "/api/invites/$inviteId/accept")
+        assertTrue(bankOf(outsider, closed).contains("\"membership\":\"member\""), bankOf(outsider, closed))
+
+        delete(issuer, "/api/point-types/${closed.publicId}/members/${publicId(outsider)}")
+        assertTrue(bankOf(outsider, closed).contains("\"membership\":\"outsider\""), "소진된 초대는 invited 가 아니다")
+
+        assertTrue(bankOf(issuer, closed).contains("\"membership\":\"member\""), "은행장은 언제나 회원이다")
+        // 공개 은행에는 회원 개념이 없다. outsider 로 두면 화면이 그릴 자리를 찾는다.
+        assertTrue(bankOf(outsider, open).contains("\"membership\":null"), bankOf(outsider, open))
+    }
+
+    @Test
     fun `내보내면 초대함에서도 사라지고 옛 초대로는 돌아올 수 없다`() {
         val inviteId = idOf(assertNotNull(invite(issuer, closed, outsider).body))
         assertEquals(HttpStatus.OK, post(outsider, "/api/invites/$inviteId/accept").statusCode)
