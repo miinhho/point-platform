@@ -109,6 +109,28 @@ describe('여정 7 — 발행', () => {
     expect(document.body.textContent).not.toContain('@minho')
   })
 
+  /*
+   * 「확인하기」는 재시도가 아니라 조회다 — 계약: docs/JOURNEY.md 여정 6.
+   * 이체 원장에만 물으면 발행은 언제나 「안 일어났다」로 읽히고, 조회가 조용히
+   * 재전송이 된다. 결과는 서버 멱등성이 맞춰 주지만 그건 다른 장치다.
+   */
+  it('결과를 모를 때의 확인이 발행 원장에 묻는다', async () => {
+    const asked: string[] = []
+    server.events.on('request:start', ({ request }) => asked.push(new URL(request.url).pathname))
+    server.use(
+      http.post('*/api/issues', () =>
+        HttpResponse.json({ code: 'SERVER', outcome: 'unknown', message: '' }, { status: 500 }),
+      ),
+    )
+
+    const user = await startIssue()
+    await hold(750)
+    await user.click(await screen.findByRole('button', { name: '확인하기' }, { timeout: 3000 }))
+
+    await waitFor(() => expect(asked).toContain('/api/issues/by-key'))
+    expect(asked).not.toContain('/api/transfers/by-key')
+  })
+
   it('확정하면 내 지갑으로 들어오고 유통량이 늘어난다', async () => {
     const before = balanceOf('pt_gm', ME)
     await startIssue()
