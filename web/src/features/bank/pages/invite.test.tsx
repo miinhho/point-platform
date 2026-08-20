@@ -2,6 +2,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { screen, waitFor } from '@testing-library/react'
 import { userEvent } from '@testing-library/user-event'
+import { server } from '@/mocks/node'
 import { renderApp, signInAs } from '@/test/render'
 import App from '@/app/App'
 
@@ -87,6 +88,28 @@ describe('초대받은 사람이 들어온다', () => {
     await user.click(await screen.findByRole('button', { name: /동아리회비/ }))
     await screen.findByRole('heading', { name: '동아리회비' })
     expect(document.body.textContent).not.toMatch(/거절|무시하기/)
+  })
+
+  /*
+   * 수락은 은행을 가리킨다 — 계약: docs/API.md. 그래서 은행 페이지가 초대 목록을
+   * 읽을 이유가 없다.
+   *
+   * 읽으면 화면이 초대 **id** 를 쥐게 되고, 초대는 소진되면 새 행이 나므로 그 값은
+   * 낡는다. 내보내졌다가 다시 초대받은 사람에게 「초대받았어요」라고 떠 있는데
+   * 눌러도 404 인 자리가 거기서 난다.
+   */
+  it('은행 페이지가 초대 목록을 읽지 않는다', async () => {
+    const user = await invited()
+    await screen.findByText('받은 초대')
+
+    // 초대함 화면은 읽는다 — 누가 나를 불렀나가 거기 있다. 그 뒤부터 센다
+    const asked: string[] = []
+    server.events.on('request:start', ({ request }) => asked.push(new URL(request.url).pathname))
+
+    await user.click(await screen.findByRole('button', { name: /동아리회비/ }))
+    await screen.findByRole('button', { name: '들어가기' })
+
+    expect(asked).not.toContain('/api/invites')
   })
 
   it('들어가면 초대가 사라지고 회원이 된다', async () => {

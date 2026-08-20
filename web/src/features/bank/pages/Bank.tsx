@@ -23,7 +23,7 @@ import { ChangeCap } from './ChangeCap'
  */
 export function Bank({ pointTypeId, onBack }: { pointTypeId: PointTypeId; onBack: () => void }) {
   const { t } = useTranslation()
-  const { pointType, balance, me, inviteId, isPrivate, outside, pending, failed, retry } =
+  const { pointType, balance, me, invited, isPrivate, outside, pending, failed, retry } =
     useBankPage(pointTypeId)
   const startTransfer = useSetAtom(startTransferAtom)
   const startIssue = useSetAtom(startIssueAtom)
@@ -81,7 +81,7 @@ export function Bank({ pointTypeId, onBack }: { pointTypeId: PointTypeId; onBack
 
       <Body>
         <Gutter paddingTop="inset" paddingBottom="part" colorPalette={pointType.accent}>
-          {inviteId ? <Join inviteId={inviteId} pointTypeId={pointTypeId} /> : null}
+          {invited ? <Join pointTypeId={pointTypeId} /> : null}
 
           {/* 나온 사람의 Attention 은 「왜 못 쓰나」다. 잔액보다 먼저 온다 */}
           {outside ? <Outside /> : null}
@@ -222,9 +222,9 @@ function Outside() {
  * 가입은 되돌릴 수 있다 — 나가면 된다. 되돌릴 수 없는 것은 그 안에서 주고받은
  * 것이지 소속이 아니다. 그래서 꾹 누르게 만들지 않는다 — docs/JOURNEY.md 여정 10
  */
-function Join({ inviteId, pointTypeId }: { inviteId: string; pointTypeId: PointTypeId }) {
+function Join({ pointTypeId }: { pointTypeId: PointTypeId }) {
   const { t } = useTranslation()
-  const join = useJoinBank(pointTypeId, inviteId)
+  const join = useJoinBank(pointTypeId)
 
   return (
     <Box marginTop="block">
