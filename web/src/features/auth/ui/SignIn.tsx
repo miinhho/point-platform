@@ -2,8 +2,7 @@ import { Box, Button, Field, Input, Text } from '@chakra-ui/react'
 import { useMutation } from '@tanstack/react-query'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { endpoints, type Session } from '@/api/endpoints'
-import { ApiError } from '@/api/http'
+import { ApiError, authApi, type Session } from '@/shared/api'
 import { failureTitleKey } from '@/shared/i18n/keys'
 import { Body, Gutter, Screen } from '@/shared/ui/Screen'
 import { useSession } from '../model/session'
@@ -16,7 +15,7 @@ export function SignIn() {
   const [password, setPassword] = useState('')
 
   const login = useMutation<Session, Error, void>({
-    mutationFn: () => endpoints.login({ handle, password }),
+    mutationFn: () => authApi.login({ handle, password }),
     retry: false,
     onSuccess: (session) => signIn(session),
   })

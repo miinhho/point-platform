@@ -2,7 +2,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { screen, waitFor, within } from '@testing-library/react'
 import { userEvent } from '@testing-library/user-event'
-import { endpoints } from '@/api/endpoints'
+import { pointsApi } from '@/shared/api'
 import { setSim } from '@/mocks/sim'
 import { renderApp, signInAs } from '@/test/render'
 import App from '@/app/App'
@@ -241,7 +241,7 @@ describe('공개 여부는 만드는 사람이 고른다', () => {
     await hold(750)
 
     expect(await screen.findByText('만들었어요', {}, { timeout: 5000 })).toBeTruthy()
-    const created = await endpoints.pointTypes()
+    const created = await pointsApi.pointTypes()
     expect(created.find((type) => type.name === '동네빵집')).toMatchObject({
       visibility: 'private',
     })

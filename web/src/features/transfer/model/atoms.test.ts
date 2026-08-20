@@ -13,7 +13,7 @@ import {
   toConfirmAtom,
 } from './atoms'
 import { amountOf, appendDigit, clearAmount } from './draft'
-import type { PointType, User } from '@/api/contract'
+import type { PointType, User } from '@/shared/contract'
 
 const ON: PointType = {
   id: 'pt_on',

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { Transfer } from '@/api/contract'
+import type { Transfer } from '@/shared/contract'
 import {
   currentScreen,
   initialNav,

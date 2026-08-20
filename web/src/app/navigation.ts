@@ -1,4 +1,4 @@
-import type { Issue, IssueId, PointType, PointTypeId, Transfer, TransferId } from '@/api/contract'
+import type { Issue, IssueId, PointType, PointTypeId, Transfer, TransferId } from '@/shared/contract'
 
 // 근거: docs/JOURNEY.md · 탭 하나에 스택 하나
 export type TabName = 'home' | 'history' | 'settings'

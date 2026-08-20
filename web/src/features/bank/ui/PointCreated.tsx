@@ -1,6 +1,6 @@
 import { Box, Button, Text } from '@chakra-ui/react'
 import { useTranslation } from 'react-i18next'
-import type { PointType } from '@/api/contract'
+import type { PointType } from '@/shared/contract'
 import { toGrouped } from '@/shared/format'
 import { Line } from '@/shared/ui/Line'
 import { PointBadge } from '@/shared/ui/PointBadge'

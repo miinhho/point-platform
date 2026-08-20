@@ -33,22 +33,24 @@ describe('삭제된 개념이 되살아나지 않는다', () => {
   })
 
   it('Transfer 에 status 필드가 없다', () => {
-    expect(read('src/api/contract.ts')).not.toMatch(/status:\s*TransferStatus/)
+    expect(read('src/shared/contract/transfer.ts')).not.toMatch(/status:\s*TransferStatus/)
   })
 })
 
 describe('멱등성 키는 헤더다', () => {
   it('본문 필드로 보내지 않는다', () => {
-    expect(read('src/api/http.ts')).toContain("'Idempotency-Key'")
-    const endpoints = read('src/api/endpoints.ts')
-    expect(endpoints).not.toMatch(/body:\s*\{[^}]*idempotencyKey/)
+    expect(read('src/shared/api/http.ts')).toContain("'Idempotency-Key'")
+    // 파일 이름을 박지 않는다 — 엔티티가 늘면 그 파일만 검사를 빠져나간다.
+    for (const path of files('src/shared/api', '.ts')) {
+      expect(read(path), path).not.toMatch(/body:\s*\{[^}]*idempotencyKey/)
+    }
   })
 })
 
 describe('발행은 대상을 받지 않는다', () => {
   it('CreateIssueInput 에 toId 가 없다', () => {
-    const types = read('src/api/endpoints.ts')
-    const block = types.slice(types.indexOf('CreateIssueInput'), types.indexOf('export const endpoints'))
+    const types = read('src/shared/api/issues.ts')
+    const block = types.slice(types.indexOf('CreateIssueInput'), types.indexOf('export const issuesApi'))
     expect(block).not.toContain('toId')
   })
 })

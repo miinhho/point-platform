@@ -16,7 +16,7 @@ import type {
   TransferId,
   User,
   UserId,
-} from '@/api/contract'
+} from '@/shared/contract'
 
 // 인메모리 원장. 잔액은 (pointTypeId, userId) 단위다.
 /** 시드에서 발행 권한을 가진 사용자. 테스트가 기준점으로 쓴다 */

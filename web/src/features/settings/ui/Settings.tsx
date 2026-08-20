@@ -2,13 +2,13 @@ import { Box, Button, Text } from '@chakra-ui/react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { walletQuery } from '@/api/queries'
+import { walletQuery } from '@/shared/api'
 import { useSession } from '@/features/auth'
 import { useColorMode, type ColorModePreference } from '@/app/color-mode'
 import { resetLedger } from '@/mocks/ledger'
 import { resetSim, setSim } from '@/mocks/sim'
 import { Body, Gutter, Header, Screen, Title } from '@/shared/ui/Screen'
-import type { FailureCode } from '@/api/contract'
+import type { FailureCode } from '@/shared/contract'
 
 function Chip({
   selected,

@@ -2,10 +2,8 @@ import { Box, Field, Input, Text, VisuallyHidden } from '@chakra-ui/react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { endpoints } from '@/api/endpoints'
-import { queryKeys } from '@/api/queries'
-import { ApiError, newIdempotencyKey } from '@/api/http'
-import type { PointType } from '@/api/contract'
+import { ApiError, newIdempotencyKey, pointsApi, queryKeys } from '@/shared/api'
+import type { PointType } from '@/shared/contract'
 import { abbreviate, parseInput, toGrouped } from '@/shared/format'
 import { failureTitleKey } from '@/shared/i18n/keys'
 import { HoldButton } from '@/shared/ui/HoldButton'
@@ -24,7 +22,7 @@ export function CapForm({ pointType, onChanged }: { pointType: PointType; onChan
   const [changed, setChanged] = useState(false)
 
   const change = useMutation({
-    mutationFn: (next: number) => endpoints.changeCap(pointType.id, next, idempotencyKey),
+    mutationFn: (next: number) => pointsApi.changeCap(pointType.id, next, idempotencyKey),
     retry: false,
     onSuccess: () => {
       void client.invalidateQueries({ queryKey: queryKeys.pointType(pointType.id) })

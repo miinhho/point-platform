@@ -3,7 +3,7 @@ import { server } from '@/mocks/node'
 import { resetLedger } from '@/mocks/ledger'
 import { resetSessions } from '@/mocks/sessions'
 import { resetSim, setSim } from '@/mocks/sim'
-import { setTokens } from '@/api/http'
+import { setTokens } from '@/shared/api'
 
 beforeAll(async () => {
   server.listen({ onUnhandledRequest: 'error' })

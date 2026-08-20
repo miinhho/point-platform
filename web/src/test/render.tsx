@@ -4,8 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Provider as JotaiProvider, createStore } from 'jotai'
 import { I18nextProvider } from 'react-i18next'
 import { render, type RenderResult } from '@testing-library/react'
-import { endpoints } from '@/api/endpoints'
-import { setTokens } from '@/api/http'
+import { authApi, setTokens } from '@/shared/api'
 import { i18n } from '@/shared/i18n'
 import { system } from '@/shared/ui/system'
 
@@ -30,7 +29,7 @@ export function renderApp(ui: ReactNode): RenderResult {
  * 로그인 자체는 `features/auth` 테스트가 화면으로 확인한다.
  */
 export async function signInAs(handle = '@minho'): Promise<{ userId: string }> {
-  const session = await endpoints.login({ handle, password: 'point' })
+  const session = await authApi.login({ handle, password: 'point' })
   setTokens(session)
   return { userId: session.user.id }
 }

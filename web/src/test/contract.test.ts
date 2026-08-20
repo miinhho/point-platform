@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { FAILURE_CODES } from '@/api/contract'
+import { FAILURE_CODES } from '@/shared/contract'
 // 원문으로 가져온다. `node:fs` 를 쓰면 이 파일만 다른 tsconfig 로 넘어가고,
 // 그러면 `FAILURE_CODES` 를 실제로 import 하지 못해 문자열을 파싱하게 된다.
 import apiDoc from '../../../docs/API.md?raw'

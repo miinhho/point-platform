@@ -3,8 +3,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { screen } from '@testing-library/react'
 import { userEvent } from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
-import { endpoints } from '@/api/endpoints'
-import { newIdempotencyKey } from '@/api/http'
+import { newIdempotencyKey, transfersApi } from '@/shared/api'
 import { server } from '@/mocks/node'
 import { renderApp, signInAs } from '@/test/render'
 import App from '@/app/App'
@@ -86,7 +85,7 @@ describe('조회가 실패하면 그렇게 말한다', () => {
 
   it('내역 상세', async () => {
     // 상세로 갈 수 있는 것은 이체뿐이다. 화면을 거치지 않고 원장에 하나 만든다.
-    await endpoints.createTransfer(
+    await transfersApi.createTransfer(
       { pointTypeId: 'pt_on', toId: 'u_jisoo', amount: 1_000 },
       newIdempotencyKey(),
     )

@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest'
 import { screen, waitFor } from '@testing-library/react'
 import { userEvent } from '@testing-library/user-event'
-import { setTokens } from '@/api/http'
+import { setTokens } from '@/shared/api'
 import { renderApp, signInAs } from '@/test/render'
 import App from '@/app/App'
 

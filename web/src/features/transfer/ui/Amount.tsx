@@ -1,6 +1,6 @@
 import { Box, Text } from '@chakra-ui/react'
 import { label } from '@/shared/format'
-import type { PointType, Points } from '@/api/contract'
+import type { PointType, Points } from '@/shared/contract'
 import { amountFontSize } from '@/shared/ui/amountFit'
 import { IssuerSuffix } from '@/shared/ui/IssuerSuffix'
 

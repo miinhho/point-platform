@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { ko } from './ko'
-import { FAILURE_CODES, type FailureCode } from '@/api/contract'
+import { FAILURE_CODES, type FailureCode } from '@/shared/contract'
 
 /**
  * 문구 규칙.

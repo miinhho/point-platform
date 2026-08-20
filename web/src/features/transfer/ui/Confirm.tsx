@@ -2,7 +2,7 @@ import { Box, Text, VisuallyHidden, chakra } from '@chakra-ui/react'
 import { useQuery } from '@tanstack/react-query'
 import { useAtomValue } from 'jotai'
 import { useTranslation } from 'react-i18next'
-import { recentQuery, walletQuery } from '@/api/queries'
+import { recentQuery, walletQuery } from '@/shared/api'
 import { toGrouped } from '@/shared/format'
 import { BackButton } from '@/shared/ui/BackButton'
 import { IssueBanner } from '@/shared/ui/IssueBanner'
@@ -14,7 +14,7 @@ import { Amount } from './Amount'
 import { draftAtom } from '../model/atoms'
 import { amountOf } from '../model/draft'
 import { formatRate, inflationRate } from '../model/inflation'
-import type { PointType } from '@/api/contract'
+import type { PointType } from '@/shared/contract'
 
 const Card = chakra('div', {
   base: {

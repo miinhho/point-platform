@@ -2,11 +2,9 @@ import { Box, Field, Input, RadioCard, Text } from '@chakra-ui/react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { endpoints } from '@/api/endpoints'
-import { queryKeys } from '@/api/queries'
-import { ApiError, newIdempotencyKey } from '@/api/http'
-import { ALLOWED_EMOJI } from '@/api/contract'
-import type { PointAccent, PointType, PointVisibility } from '@/api/contract'
+import { ApiError, newIdempotencyKey, pointsApi, queryKeys } from '@/shared/api'
+import { ALLOWED_EMOJI } from '@/shared/contract'
+import type { PointAccent, PointType, PointVisibility } from '@/shared/contract'
 import { abbreviate, parseInput, toGrouped } from '@/shared/format'
 import { failureTitleKey } from '@/shared/i18n/keys'
 import { BackButton } from '@/shared/ui/BackButton'
@@ -49,7 +47,7 @@ export function CreatePoint({ onBack, onCreated }: Props) {
 
   const create = useMutation({
     mutationFn: (chosen: PointVisibility) =>
-      endpoints.createPointType(
+      pointsApi.createPointType(
         {
           name: name.trim(),
           emoji: emoji!,

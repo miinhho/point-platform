@@ -1,5 +1,5 @@
 import { parseInput } from '@/shared/format'
-import type { PointType, Points, User } from '@/api/contract'
+import type { PointType, Points, User } from '@/shared/contract'
 
 /**
  * 흐름이 둘을 함께 다루는 동안만 쓰는 구분. **계약의 타입이 아니다** — 계약에서는

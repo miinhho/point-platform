@@ -2,7 +2,7 @@ import { Box, Text } from '@chakra-ui/react'
 import { useQuery } from '@tanstack/react-query'
 import { motion } from 'motion/react'
 import { useTranslation } from 'react-i18next'
-import { endpoints } from '@/api/endpoints'
+import { issueQuery } from '@/shared/api'
 import { toGrouped } from '@/shared/format'
 import { BackButton } from '@/shared/ui/BackButton'
 import { Line } from '@/shared/ui/Line'
@@ -27,10 +27,7 @@ interface Props {
  */
 export function IssueDetail({ issueId, onBack }: Props) {
   const { t } = useTranslation()
-  const one = useQuery({
-    queryKey: ['issue', issueId],
-    queryFn: () => endpoints.issue(issueId),
-  })
+  const one = useQuery(issueQuery(issueId))
   const detail = one.data
 
   return (

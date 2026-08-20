@@ -1,4 +1,4 @@
-import type { FailureCode } from '@/api/contract'
+import type { FailureCode } from '@/shared/contract'
 import type { DraftKind } from './draft'
 
 // 실패에서 사용자가 무엇을 할 수 있는가 — docs/JOURNEY.md 여정 6

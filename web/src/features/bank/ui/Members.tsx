@@ -1,10 +1,8 @@
 import { Box, Button, Text } from '@chakra-ui/react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { endpoints } from '@/api/endpoints'
-import { ApiError } from '@/api/http'
-import { membersQuery, pointTypeQuery, queryKeys } from '@/api/queries'
-import type { PointType, PointTypeId, User, UserId } from '@/api/contract'
+import { ApiError, membersQuery, pointTypeQuery, pointsApi, queryKeys } from '@/shared/api'
+import type { PointType, PointTypeId, User, UserId } from '@/shared/contract'
 import { failureTitleKey } from '@/shared/i18n/keys'
 import { BackButton } from '@/shared/ui/BackButton'
 import { Loadable, RowSkeleton } from '@/shared/ui/Loadable'
@@ -35,13 +33,13 @@ export function Members({ pointTypeId, onBack, onLeft }: Props) {
   }
 
   const remove = useMutation({
-    mutationFn: (userId: UserId) => endpoints.removeMember(pointTypeId, userId),
+    mutationFn: (userId: UserId) => pointsApi.removeMember(pointTypeId, userId),
     retry: false,
     onSuccess: invalidate,
   })
 
   const leave = useMutation({
-    mutationFn: () => endpoints.leaveBank(pointTypeId),
+    mutationFn: () => pointsApi.leaveBank(pointTypeId),
     retry: false,
     onSuccess: () => {
       invalidate()

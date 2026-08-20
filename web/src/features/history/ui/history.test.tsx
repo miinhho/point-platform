@@ -2,8 +2,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { screen, waitFor } from '@testing-library/react'
 import { userEvent } from '@testing-library/user-event'
-import { endpoints } from '@/api/endpoints'
-import { newIdempotencyKey } from '@/api/http'
+import { issuesApi, newIdempotencyKey, transfersApi, walletApi } from '@/shared/api'
 import { balanceOf, SEED_ISSUER } from '@/mocks/ledger'
 import { renderApp, signInAs } from '@/test/render'
 import App from '@/app/App'
@@ -54,7 +53,7 @@ describe('내역', () => {
   })
 
   it('보낸 것이 보이고 상세로 들어간다', async () => {
-    await endpoints.createTransfer(
+    await transfersApi.createTransfer(
       { pointTypeId: 'pt_on', toId: 'u_jisoo', amount: 30_000 },
       newIdempotencyKey(),
     )
@@ -75,7 +74,7 @@ describe('내역', () => {
 
   // 되돌리는 버튼이 있으면 앱 전체가 "사실 되돌릴 수 있다" 는 전제 위에 선다.
   it('상세에 되돌리는 경로가 없다', async () => {
-    await endpoints.createTransfer(
+    await transfersApi.createTransfer(
       { pointTypeId: 'pt_on', toId: 'u_jisoo', amount: 1_000 },
       newIdempotencyKey(),
     )
@@ -94,7 +93,7 @@ describe('내역', () => {
    * 채우려고 「나」와 「무에서」가 나온다 — 화면이 뜻 없는 말을 하게 된다.
    */
   it('발행 목록 줄에 사람이 없다', async () => {
-    await endpoints.createIssue({ pointTypeId: 'pt_gm', amount: 5_000 }, newIdempotencyKey())
+    await issuesApi.createIssue({ pointTypeId: 'pt_gm', amount: 5_000 }, newIdempotencyKey())
     await openHistory()
 
     expect(await screen.findByText('금머니 발행')).toBeTruthy()
@@ -106,7 +105,7 @@ describe('내역', () => {
    * 상세에 오늘 유통량이 뜬다. 계약: docs/API.md 「발행은 이체가 아니다」
    */
   it('발행 상세는 그때의 유통량과 상한을 말한다 — 상대도 띠도 없다', async () => {
-    await endpoints.createIssue({ pointTypeId: 'pt_gm', amount: 5_000 }, newIdempotencyKey())
+    await issuesApi.createIssue({ pointTypeId: 'pt_gm', amount: 5_000 }, newIdempotencyKey())
     const user = await openHistory()
     await user.click(await screen.findByRole('button', { name: /5,000/ }))
     await screen.findByText('발행 내역')
@@ -120,8 +119,8 @@ describe('내역', () => {
 
   // 그 뒤에 더 발행해도 앞의 상세는 그대로다.
   it('나중 발행이 앞 발행의 상세를 바꾸지 않는다', async () => {
-    await endpoints.createIssue({ pointTypeId: 'pt_gm', amount: 5_000 }, newIdempotencyKey())
-    await endpoints.createIssue({ pointTypeId: 'pt_gm', amount: 7_000 }, newIdempotencyKey())
+    await issuesApi.createIssue({ pointTypeId: 'pt_gm', amount: 5_000 }, newIdempotencyKey())
+    await issuesApi.createIssue({ pointTypeId: 'pt_gm', amount: 7_000 }, newIdempotencyKey())
     const user = await openHistory()
 
     await user.click(await screen.findByRole('button', { name: /5,000/ }))
@@ -153,7 +152,7 @@ describe('설정', () => {
 describe('전액을 보낸 포인트도 내역이 무엇인지 말한다', () => {
   it('지갑에서 빠져도 이름이 남는다', async () => {
     const before = balanceOf('pt_on2', SEED_ISSUER)
-    await endpoints.createTransfer(
+    await transfersApi.createTransfer(
       { pointTypeId: 'pt_on2', toId: 'u_jisoo', amount: before },
       newIdempotencyKey(),
     )
@@ -161,7 +160,7 @@ describe('전액을 보낸 포인트도 내역이 무엇인지 말한다', () =>
     await openHistory()
 
     // 지갑에는 더 없다.
-    const wallet = await endpoints.wallet()
+    const wallet = await walletApi.wallet()
     expect(wallet.balances.find((b) => b.pointType.id === 'pt_on2')).toBeUndefined()
     // 그래도 내역 줄은 어느 은행인지 말한다.
     expect(await screen.findByText(/온포인트/)).toBeTruthy()
@@ -174,7 +173,7 @@ describe('전액을 보낸 포인트도 내역이 무엇인지 말한다', () =>
    */
   it('상세에서도 이름이 남는다', async () => {
     const before = balanceOf('pt_on2', SEED_ISSUER)
-    await endpoints.createTransfer(
+    await transfersApi.createTransfer(
       { pointTypeId: 'pt_on2', toId: 'u_jisoo', amount: before },
       newIdempotencyKey(),
     )

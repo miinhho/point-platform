@@ -3,9 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSetAtom } from 'jotai'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { endpoints } from '@/api/endpoints'
-import { ApiError } from '@/api/http'
-import { invitesQuery, membersQuery, pointTypeQuery, queryKeys, walletQuery } from '@/api/queries'
+import { ApiError, invitesApi, invitesQuery, membersQuery, pointTypeQuery, queryKeys, walletQuery } from '@/shared/api'
 import { goAtom } from '@/app/atoms'
 import { toGrouped } from '@/shared/format'
 import { startIssueAtom, startTransferAtom } from '@/features/transfer'
@@ -16,7 +14,7 @@ import { PointBadge } from '@/shared/ui/PointBadge'
 import { LineSkeleton, Loadable, NameSkeleton } from '@/shared/ui/Loadable'
 import { Body, Gutter, Header, Screen, Title } from '@/shared/ui/Screen'
 import type { ReactNode } from 'react'
-import type { PointType, PointTypeId } from '@/api/contract'
+import type { PointType, PointTypeId } from '@/shared/contract'
 import { formatCreated } from '../model/created'
 import { ChangeCap } from './ChangeCap'
 
@@ -254,7 +252,7 @@ function Join({ inviteId, pointTypeId }: { inviteId: string; pointTypeId: PointT
   const client = useQueryClient()
 
   const join = useMutation({
-    mutationFn: () => endpoints.acceptInvite(inviteId),
+    mutationFn: () => invitesApi.acceptInvite(inviteId),
     retry: false,
     onSuccess: () => {
       void client.invalidateQueries({ queryKey: queryKeys.invites })

@@ -1,4 +1,4 @@
-import { FAILURE_CODES, type FailureCode, type FailureOutcome } from '@/api/contract'
+import { FAILURE_CODES, type FailureCode, type FailureOutcome } from '@/shared/contract'
 
 // 계약: docs/API.md
 

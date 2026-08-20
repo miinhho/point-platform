@@ -1,4 +1,4 @@
-import type { FailureCode } from '@/api/contract'
+import type { FailureCode } from '@/shared/contract'
 import type { DraftKind } from '@/features/transfer'
 
 // 화면이 문구를 조립하지 않게 키를 여기서 만든다. 문구 자체는 ko.ts 가 갖는다.

@@ -1,4 +1,4 @@
-import type { Balance } from '@/api/contract'
+import type { Balance } from '@/shared/contract'
 
 /** 근거: docs/JOURNEY.md 여정 1 */
 export function orderBalances(balances: Balance[]): Balance[] {

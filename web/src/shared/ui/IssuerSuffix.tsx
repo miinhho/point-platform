@@ -1,6 +1,6 @@
 import { Text } from '@chakra-ui/react'
 import { useTranslation } from 'react-i18next'
-import type { PointType } from '@/api/contract'
+import type { PointType } from '@/shared/contract'
 
 /**
  * 이름이 겹칠 때만 붙는 발행자 부제 — docs/JOURNEY.md 여정 1·2.

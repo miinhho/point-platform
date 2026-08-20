@@ -1,4 +1,4 @@
-import type { User, UserId } from '@/api/contract'
+import type { User, UserId } from '@/shared/contract'
 
 /**
  * Mock 세션.

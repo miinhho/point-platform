@@ -10,7 +10,7 @@ import {
   withRecipient,
   type Draft,
 } from './draft'
-import type { PointType, User } from '@/api/contract'
+import type { PointType, User } from '@/shared/contract'
 
 const ON: PointType = {
   id: 'pt_on',

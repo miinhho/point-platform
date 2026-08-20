@@ -1,6 +1,13 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { endpoints } from './endpoints'
+import { authApi } from './auth'
+import { historyApi } from './history'
 import { ApiError, newIdempotencyKey, request, setTokens } from './http'
+import { invitesApi } from './invites'
+import { issuesApi } from './issues'
+import { pointsApi } from './points'
+import { transfersApi } from './transfers'
+import { usersApi } from './users'
+import { walletApi } from './wallet'
 import { balanceOf, SEED_ISSUER as ME } from '@/mocks/ledger'
 import { expireAccessTokens } from '@/mocks/sessions'
 import { setSim } from '@/mocks/sim'
@@ -13,6 +20,21 @@ import { server } from '@/mocks/node'
  * 인메모리 객체를 부르지 않고 실제 `fetch` 를 한다. MSW 가 앱과 같은 핸들러로
  * 그것을 받으므로, 여기서 통과하는 것은 상태 코드와 헤더까지 포함한 계약이다.
  */
+/**
+ * HTTP 표면 전체를 한 자리에서 부른다. 계약 시나리오는 엔티티 경계를 넘나들므로
+ * (초대 → 수락 → 이체) 여기서만 합친다. 화면 코드는 엔티티 모듈을 직접 쓴다.
+ */
+const endpoints = {
+  ...authApi,
+  ...walletApi,
+  ...usersApi,
+  ...pointsApi,
+  ...invitesApi,
+  ...transfersApi,
+  ...issuesApi,
+  ...historyApi,
+}
+
 const key = () => newIdempotencyKey()
 
 // 모든 읽기·쓰기가 토큰을 통과한다. 인증 없는 호출은 401 이다.

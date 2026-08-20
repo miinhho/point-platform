@@ -1,6 +1,6 @@
 import { delay, http, HttpResponse } from 'msw'
-import { ALLOWED_EMOJI } from '@/api/contract'
-import type { FailureCode, FailureOutcome, PointAccent, PointVisibility } from '@/api/contract'
+import { ALLOWED_EMOJI } from '@/shared/contract'
+import type { FailureCode, FailureOutcome, PointAccent, PointVisibility } from '@/shared/contract'
 import * as ledger from './ledger'
 import { authenticate, burnFamily, issueTokens, rotate, userIdFromHeader } from './sessions'
 import { drawFailure, drawResponseLoss, simulatedLatency } from './sim'

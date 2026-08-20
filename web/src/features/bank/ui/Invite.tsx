@@ -2,10 +2,8 @@ import { Box, Input, Text } from '@chakra-ui/react'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { endpoints } from '@/api/endpoints'
-import { newIdempotencyKey } from '@/api/http'
-import { usersQuery } from '@/api/queries'
-import type { PointTypeId, User, UserId } from '@/api/contract'
+import { invitesApi, newIdempotencyKey, usersQuery } from '@/shared/api'
+import type { PointTypeId, User, UserId } from '@/shared/contract'
 import { BackButton } from '@/shared/ui/BackButton'
 import { Body, Gutter, Header, Row, RowButton, Screen, Title } from '@/shared/ui/Screen'
 
@@ -35,7 +33,7 @@ export function Invite({ pointTypeId, onBack }: Props) {
   const [invited, setInvited] = useState<ReadonlySet<UserId>>(new Set())
 
   const invite = useMutation({
-    mutationFn: (toId: UserId) => endpoints.createInvite(pointTypeId, toId, newIdempotencyKey()),
+    mutationFn: (toId: UserId) => invitesApi.createInvite(pointTypeId, toId, newIdempotencyKey()),
     retry: false,
     // 보낸 초대를 되읽는 길이 계약에 없다. 이 화면에 머무는 동안만 기억한다.
     onSuccess: (_created, toId) => {
