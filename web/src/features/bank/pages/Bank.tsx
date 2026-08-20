@@ -1,9 +1,7 @@
 import { Box, Button, SkeletonCircle, Text, VisuallyHidden } from '@chakra-ui/react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSetAtom } from 'jotai'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ApiError, invitesApi, invitesQuery, membersQuery, pointTypeQuery, queryKeys, walletQuery } from '@/shared/api'
 import { goAtom } from '@/app/atoms'
 import { toGrouped } from '@/shared/format'
 import { startIssueAtom, startTransferAtom } from '@/features/transfer'
@@ -12,10 +10,11 @@ import { IssuerSuffix } from '@/shared/ui/IssuerSuffix'
 import { Line } from '@/shared/ui/Line'
 import { PointBadge } from '@/shared/ui/PointBadge'
 import { LineSkeleton, Loadable, NameSkeleton } from '@/shared/ui/Loadable'
-import { Body, Gutter, Header, Screen, Title } from '@/shared/ui/Screen'
+import { Body, Gutter, Header, Panel, Screen, Title } from '@/shared/ui/Screen'
 import type { ReactNode } from 'react'
 import type { PointType, PointTypeId } from '@/shared/contract'
 import { formatCreated } from '../model/created'
+import { useBankPage, useJoinBank } from '../model/useBankPage'
 import { ChangeCap } from './ChangeCap'
 
 /**
@@ -24,36 +23,12 @@ import { ChangeCap } from './ChangeCap'
  */
 export function Bank({ pointTypeId, onBack }: { pointTypeId: PointTypeId; onBack: () => void }) {
   const { t } = useTranslation()
-  const bank = useQuery(pointTypeQuery(pointTypeId))
-  const pointType = bank.data
-  const wallet = useQuery(walletQuery())
+  const { pointType, balance, me, invite, isPrivate, outside, pending, failed, retry } =
+    useBankPage(pointTypeId)
   const startTransfer = useSetAtom(startTransferAtom)
   const startIssue = useSetAtom(startIssueAtom)
   const go = useSetAtom(goAtom)
-  // 수락하면 초대가 사라진다. 그래서 「초대가 있다」가 곧 「아직 회원이 아니다」다.
-  const invites = useQuery(invitesQuery())
-  const invite = invites.data?.find((candidate) => candidate.pointType.id === pointTypeId)
-  const isPrivate = pointType?.visibility === 'private'
-  /*
-   * 회원인가. 회원 목록이 회원에게만 열린다는 것이 서버의 판정이라 그것을 읽는다 —
-   * `sendable === 0` 에서 되짚으면 보류금과 구별되지 않고, 그건 규칙을 화면이 다시
-   * 계산하는 것이다. 계약: docs/API.md 「회원 자격」
-   */
-  const members = useQuery({
-    ...membersQuery(pointTypeId),
-    enabled: isPrivate && !invite,
-    retry: false,
-  })
-  /*
-   * 회원 명부가 셋으로 답한다 — 계약: docs/API.md. 「회원이 아니다」는 서버가
-   * `NOT_MEMBER` 로 말했을 때만이다. 아무 오류나 그렇게 읽으면 경로가 없거나
-   * 서버가 넘어졌을 때 회원에게 「회원이 아니에요」라고 말한다 (docs/FIELD.md W7).
-   */
-  const outside =
-    isPrivate && !invite && members.error instanceof ApiError && members.error.code === 'NOT_MEMBER'
-
   const [changingCap, setChangingCap] = useState(false)
-  const balance = wallet.data?.balances.find((b) => b.pointType.id === pointTypeId)
 
   // 못 불러온 것을 빈 화면으로 두지 않는다. 헤더는 남겨야 돌아갈 길이 보인다.
   if (!pointType) {
@@ -65,18 +40,18 @@ export function Bank({ pointTypeId, onBack }: { pointTypeId: PointTypeId; onBack
         </Header>
         <Body>
           <Loadable
-            pending={bank.isPending}
-            failed={bank.isError}
-            onRetry={() => void bank.refetch()}
+            pending={pending}
+            failed={failed}
+            onRetry={retry}
             label={t('bank.loadFailed')}
             skeleton={
               // 소개의 실제 모양 — 배지 옆 이름, 그 아래 사실 넷.
-              <Gutter paddingTop="4">
-                <Box display="flex" alignItems="center" gap="3">
+              <Gutter paddingTop="inset">
+                <Box display="flex" alignItems="center" gap="side">
                   <SkeletonCircle boxSize="avatar" flexShrink={0} />
                   <NameSkeleton />
                 </Box>
-                <Box marginTop="5" display="flex" flexDirection="column" gap="3">
+                <Box marginTop="block" display="flex" flexDirection="column" gap="side">
                   {[0, 1, 2, 3].map((row) => (
                     <LineSkeleton key={row} />
                   ))}
@@ -105,7 +80,7 @@ export function Bank({ pointTypeId, onBack }: { pointTypeId: PointTypeId; onBack
       </Header>
 
       <Body>
-        <Gutter paddingTop="4" paddingBottom="8" colorPalette={pointType.accent}>
+        <Gutter paddingTop="inset" paddingBottom="part" colorPalette={pointType.accent}>
           {invite ? <Join inviteId={invite.id} pointTypeId={pointTypeId} /> : null}
 
           {/* 나온 사람의 Attention 은 「왜 못 쓰나」다. 잔액보다 먼저 온다 */}
@@ -143,7 +118,7 @@ export function Bank({ pointTypeId, onBack }: { pointTypeId: PointTypeId; onBack
               <Button
                 size="xl"
                 width="full"
-                onClick={() => wallet.data && startIssue({ pointType, me: wallet.data.user })}
+                onClick={() => me && startIssue({ pointType, me })}
               >
                 {t('bank.issue')}
               </Button>
@@ -156,12 +131,12 @@ export function Bank({ pointTypeId, onBack }: { pointTypeId: PointTypeId; onBack
           ) : null}
 
           {/* 회원이 아닌 사람도 보는 소개. 은행장에게는 남에게 보이는 얼굴이라 마지막이다 */}
-          <Box marginTop="8">
+          <Box marginTop="part">
             <Intro pointType={pointType} />
           </Box>
 
           {pointType.canIssue && isPrivate ? (
-            <Box marginTop="4">
+            <Box marginTop="inset">
               <Button
                 size="sm"
                 width="full"
@@ -175,7 +150,7 @@ export function Bank({ pointTypeId, onBack }: { pointTypeId: PointTypeId; onBack
 
           {/* 회원이지만 은행장은 아닌 사람 — 명부는 볼 수 있으나 그의 주된 일이 아니다 */}
           {isPrivate && !invite && !outside && !pointType.canIssue ? (
-            <Box marginTop="4">
+            <Box marginTop="inset">
               <Button
                 size="sm"
                 width="full"
@@ -206,10 +181,10 @@ interface SectionProps {
  */
 function Section({ label, value, action, onAction, children }: SectionProps) {
   return (
-    <Box marginTop="6" display="flex" flexDirection="column" gap="3">
+    <Box marginTop="block" display="flex" flexDirection="column" gap="side">
       <Box>
         <Text textStyle="caption">{label}</Text>
-        <Box display="flex" alignItems="baseline" justifyContent="space-between" gap="3">
+        <Box display="flex" alignItems="baseline" justifyContent="space-between" gap="side">
           <Text textStyle="balance">{value}</Text>
           {action && onAction ? (
             <Button size="sm" variant="ghost" flexShrink={0} onClick={onAction}>
@@ -231,15 +206,15 @@ function Outside() {
   const { t } = useTranslation()
 
   return (
-    <Box padding="4" borderRadius="l2" bg="bg.panel">
+    <Panel>
       <Text textStyle="support">{t('bank.outsider')}</Text>
-      <Text textStyle="caption" marginTop="1">
+      <Text textStyle="caption" marginTop="bond">
         {t('bank.outsiderWhy')}
       </Text>
-      <Text textStyle="caption" marginTop="2">
+      <Text textStyle="caption" marginTop="tight">
         {t('bank.outsiderKeeps')}
       </Text>
-    </Box>
+    </Panel>
   )
 }
 
@@ -249,20 +224,10 @@ function Outside() {
  */
 function Join({ inviteId, pointTypeId }: { inviteId: string; pointTypeId: PointTypeId }) {
   const { t } = useTranslation()
-  const client = useQueryClient()
-
-  const join = useMutation({
-    mutationFn: () => invitesApi.acceptInvite(inviteId),
-    retry: false,
-    onSuccess: () => {
-      void client.invalidateQueries({ queryKey: queryKeys.invites })
-      void client.invalidateQueries({ queryKey: queryKeys.pointType(pointTypeId) })
-      void client.invalidateQueries({ queryKey: queryKeys.wallet })
-    },
-  })
+  const join = useJoinBank(pointTypeId, inviteId)
 
   return (
-    <Box marginTop="6">
+    <Box marginTop="block">
       <VisuallyHidden aria-live="polite">{join.isSuccess ? t('bank.joined') : ''}</VisuallyHidden>
       <Button
         size="xl"
@@ -285,7 +250,7 @@ function Intro({ pointType }: { pointType: PointType }) {
 
   return (
     <>
-      <Box display="flex" alignItems="center" gap="3">
+      <Box display="flex" alignItems="center" gap="side">
         <PointBadge emoji={pointType.emoji} />
         <Box flex={1} minW={0}>
           <Text textStyle="name">{pointType.name}</Text>
@@ -293,7 +258,7 @@ function Intro({ pointType }: { pointType: PointType }) {
         </Box>
       </Box>
 
-      <Box marginTop="4" display="flex" flexDirection="column" gap="2">
+      <Box marginTop="inset" display="flex" flexDirection="column" gap="tight">
         <Line label={t('bank.issuer')} value={pointType.issuerHandle} />
         <Line label={t('bank.created')} value={formatCreated(pointType.createdAt)} />
         <Line label={t('bank.supply')} value={toGrouped(pointType.totalIssued)} />
@@ -307,12 +272,12 @@ function Intro({ pointType }: { pointType: PointType }) {
         글이 앱이 보증한 글처럼 보이면 안 된다. 근거: docs/JOURNEY.md 여정 10
       */}
       {pointType.description ? (
-        <Box marginTop="4" padding="4" borderRadius="l2" bg="bg.panel">
+        <Panel marginTop="inset">
           <Text textStyle="caption">{t('bank.descriptionLabel')}</Text>
-          <Text textStyle="support" marginTop="1">
+          <Text textStyle="support" marginTop="bond">
             {pointType.description}
           </Text>
-        </Box>
+        </Panel>
       ) : null}
     </>
   )

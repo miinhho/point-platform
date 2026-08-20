@@ -17,7 +17,7 @@ function Key({
     <Button
       variant="ghost"
       height="key"
-      borderRadius="l2"
+      borderRadius="panel"
       textStyle={glyph ? 'keyGlyph' : 'key'}
       color={glyph ? 'fg.muted' : 'fg'}
       {...rest}
@@ -58,9 +58,9 @@ export function Keypad({ onDigit, onBackspace, onClear }: Props) {
     <Box
       display="grid"
       gridTemplateColumns="repeat(3, 1fr)"
-      gap="1"
+      gap="bond"
       paddingInline="gutter"
-      paddingBottom="2"
+      paddingBottom="tight"
     >
       {DIGITS.map((digit) => (
         <Key key={digit} onClick={() => onDigit(digit)}>

@@ -1,14 +1,13 @@
 import { Box, Text } from '@chakra-ui/react'
-import { useQuery } from '@tanstack/react-query'
 import { motion } from 'motion/react'
 import { useTranslation } from 'react-i18next'
-import { issueQuery } from '@/shared/api'
 import { toGrouped } from '@/shared/format'
 import { BackButton } from '@/shared/ui/BackButton'
 import { Line } from '@/shared/ui/Line'
 import { AmountSkeleton, LineSkeleton, Loadable, NameSkeleton } from '@/shared/ui/Loadable'
 import { Body, Gutter, Header, Screen, Title } from '@/shared/ui/Screen'
 import { formatTime } from '../model/time'
+import { useIssueDetail } from '../model/useHistory'
 
 interface Props {
   issueId: string
@@ -27,8 +26,7 @@ interface Props {
  */
 export function IssueDetail({ issueId, onBack }: Props) {
   const { t } = useTranslation()
-  const one = useQuery(issueQuery(issueId))
-  const detail = one.data
+  const { data: detail, pending, failed, retry } = useIssueDetail(issueId)
 
   return (
     <Screen>
@@ -38,19 +36,19 @@ export function IssueDetail({ issueId, onBack }: Props) {
       </Header>
 
       <Body>
-        <Gutter paddingTop="4">
+        <Gutter paddingTop="inset">
           <Loadable
-            pending={one.isPending}
-            failed={one.isError}
-            onRetry={() => void one.refetch()}
+            pending={pending}
+            failed={failed}
+            onRetry={retry}
             label={t('history.detailFailed')}
             skeleton={
               <Box display="flex" flexDirection="column">
                 <NameSkeleton width="28%" />
-                <Box marginTop="2">
+                <Box marginTop="tight">
                   <AmountSkeleton />
                 </Box>
-                <Box marginTop="6" display="flex" flexDirection="column" gap="4">
+                <Box marginTop="block" display="flex" flexDirection="column" gap="inset">
                   <LineSkeleton />
                   <LineSkeleton />
                   <LineSkeleton />
@@ -69,7 +67,7 @@ export function IssueDetail({ issueId, onBack }: Props) {
                   </motion.div>
                 </Box>
 
-                <Box marginTop="6" display="flex" flexDirection="column">
+                <Box marginTop="block" display="flex" flexDirection="column">
                   <Line
                     divided
                     label={t('history.supplyAfter')}

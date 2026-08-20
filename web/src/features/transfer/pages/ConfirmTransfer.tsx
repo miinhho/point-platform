@@ -1,17 +1,15 @@
 import { Box, Text, VisuallyHidden } from '@chakra-ui/react'
-import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { recentQuery, walletQuery } from '@/shared/api'
 import { toGrouped } from '@/shared/format'
 import { BackButton } from '@/shared/ui/BackButton'
 import { HoldButton } from '@/shared/ui/HoldButton'
 import { Line } from '@/shared/ui/Line'
 import { LineSkeleton, Loadable } from '@/shared/ui/Loadable'
-import { Body, Gutter, Header, Screen, Title } from '@/shared/ui/Screen'
+import { Body, Footer, Gutter, Header, Panel, Screen, Title } from '@/shared/ui/Screen'
 import type { PointType } from '@/shared/contract'
 import { Amount } from '../ui/Amount'
-import { Card } from '../ui/Card'
 import { amountOf, type SealedDraft } from '../model/flow'
+import { useTransferConfirm } from '../model/useFlowPages'
 
 interface Props {
   draft: SealedDraft
@@ -29,18 +27,8 @@ interface Props {
  */
 export function ConfirmTransfer({ draft, onBack, onConfirm, busy }: Props) {
   const { t } = useTranslation()
-  const wallet = useQuery(walletQuery())
-  const recent = useQuery(recentQuery(draft.pointType.id))
-
+  const { balance, held, firstTime, pending, failed, retry } = useTransferConfirm(draft)
   const amount = amountOf(draft)
-  const held = wallet.data?.balances.find((b) => b.pointType.id === draft.pointType.id)
-  /*
-   * 못 불러온 잔액을 0 으로 접으면 「보낸 뒤 남는 잔액」이 음수가 된다 — 되돌릴 수
-   * 없는 것 직전에 화면이 거짓을 말한다. 답하지 못하는 동안은 숫자를 쓰지 않는다.
-   */
-  const balance = wallet.isSuccess ? (held?.amount ?? 0) : null
-  // 처음 받는 사람인가. 경고가 아니라 사실로 한 줄 적는다.
-  const firstTime = recent.data ? !recent.data.some((user) => user.id === draft.to.id) : false
 
   return (
     <Screen>
@@ -50,10 +38,10 @@ export function ConfirmTransfer({ draft, onBack, onConfirm, busy }: Props) {
       </Header>
 
       <Body>
-        <Gutter paddingTop="4">
-          <Card>
+        <Gutter paddingTop="inset">
+          <Panel raised>
             <Text textStyle="caption">{t('confirm.to')}</Text>
-            <Box display="flex" alignItems="baseline" gap="2" marginTop="1" marginBottom="5">
+            <Box display="flex" alignItems="baseline" gap="tight" marginTop="bond" marginBottom="block">
               <Text textStyle="name">{draft.to.name}</Text>
               <Text textStyle="handle">{draft.to.handle}</Text>
             </Box>
@@ -61,22 +49,22 @@ export function ConfirmTransfer({ draft, onBack, onConfirm, busy }: Props) {
             <Amount pointType={draft.pointType} amount={amount} />
 
             <Box
-              marginTop="5"
-              paddingTop="4"
+              marginTop="block"
+              paddingTop="inset"
               borderTopWidth="1px"
               borderColor="border"
               display="flex"
               flexDirection="column"
-              gap="2"
+              gap="tight"
             >
               {balance === null ? (
                 <Loadable
-                  pending={wallet.isPending}
-                  failed={wallet.isError}
-                  onRetry={() => void wallet.refetch()}
+                  pending={pending}
+                  failed={failed}
+                  onRetry={retry}
                   label={t('home.loadFailed')}
                   skeleton={
-                    <Box display="flex" flexDirection="column" gap="3">
+                    <Box display="flex" flexDirection="column" gap="side">
                       <LineSkeleton />
                       <LineSkeleton />
                     </Box>
@@ -99,17 +87,17 @@ export function ConfirmTransfer({ draft, onBack, onConfirm, busy }: Props) {
 
             {/* 공개 은행에는 관문이 없다. 대가로 무언가를 주기 직전이 마지막 방어선이다 */}
             {held?.neverSpent ? <FirstUse pointType={draft.pointType} /> : null}
-          </Card>
+          </Panel>
         </Gutter>
       </Body>
 
-      <Gutter paddingTop="3" paddingBottom="4">
+      <Footer>
         {/* 화면은 그대로 두고 버튼만 잠긴다. 그 사실이 소리로도 닿아야 한다 */}
         <VisuallyHidden aria-live="polite">{busy ? t('confirm.sendingTransfer') : ''}</VisuallyHidden>
         <Box colorPalette={draft.pointType.accent}>
           <HoldButton label={t('confirm.holdTransfer')} onComplete={onConfirm} disabled={busy} />
         </Box>
-      </Gutter>
+      </Footer>
     </Screen>
   )
 }
@@ -122,9 +110,9 @@ function FirstUse({ pointType }: { pointType: PointType }) {
   const { t } = useTranslation()
 
   return (
-    <Box marginTop="4" paddingTop="4" borderTopWidth="1px" borderColor="border">
+    <Box marginTop="inset" paddingTop="inset" borderTopWidth="1px" borderColor="border">
       <Text textStyle="support">{t('confirm.firstUse')}</Text>
-      <Box marginTop="2">
+      <Box marginTop="tight">
         <Line label={t('confirm.firstUseIssuer')} value={pointType.issuerHandle} textStyle="mono" />
       </Box>
     </Box>

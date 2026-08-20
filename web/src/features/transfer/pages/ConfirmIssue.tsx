@@ -4,9 +4,8 @@ import { toGrouped } from '@/shared/format'
 import { BackButton } from '@/shared/ui/BackButton'
 import { HoldButton } from '@/shared/ui/HoldButton'
 import { Line } from '@/shared/ui/Line'
-import { Body, Gutter, Header, Screen, Title } from '@/shared/ui/Screen'
+import { Body, Footer, Gutter, Header, Panel, Screen, Title } from '@/shared/ui/Screen'
 import { Amount } from '../ui/Amount'
-import { Card } from '../ui/Card'
 import { amountOf, type SealedDraft } from '../model/flow'
 import { formatRate, inflationRate } from '../model/inflation'
 
@@ -38,18 +37,18 @@ export function ConfirmIssue({ draft, onBack, onConfirm, busy }: Props) {
       </Header>
 
       <Body>
-        <Gutter paddingTop="4">
-          <Card>
+        <Gutter paddingTop="inset">
+          <Panel raised>
             <Amount pointType={pointType} amount={amount} />
 
             <Box
-              marginTop="5"
-              paddingTop="4"
+              marginTop="block"
+              paddingTop="inset"
               borderTopWidth="1px"
               borderColor="border"
               display="flex"
               flexDirection="column"
-              gap="2"
+              gap="tight"
             >
               <Line label={t('confirm.supplyNow')} value={toGrouped(pointType.totalIssued)} />
               <Line
@@ -63,16 +62,16 @@ export function ConfirmIssue({ draft, onBack, onConfirm, busy }: Props) {
               />
               <Line label={t('confirm.cap')} value={toGrouped(pointType.issueCap)} />
             </Box>
-          </Card>
+          </Panel>
         </Gutter>
       </Body>
 
-      <Gutter paddingTop="3" paddingBottom="4">
+      <Footer>
         <VisuallyHidden aria-live="polite">{busy ? t('confirm.sendingIssue') : ''}</VisuallyHidden>
         <Box colorPalette={pointType.accent}>
           <HoldButton label={t('confirm.holdIssue')} onComplete={onConfirm} disabled={busy} />
         </Box>
-      </Gutter>
+      </Footer>
     </Screen>
   )
 }

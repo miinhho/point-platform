@@ -1,16 +1,15 @@
 import { Box, Input, Text } from '@chakra-ui/react'
-import { useQuery } from '@tanstack/react-query'
 import { useSetAtom } from 'jotai'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { recentQuery, usersQuery } from '@/shared/api'
 import { BackButton } from '@/shared/ui/BackButton'
 import { IssuerSuffix } from '@/shared/ui/IssuerSuffix'
 import { Loadable, RowSkeleton } from '@/shared/ui/Loadable'
-import { Body, Gutter, Header, RowButton, Screen, Title } from '@/shared/ui/Screen'
+import { Body, Gutter, Header, Note, RowButton, Screen, SectionLabel, Title } from '@/shared/ui/Screen'
 import { pickRecipientAtom } from '../model/atoms'
 import type { Draft } from '../model/flow'
-import { buildRecipientList, buildSearchList, type RecipientEntry } from '../model/recipientList'
+import type { RecipientEntry } from '../model/recipientList'
+import { useRecipients } from '../model/useFlowPages'
 
 /** 근거: docs/JOURNEY.md 여정 3 */
 export function PickRecipient({ draft, onBack }: { draft: Draft; onBack: () => void }) {
@@ -20,21 +19,14 @@ export function PickRecipient({ draft, onBack }: { draft: Draft; onBack: () => v
   const [query, setQuery] = useState('')
 
   const searching = query.trim().length > 0
-  // 비공개 은행이면 회원만 온다. 목록에 없는 사람에게는 보낼 수도 없다.
-  const users = useQuery(usersQuery(query.trim(), draft.pointType.id))
-  const recent = useQuery(recentQuery(draft.pointType.id))
-
-  const list = searching
-    ? buildSearchList(users.data ?? [])
-    : buildRecipientList(recent.data ?? [], users.data ?? [])
-  const total = list.recent.length + list.others.length
+  const { list, total, pending, failed, retry } = useRecipients(draft.pointType.id, query)
 
   return (
     <Screen>
       <Header>
         <BackButton onClick={onBack} />
         <Title>{t('pick.titleTransfer')}</Title>
-        <Box display="flex" alignItems="baseline" gap="1.5" flexWrap="wrap">
+        <Box display="flex" alignItems="baseline" gap="bond" flexWrap="wrap">
           <Text textStyle="caption" colorPalette={draft.pointType.accent} color="colorPalette.fg">
             {draft.pointType.name}
           </Text>
@@ -53,16 +45,16 @@ export function PickRecipient({ draft, onBack }: { draft: Draft; onBack: () => v
           spellCheck={false}
           enterKeyHint="search"
           size="lg"
-          borderRadius="l2"
+          borderRadius="panel"
           bg="bg.panel"
         />
       </Gutter>
 
-      <Body marginTop="2">
+      <Body marginTop="tight">
         <Loadable
-          pending={users.isPending}
-          failed={users.isError}
-          onRetry={() => void users.refetch()}
+          pending={pending}
+          failed={failed}
+          onRetry={retry}
           label={t('pick.loadFailed')}
           skeleton={
             // 사람 줄에는 오른쪽 값이 없다. 넣으면 내용이 올 때 그 자리가 접힌다
@@ -86,11 +78,7 @@ export function PickRecipient({ draft, onBack }: { draft: Draft; onBack: () => v
           ) : null}
 
           {total === 0 ? (
-            <Gutter>
-              <Text textStyle="caption" paddingBlock="8" textAlign="center">
-                {searching ? t('pick.notFound', { query: query.trim() }) : t('pick.empty')}
-              </Text>
-            </Gutter>
+            <Note>{searching ? t('pick.notFound', { query: query.trim() }) : t('pick.empty')}</Note>
           ) : null}
         </Loadable>
       </Body>
@@ -101,11 +89,7 @@ export function PickRecipient({ draft, onBack }: { draft: Draft; onBack: () => v
 function Section({ label, children }: { label?: string; children: React.ReactNode }) {
   return (
     <>
-      {label ? (
-        <Gutter paddingTop="3" paddingBottom="1">
-          <Text textStyle="caption">{label}</Text>
-        </Gutter>
-      ) : null}
+      {label ? <SectionLabel>{label}</SectionLabel> : null}
       {children}
     </>
   )
@@ -151,7 +135,7 @@ function RecipientRow({ entry, onPick }: { entry: RecipientEntry; onPick: RowsPr
       </Box>
 
       <Box flex={1} minW={0}>
-        <Box display="flex" alignItems="baseline" gap="2">
+        <Box display="flex" alignItems="baseline" gap="tight">
           <Text textStyle="name">{user.name}</Text>
           {pulledUp ? <Text textStyle="caption">{t('pick.notSentBefore')}</Text> : null}
         </Box>

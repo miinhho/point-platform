@@ -1,21 +1,20 @@
 import { Box, Text } from '@chakra-ui/react'
-import { useQuery } from '@tanstack/react-query'
 import { useSetAtom } from 'jotai'
 import { motion } from 'motion/react'
 import { useTranslation } from 'react-i18next'
-import { historyQuery } from '@/shared/api'
 import { toGrouped } from '@/shared/format'
 import { goAtom } from '@/app/atoms'
 import { Loadable, RowSkeleton } from '@/shared/ui/Loadable'
-import { Body, Gutter, Header, Row, RowButton, Screen, Title } from '@/shared/ui/Screen'
+import { Body, Header, Note, Row, RowButton, Screen, Title } from '@/shared/ui/Screen'
 import type { CapChange, PointMark, Issue, Transfer } from '@/shared/contract'
 import { formatTime } from '../model/time'
+import { useHistoryPage } from '../model/useHistory'
 
 /** 근거: docs/JOURNEY.md 여정 8 */
 export function History() {
   const { t } = useTranslation()
   const go = useSetAtom(goAtom)
-  const { data, isPending, isError, refetch } = useQuery(historyQuery())
+  const { data, pending, failed, retry } = useHistoryPage()
 
 
   return (
@@ -27,9 +26,9 @@ export function History() {
       <Body>
         {/* 가운데 글자 한 줄을 두면 목록이 뜨는 순간 화면이 통째로 뛴다 */}
         <Loadable
-          pending={isPending}
-          failed={isError}
-          onRetry={() => void refetch()}
+          pending={pending}
+          failed={failed}
+          onRetry={retry}
           label={t('history.loadFailed')}
           skeleton={
             <>
@@ -39,13 +38,7 @@ export function History() {
             </>
           }
         >
-          {data?.length === 0 ? (
-            <Gutter>
-              <Text textStyle="caption" textAlign="center" paddingBlock="8">
-                {t('history.empty')}
-              </Text>
-            </Gutter>
-          ) : null}
+          {data?.length === 0 ? <Note>{t('history.empty')}</Note> : null}
 
           {data?.map((entry) =>
             entry.type === 'transfer' ? (

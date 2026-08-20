@@ -1,8 +1,6 @@
 import { Box, Text } from '@chakra-ui/react'
-import { useQuery } from '@tanstack/react-query'
 import { motion } from 'motion/react'
 import { useTranslation } from 'react-i18next'
-import { transferQuery } from '@/shared/api'
 import { toGrouped } from '@/shared/format'
 import { BackButton } from '@/shared/ui/BackButton'
 import { Line } from '@/shared/ui/Line'
@@ -10,6 +8,7 @@ import { AmountSkeleton, LineSkeleton, Loadable, NameSkeleton } from '@/shared/u
 import { Body, Gutter, Header, Screen, Title } from '@/shared/ui/Screen'
 import type { PointMark, Transfer } from '@/shared/contract'
 import { formatTime } from '../model/time'
+import { useTransferDetail } from '../model/useHistory'
 
 interface Props {
   transferId: string
@@ -22,8 +21,7 @@ interface Props {
  */
 export function HistoryDetail({ transferId, onBack }: Props) {
   const { t } = useTranslation()
-  const one = useQuery(transferQuery(transferId))
-  const detail = one.data
+  const { data: detail, pending, failed, retry } = useTransferDetail(transferId)
 
   // 못 불러온 것을 빈 화면으로 두지 않는다. 헤더는 남겨야 돌아갈 길이 보인다.
   if (!detail) {
@@ -35,9 +33,9 @@ export function HistoryDetail({ transferId, onBack }: Props) {
         </Header>
         <Body>
           <Loadable
-            pending={one.isPending}
-            failed={one.isError}
-            onRetry={() => void one.refetch()}
+            pending={pending}
+            failed={failed}
+            onRetry={retry}
             label={t('history.detailFailed')}
             skeleton={
               /*
@@ -45,16 +43,16 @@ export function HistoryDetail({ transferId, onBack }: Props) {
                 아래 줄. 균일한 줄 넷을 두면 제일 큰 둘에 자리가 없어 내용이 오는
                 순간 통째로 재배치된다.
               */
-              <Gutter paddingTop="4" display="flex" flexDirection="column">
+              <Gutter paddingTop="inset" display="flex" flexDirection="column">
                 <NameSkeleton />
-                <Box marginTop="2">
+                <Box marginTop="tight">
                   <LineSkeleton />
                 </Box>
-                <Box marginTop="5" display="flex" flexDirection="column" gap="2">
+                <Box marginTop="block" display="flex" flexDirection="column" gap="tight">
                   <NameSkeleton width="28%" />
                   <AmountSkeleton />
                 </Box>
-                <Box marginTop="6">
+                <Box marginTop="block">
                   <LineSkeleton />
                 </Box>
               </Gutter>
@@ -75,7 +73,7 @@ export function HistoryDetail({ transferId, onBack }: Props) {
       </Header>
 
       <Body>
-        <Gutter paddingTop="4">
+        <Gutter paddingTop="inset">
           <Sent transfer={detail.transfer} point={detail.point} />
         </Gutter>
       </Body>
@@ -112,7 +110,7 @@ function Sent({ transfer, point }: PartProps) {
         {other.handle}
       </Text>
 
-      <Box marginTop="5" colorPalette={point.accent}>
+      <Box marginTop="block" colorPalette={point.accent}>
         <Text textStyle="label" color="colorPalette.fg">
           {point.name}
         </Text>
@@ -121,7 +119,7 @@ function Sent({ transfer, point }: PartProps) {
         </motion.div>
       </Box>
 
-      <Box marginTop="6" display="flex" flexDirection="column">
+      <Box marginTop="block" display="flex" flexDirection="column">
         <Line divided label={t('history.at')} value={formatTime(transfer.confirmedAt)} />
       </Box>
     </>

@@ -1,45 +1,32 @@
 import { Box, Button, Field, Input, Text } from '@chakra-ui/react'
-import { useMutation } from '@tanstack/react-query'
-import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ApiError, authApi, type Session } from '@/shared/api'
 import { failureTitleKey } from '@/shared/i18n/keys'
 import { Body, Gutter, Screen } from '@/shared/ui/Screen'
-import { useSession } from '../model/session'
+import { useSignIn } from '../model/useSignIn'
 
 /** 로그인하지 않으면 어떤 화면도 보이지 않는다. 남의 잔액을 보여줄 경로를 만들지 않는다. */
 export function SignIn() {
   const { t } = useTranslation()
-  const { signIn } = useSession()
-  const [handle, setHandle] = useState('')
-  const [password, setPassword] = useState('')
-
-  const login = useMutation<Session, Error, void>({
-    mutationFn: () => authApi.login({ handle, password }),
-    retry: false,
-    onSuccess: (session) => signIn(session),
-  })
-
-  const error = login.error instanceof ApiError ? login.error : null
+  const { handle, setHandle, password, setPassword, submit, busy, error } = useSignIn()
 
   return (
     <Screen>
       <Body>
-        <Gutter paddingTop="16">
+        <Gutter paddingTop="open">
           <Text textStyle="headline">{t('auth.title')}</Text>
           <Text textStyle="support">{t('auth.subtitle')}</Text>
 
           <Box
             asChild
-            marginTop="8"
+            marginTop="part"
             display="flex"
             flexDirection="column"
-            gap="3"
+            gap="side"
           >
             <form
               onSubmit={(event) => {
                 event.preventDefault()
-                login.mutate()
+                submit()
               }}
             >
               <Field.Root>
@@ -70,7 +57,7 @@ export function SignIn() {
               </Field.Root>
 
               {error ? (
-                <Text role="alert" textStyle="support" color="red.fg">
+                <Text role="alert" textStyle="support" color="failed.fg">
                   {t(failureTitleKey(error.code))}
                 </Text>
               ) : null}
@@ -79,8 +66,8 @@ export function SignIn() {
                 type="submit"
                 size="xl"
                 width="full"
-                marginTop="2"
-                loading={login.isPending}
+                marginTop="tight"
+                loading={busy}
                 disabled={handle.trim() === '' || password === ''}
               >
                 {t('auth.submit')}
@@ -88,7 +75,7 @@ export function SignIn() {
             </form>
           </Box>
 
-          <Text textStyle="caption" marginTop="6">
+          <Text textStyle="caption" marginTop="block">
             {t('auth.hint')}
           </Text>
         </Gutter>

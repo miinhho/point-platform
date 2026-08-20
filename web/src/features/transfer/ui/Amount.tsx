@@ -14,12 +14,12 @@ interface Props {
 /** 근거: docs/JOURNEY.md 여정 4 — 금액만 단독으로 보여주는 화면을 만들지 않는다 */
 export function Amount({ pointType, amount, over }: Props) {
   const parts = label(amount)
-  const tone = over ? 'red.fg' : undefined
+  const tone = over ? 'overLimit.fg' : undefined
 
   return (
     <Box colorPalette={pointType.accent}>
       {/* 이름이 겹치면 그것만으로 무엇인지 말하지 못한다 — docs/JOURNEY.md 여정 2 */}
-      <Box display="flex" alignItems="baseline" gap="1.5" flexWrap="wrap">
+      <Box display="flex" alignItems="baseline" gap="bond" flexWrap="wrap">
         <Text textStyle="label" color="colorPalette.fg">
           {pointType.name}
         </Text>

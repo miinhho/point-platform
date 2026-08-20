@@ -1,26 +1,30 @@
 import { Box, Button, Text } from '@chakra-ui/react'
-import { useQuery } from '@tanstack/react-query'
 import { useSetAtom } from 'jotai'
 import { useTranslation } from 'react-i18next'
-import { invitesQuery, walletQuery } from '@/shared/api'
 import { startTransferAtom } from '@/features/transfer'
 import { goAtom } from '@/app/atoms'
 import { Loadable, RowSkeleton } from '@/shared/ui/Loadable'
-import { Body, Gutter, Header, RowButton, Screen, Title } from '@/shared/ui/Screen'
+import {
+  Body,
+  Footer,
+  Header,
+  Note,
+  RowButton,
+  Screen,
+  SectionLabel,
+  Title,
+} from '@/shared/ui/Screen'
 import { PointBadge } from '@/shared/ui/PointBadge'
 import type { Invite } from '@/shared/contract'
-import { orderBalances } from '../model/order'
+import { useWalletPage } from '../model/useWalletPage'
 import { PointCard } from '../ui/PointCard'
 
 /** 근거: docs/JOURNEY.md 여정 1 */
 export function Home() {
   const { t } = useTranslation()
-  const { data, isPending, isError, refetch } = useQuery(walletQuery())
-  const invites = useQuery(invitesQuery())
+  const { pending, failed, retry, loaded, balances, invites, empty } = useWalletPage()
   const startTransfer = useSetAtom(startTransferAtom)
   const go = useSetAtom(goAtom)
-
-  const balances = data ? orderBalances(data.balances) : []
 
   return (
     <Screen>
@@ -31,9 +35,9 @@ export function Home() {
       <Body>
         {/* 못 불러온 것이 「아직 없어요」와 같아 보이면 여정 1 의 노력이 무너진다 */}
         <Loadable
-          pending={isPending}
-          failed={isError}
-          onRetry={() => void refetch()}
+          pending={pending}
+          failed={failed}
+          onRetry={retry}
           label={t('home.loadFailed')}
           skeleton={
             // 카드 넷: 배지 · 이름과 부제 · 오른쪽 잔액. 시드가 그만큼 온다
@@ -44,17 +48,13 @@ export function Home() {
             </>
           }
         >
-          {data?.balances.length === 0 && invites.data?.length === 0 ? (
-            <Note>{t('home.empty')}</Note>
-          ) : null}
+          {empty ? <Note>{t('home.empty')}</Note> : null}
 
           {/* 초대를 열면 은행 페이지가 열린다. 판단할 것은 거기 다 있다 — 여정 10 */}
-          {invites.data?.length ? (
+          {invites.length > 0 ? (
             <>
-              <Gutter paddingTop="3" paddingBottom="1">
-                <Text textStyle="caption">{t('home.invites')}</Text>
-              </Gutter>
-              {invites.data.map((invite) => (
+              <SectionLabel>{t('home.invites')}</SectionLabel>
+              {invites.map((invite) => (
                 <InviteRow
                   key={invite.id}
                   invite={invite}
@@ -77,8 +77,9 @@ export function Home() {
         </Loadable>
 
         {/* 목록 끝에 둔다 — 계좌 목록 아래의 「계좌 개설」과 같은 자리다 */}
-        {data ? (
-          <Gutter paddingTop="4" paddingBottom="6">
+        {/* 목록 끝에 둔다 — 계좌 목록 아래의 「계좌 개설」과 같은 자리다 */}
+        {loaded ? (
+          <Footer>
             <Button
               size="lg"
               width="full"
@@ -87,7 +88,7 @@ export function Home() {
             >
               {t('create.entry')}
             </Button>
-          </Gutter>
+          </Footer>
         ) : null}
       </Body>
     </Screen>
@@ -110,14 +111,3 @@ function InviteRow({ invite, onOpen }: { invite: Invite; onOpen: () => void }) {
   )
 }
 
-function Note({ children, role }: { children: string; role?: 'status' | 'alert' }) {
-  return (
-    <Gutter>
-      <Box role={role} paddingBlock="8">
-        <Text textStyle="caption" textAlign="center">
-          {children}
-        </Text>
-      </Box>
-    </Gutter>
-  )
-}

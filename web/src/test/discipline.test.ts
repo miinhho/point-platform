@@ -108,6 +108,25 @@ describe('feature 안의 세 자리', () => {
     expect(offenders).toEqual([])
   })
 
+  /*
+   * 화면이 조회를 직접 부르면 「무엇을 보여줄지」와 「무엇을 아는지」가 한 함수에
+   * 섞인다. 그러면 파생(회원인가 · 처음 받는 사람인가 · 못 불러온 것과 0 의 구별)이
+   * JSX 사이에 흩어지고, 화면을 고칠 때마다 그것을 다시 읽어야 한다.
+   */
+  it('화면은 조회를 직접 부르지 않는다 — model 이 준다', () => {
+    const offenders = FEATURES.flatMap((name) =>
+      ['pages', 'ui'].flatMap((slot) => {
+        const dir = join('src/features', name, slot)
+        return existsSync(dir)
+          ? sourceFiles(dir).filter((path) =>
+              /\b(useQuery|useMutation|useQueryClient)\b/.test(readFileSync(path, 'utf8')),
+            )
+          : []
+      }),
+    )
+    expect(offenders).toEqual([])
+  })
+
   // ViewModel 이 뷰를 만들면 나눈 의미가 없다. 확장자로 막는다.
   it('model 은 JSX 를 갖지 않는다', () => {
     const offenders = FEATURES.flatMap((name) => {
@@ -178,6 +197,48 @@ describe('화면 규율', () => {
         .map((line, i) => ({ line: line.trim(), n: i + 1 }))
         .filter(({ line }) => banned.test(line))
         .map(({ line, n }) => `${path}:${n} ${line.slice(0, 40)}`),
+    )
+    expect(offenders).toEqual([])
+  })
+
+  /*
+   * 여백은 이 앱에서 가장 많이 손으로 고르던 값이다. 같은 뜻의 사이가 화면마다
+   * 다르면 그것이 화면을 제각각으로 보이게 한다 — 토큰 이름은 `system.ts` 에 있다.
+   */
+  it('여백을 수치로 지정하지 않는다', () => {
+    const raw = /\b(margin|padding|gap)[A-Za-z]*="[\d.]+"/
+    const offenders = FILES.flatMap((path) =>
+      code(path)
+        .split('\n')
+        .map((line, i) => ({ line: line.trim(), n: i + 1 }))
+        .filter(({ line }) => raw.test(line))
+        .map(({ line, n }) => `${path}:${n} ${line.slice(0, 48)}`),
+    )
+    expect(offenders).toEqual([])
+  })
+
+  // `l1`·`l2`·`l3` 는 Chakra 의 것이다. 우리 것이 아니면 우리가 못 바꾼다.
+  it('모서리는 우리 토큰으로만 쓴다', () => {
+    const offenders = FILES.flatMap((path) =>
+      code(path)
+        .split('\n')
+        .filter((line) => /borderRadius="(l\d|[\d.]+(px|rem))"/.test(line))
+        .map((line) => `${path}: ${line.trim().slice(0, 48)}`),
+    )
+    expect(offenders).toEqual([])
+  })
+
+  /*
+   * `red.fg` 는 「빨강」이라고 적혀 있지 「상한을 넘었다」라고 적혀 있지 않다.
+   * 뜻이 이름에 없으면 나중에 한쪽만 바꿀 수 없다 — 의도 토큰이 `system.ts` 에 있다.
+   */
+  it('뜻 없는 팔레트 색을 화면이 직접 부르지 않는다', () => {
+    const raw = /(?:bg|color|borderColor)="(?:red|green|orange|blue|teal|gray|pink|purple)\./
+    const offenders = FILES.flatMap((path) =>
+      code(path)
+        .split('\n')
+        .filter((line) => raw.test(line))
+        .map((line) => `${path}: ${line.trim().slice(0, 48)}`),
     )
     expect(offenders).toEqual([])
   })
