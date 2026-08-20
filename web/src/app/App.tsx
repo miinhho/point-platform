@@ -63,15 +63,18 @@ function RouteScreen({ route, back, replace }: { route: Route } & RouteActions):
       return <Invite pointTypeId={route.pointTypeId} onBack={back} />
     case 'members':
       /*
-       * 나가면 명부는 그 사람에게 없는 화면이 된다. 그래서 뒤로가 아니라 **대체**다 —
-       * 뒤로 가면 자기가 이제 못 보는 화면으로 돌아간다. 은행 페이지는 계속 보이고
-       * 거기가 왜 못 쓰는지 말하는 자리다.
+       * 나가면 **홈으로 간다. 잔액이 있든 없든.**
+       *
+       * 은행 페이지로 보내면 잔액이 없는 사람에게는 그 페이지도 없어서 「못
+       * 불러왔어요 · 다시 시도」에 갇힌다 — 자기가 방금 한 일의 결과인데 우리가
+       * 실패했다고 말하는 것이다. 어느 쪽인지 화면이 미리 가르면 서버 규칙을 다시
+       * 계산하게 된다. 잔액이 남았으면 홈 카드로 다시 갈 수 있으니 잃는 것도 없다.
        */
       return (
         <Members
           pointTypeId={route.pointTypeId}
           onBack={back}
-          onLeft={() => replace({ name: 'bank', pointTypeId: route.pointTypeId })}
+          onLeft={() => replace({ name: 'home' })}
         />
       )
     case 'createPoint':

@@ -4,7 +4,7 @@ import { screen, waitFor } from '@testing-library/react'
 import { userEvent } from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { server } from '@/mocks/node'
-import { pointsApi, setTokens } from '@/shared/api'
+import { authApi, invitesApi, newIdempotencyKey, pointsApi, setTokens } from '@/shared/api'
 import { renderApp, signInAs } from '@/test/render'
 import App from '@/app/App'
 
@@ -99,22 +99,42 @@ describe('못 불러온 것은 빈 화면이 아니다', () => {
  * 「나갔다」와 「원래 못 들어온다」는 다른 사건이라 다른 이동이어야 한다.
  * 앞엣것은 사용자가 방금 한 일의 결과라 **그 결과를 보여준다.** 뒤엣것은 애초에
  * 열리지 않았어야 할 문이라 **아무 일도 없었던 것처럼 대체한다.**
+ *
+ * 목적지도 다르다 — 나가기는 홈, 가드는 은행 페이지. 그래서 두 기제가 같은 화면을
+ * 다투지 않는다.
  */
-describe('나가기는 가드와 다른 이동이다', () => {
-  it('나가면 은행 페이지에서 그 결과를 본다', async () => {
+describe('나가면 홈으로 간다', () => {
+  it('잔액이 남아 있어도 홈이다', async () => {
     const user = userEvent.setup()
     await open('/points/pt_cl/members', '@jisoo')
     await user.click(await screen.findByRole('button', { name: '나가기' }))
 
-    await waitFor(() => expect(location.pathname).toBe('/points/pt_cl'))
+    await waitFor(() => expect(location.pathname).toBe('/'))
     await settle()
-    expect(await screen.findByText('이 은행의 회원이 아니에요')).toBeTruthy()
+    expect(await screen.findByText('내 포인트')).toBeTruthy()
   })
 
   /*
-   * 나가면 명부는 그 사람에게 **없는 화면**이 된다. 쌓아 두면 뒤로 가기가 자기가
-   * 이제 못 보는 화면으로 돌아가고, 거기서 가드가 다시 돌아 같은 자리를 돈다.
+   * **잔액이 없으면 그 은행은 그 사람에게 없어진다**(`reachable` 이 잔액에 기댄다).
+   * 은행 페이지로 보내면 「못 불러왔어요 · 다시 시도」에 갇히고, 다시 시도는 영원히
+   * 404 다 — 자기가 방금 한 일의 결과인데 우리가 실패했다고 말하는 것이다.
    */
+  it('잔액이 없어도 실패 화면에 갇히지 않는다', async () => {
+    setTokens(await authApi.login({ handle: '@minho', password: 'point' }))
+    await invitesApi.createInvite('pt_cl', 'u_jisu', newIdempotencyKey())
+    setTokens(await authApi.login({ handle: '@jisu', password: 'point' }))
+    await invitesApi.acceptInvite('pt_cl')
+
+    const user = userEvent.setup()
+    await open('/points/pt_cl/members', '@jisu')
+    await user.click(await screen.findByRole('button', { name: '나가기' }))
+
+    await waitFor(() => expect(location.pathname).toBe('/'))
+    await settle()
+    expect(screen.queryByText('불러오지 못했어요')).toBeNull()
+    expect(await screen.findByText('내 포인트')).toBeTruthy()
+  })
+
   it('나간 뒤 뒤로 가도 명부로 돌아가지 않는다', async () => {
     const user = userEvent.setup()
     await signInAs('@jisoo')
@@ -124,11 +144,10 @@ describe('나가기는 가드와 다른 이동이다', () => {
     await waitFor(() => expect(location.pathname).toBe('/points/pt_cl/members'))
 
     await user.click(await screen.findByRole('button', { name: '나가기' }))
-    await waitFor(() => expect(location.pathname).toBe('/points/pt_cl'))
+    await waitFor(() => expect(location.pathname).toBe('/'))
 
     // 명부가 아니라 그 전에 있던 은행 페이지로 간다
     history.back()
     await waitFor(() => expect(location.pathname).toBe('/points/pt_cl'))
-    expect(location.pathname).not.toBe('/points/pt_cl/members')
   })
 })
