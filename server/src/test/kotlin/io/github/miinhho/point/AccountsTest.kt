@@ -98,8 +98,11 @@ class AccountsTest {
 
     @Test
     fun `성한 판에서는 가드가 조용하다`() {
-        // 가드가 늘 빈 표를 보고 통과하면 그것은 검사가 아니다 — 위 테스트와 짝이어야 한다.
+        // 가드가 늘 빈 표를 보고 통과하면 그것은 검사가 아니다 — 위 테스트와 짝이어야 하고,
+        // 볼 것이 있다는 것부터 확인해야 한다. 이 PR 이 고치는 병이 바로 그것이다.
         createPointType()
+        assertTrue(pointTypeRepository.count() > 0, "검사할 포인트가 없으면 조용한 것이 뜻이 없다")
+
         issuanceAccountGuard.run(DefaultApplicationArguments())
     }
 
