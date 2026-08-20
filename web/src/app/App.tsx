@@ -149,9 +149,16 @@ export default function App() {
   useEffect(() => {
     const previous = lastUser.current
     lastUser.current = userId
-    // 앞사람이 **있었고** 다른 사람일 때만. 아직 모르는 데서 오는 것도, 로그아웃에서
-    // 오는 것도 사람이 바뀐 것이 아니다 — 물려받을 앞사람의 화면이 없다.
-    if (typeof previous !== 'string' || previous === userId) return
+    /*
+     * 앞사람이 **있었고** 다른 사람일 때만. 아직 모르는 데서 오는 것도, 로그아웃에서
+     * 오는 것도 사람이 바뀐 것이 아니다 — 물려받을 앞사람의 화면이 없다.
+     *
+     * 이름을 두는 것은 식이 그 물음을 말하게 하려는 것이다. 값이 셋이라 줄여 쓰는
+     * 흔한 관용이 전부 틀린다 — `previous == null` 은 심볼에 거짓이고, `!previous`
+     * 도 심볼이 truthy 라 거짓이다.
+     */
+    const hadUser = typeof previous === 'string'
+    if (!hadUser || previous === userId) return
     resetNav()
     endFlow()
   }, [userId, resetNav, endFlow])
