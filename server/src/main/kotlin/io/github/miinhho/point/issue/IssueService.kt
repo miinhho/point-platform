@@ -5,8 +5,8 @@ import io.github.miinhho.point.pointtype.PointTypeRepository
 import io.github.miinhho.point.shared.DomainFailureException
 import io.github.miinhho.point.shared.FailureCode
 import io.github.miinhho.point.user.UserRepository
-import io.github.miinhho.point.wallet.BalanceInitializer
-import io.github.miinhho.point.wallet.BalanceRepository
+import io.github.miinhho.point.ledger.AccountInitializer
+import io.github.miinhho.point.ledger.AccountRepository
 import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.stereotype.Service
 import org.springframework.transaction.UnexpectedRollbackException
@@ -19,8 +19,8 @@ class IssueService(
     private val issueRepository: IssueRepository,
     private val pointTypeRepository: PointTypeRepository,
     private val userRepository: UserRepository,
-    private val balanceRepository: BalanceRepository,
-    private val balanceInitializer: BalanceInitializer,
+    private val accountRepository: AccountRepository,
+    private val accountInitializer: AccountInitializer,
     private val bankAccess: BankAccess,
 ) {
     @Transactional(readOnly = true)
@@ -46,7 +46,7 @@ class IssueService(
 
         // 잔액 행 생성이 point_types 를 잠그기 전에 끝나야 한다 — 그 삽입은 FK 확인으로
         // 부모 행의 공유 락을 잡는데, 이 트랜잭션이 이미 배타 락을 쥐고 있으면 서로를 기다린다.
-        ensureBalanceRow(meId, id)
+        ensureAccount(meId, id)
 
         val pointType = pointTypeRepository.findForUpdate(id)!!
         // NOT_ISSUER 로 답하면 닿을 수 없는 비공개 은행이 없는 포인트(404)와 갈려 존재가 샌다.
@@ -58,7 +58,7 @@ class IssueService(
             throw DomainFailureException(FailureCode.CAP_EXCEEDED, "발행 상한 초과")
         }
 
-        balanceRepository.credit(meId, id, amount)
+        accountRepository.credit(meId, id, amount)
         pointType.totalIssued += amount
         pointTypeRepository.save(pointType)
 
@@ -77,10 +77,10 @@ class IssueService(
 
     // 중복키는 오류가 아니라 "다른 요청이 먼저 만들었다"는 뜻이다. 별도 트랜잭션이라
     // 그 롤백이 진행 중인 발행에 닿지 않는다.
-    private fun ensureBalanceRow(userId: Long, pointTypeId: Long) {
-        if (balanceInitializer.exists(userId, pointTypeId)) return
+    private fun ensureAccount(userId: Long, pointTypeId: Long) {
+        if (accountInitializer.exists(userId, pointTypeId)) return
         try {
-            balanceInitializer.create(userId, pointTypeId)
+            accountInitializer.create(userId, pointTypeId)
         } catch (_: DataIntegrityViolationException) {
         } catch (_: UnexpectedRollbackException) {
         }

@@ -35,16 +35,23 @@ create table point_types (
     constraint fk_point_types_issuer foreign key (issuer_id) references users (id)
 ) engine = InnoDB;
 
--- PK 가 (point_type_id, user_id) 순이라 "이 사용자의 잔액 전부" 가 leftmost prefix 를
--- 타지 못한다. user_id 단독 인덱스를 따로 둔다.
-create table balances (
-    amount        bigint not null,
+-- 잔액은 전기의 합을 접어 둔 것이다. 판정에 쓸 수 있는 이유는 같은 트랜잭션에서 잠글 수
+-- 있어서다 — 지연될 수 있는 사본은 못 쓴다 (docs/LEDGER.md).
+create table accounts (
+    id            bigint not null auto_increment,
     point_type_id bigint not null,
-    user_id       bigint not null,
-    primary key (point_type_id, user_id),
-    key ix_balances_user (user_id),
-    constraint fk_balances_point_type foreign key (point_type_id) references point_types (id),
-    constraint fk_balances_user foreign key (user_id) references users (id)
+    -- 발행 계정에는 보유자가 없다.
+    user_id       bigint null,
+    kind          enum ('HOLDER','ISSUANCE') not null,
+    balance       bigint not null,
+    -- NULL 끼리는 unique 에서 안 부딪히므로 그대로 두면 한 포인트에 발행 계정이 둘 생긴다.
+    -- 0 으로 접어서 막는다. 사용자 id 는 1 부터라 겹치지 않는다.
+    holder_key    bigint generated always as (coalesce(user_id, 0)) stored,
+    primary key (id),
+    constraint uk_accounts_point_type_holder unique (point_type_id, holder_key),
+    key ix_accounts_user (user_id),
+    constraint fk_accounts_point_type foreign key (point_type_id) references point_types (id),
+    constraint fk_accounts_user foreign key (user_id) references users (id)
 ) engine = InnoDB;
 
 -- status 컬럼이 없다. 저장된 이체는 언제나 확정된 것이다 (docs/JOURNEY.md 「버린 것」).

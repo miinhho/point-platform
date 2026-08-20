@@ -14,8 +14,9 @@ import io.github.miinhho.point.pointtype.PointVisibility
 import io.github.miinhho.point.transfer.TransferRequest
 import io.github.miinhho.point.user.User
 import io.github.miinhho.point.user.UserRepository
-import io.github.miinhho.point.wallet.Balance
-import io.github.miinhho.point.wallet.BalanceRepository
+import io.github.miinhho.point.ledger.Account
+import io.github.miinhho.point.ledger.AccountKind
+import io.github.miinhho.point.ledger.AccountRepository
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -50,7 +51,7 @@ class BankPageTest {
     @Autowired lateinit var userRepository: UserRepository
     @Autowired lateinit var pointTypeRepository: PointTypeRepository
     @Autowired lateinit var membershipRepository: MembershipRepository
-    @Autowired lateinit var balanceRepository: BalanceRepository
+    @Autowired lateinit var accountRepository: AccountRepository
     @Autowired lateinit var passwordEncoder: PasswordEncoder
 
     lateinit var issuer: User
@@ -75,7 +76,7 @@ class BankPageTest {
         // 은행장은 언제나 회원이다. 나간 사람은 회원이 아닌 채로 잔액만 남는다.
         membershipRepository.save(Membership(pointType = closed, user = issuer))
         membershipRepository.save(Membership(pointType = closed, user = member))
-        balanceRepository.save(Balance(user = leftBehind, pointType = closed, amount = 3_000))
+        accountRepository.save(Account(pointType = closed, user = leftBehind, kind = AccountKind.HOLDER, balance = 3_000))
     }
 
     @Test
@@ -125,7 +126,7 @@ class BankPageTest {
     @Test
     fun `거절당한 이체가 남긴 잔액 0 행은 문을 열어 주지 않는다`() {
         // 잔액 0 행이 있는 상태 — 이체가 차감에 실패해도 이 행은 남는다.
-        balanceRepository.save(Balance(user = stranger, pointType = closed, amount = 0))
+        accountRepository.save(Account(pointType = closed, user = stranger, kind = AccountKind.HOLDER, balance = 0))
 
         assertEquals(HttpStatus.NOT_FOUND, get(stranger, "/api/point-types/${closed.publicId}").statusCode)
         val list = assertNotNull(get(stranger, "/api/point-types").body)

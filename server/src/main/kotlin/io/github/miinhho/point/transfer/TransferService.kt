@@ -1,10 +1,9 @@
 package io.github.miinhho.point.transfer
 
-import io.github.miinhho.point.wallet.BalanceInitializer
+import io.github.miinhho.point.ledger.AccountInitializer
 import io.github.miinhho.point.shared.DomainFailureException
 import io.github.miinhho.point.shared.FailureCode
-import io.github.miinhho.point.wallet.Balance
-import io.github.miinhho.point.wallet.BalanceRepository
+import io.github.miinhho.point.ledger.AccountRepository
 import io.github.miinhho.point.pointtype.BankAccess
 import io.github.miinhho.point.pointtype.PointType
 import io.github.miinhho.point.pointtype.PointTypeRepository
@@ -21,9 +20,9 @@ import java.util.UUID
 class TransferService(
     private val pointTypeRepository: PointTypeRepository,
     private val userRepository: UserRepository,
-    private val balanceRepository: BalanceRepository,
+    private val accountRepository: AccountRepository,
     private val transferRepository: TransferRepository,
-    private val balanceInitializer: BalanceInitializer,
+    private val accountInitializer: AccountInitializer,
     private val bankAccess: BankAccess,
 ) {
     // 관여한 사람만 읽는다 — 남의 것은 없는 것과 같다 (docs/API.md).
@@ -49,15 +48,15 @@ class TransferService(
         val sender = userRepository.getReferenceById(meId)
         val recipientId = recipient.id!!
         val pointTypeId = pointType.id!!
-        listOf(meId, recipientId).sorted().forEach { ensureBalanceRow(it, pointTypeId) }
+        listOf(meId, recipientId).sorted().forEach { ensureAccount(it, pointTypeId) }
 
         // 오름차순으로 건드린다 — 반대 방향 이체(A→B, B→A)가 겹칠 때 순서가 어긋나면 교착이다.
         // 차감이 실패하면 예외가 트랜잭션을 되돌리므로 먼저 더한 것도 함께 사라진다.
         if (meId < recipientId) {
             debitOrFail(meId, pointTypeId, amount)
-            balanceRepository.credit(recipientId, pointTypeId, amount)
+            accountRepository.credit(recipientId, pointTypeId, amount)
         } else {
-            balanceRepository.credit(recipientId, pointTypeId, amount)
+            accountRepository.credit(recipientId, pointTypeId, amount)
             debitOrFail(meId, pointTypeId, amount)
         }
 
@@ -81,17 +80,17 @@ class TransferService(
 
     // 영향 행 0 은 조건(balance >= amount)이 거짓이었다는 뜻이다.
     private fun debitOrFail(userId: Long, pointTypeId: Long, amount: Long) {
-        if (balanceRepository.debit(userId, pointTypeId, amount) == 0) {
+        if (accountRepository.debit(userId, pointTypeId, amount) == 0) {
             throw DomainFailureException(FailureCode.INSUFFICIENT_BALANCE, "잔액 부족")
         }
     }
 
     // 중복키는 오류가 아니라 "다른 요청이 먼저 만들었다"는 뜻이다. 별도 트랜잭션이라
     // 그 롤백이 진행 중인 이체에 닿지 않는다.
-    private fun ensureBalanceRow(userId: Long, pointTypeId: Long) {
-        if (balanceInitializer.exists(userId, pointTypeId)) return
+    private fun ensureAccount(userId: Long, pointTypeId: Long) {
+        if (accountInitializer.exists(userId, pointTypeId)) return
         try {
-            balanceInitializer.create(userId, pointTypeId)
+            accountInitializer.create(userId, pointTypeId)
         } catch (_: DataIntegrityViolationException) {
         } catch (_: UnexpectedRollbackException) {
         }

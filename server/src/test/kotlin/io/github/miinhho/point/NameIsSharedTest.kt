@@ -3,8 +3,9 @@ package io.github.miinhho.point
 import io.github.miinhho.point.auth.LoginRequest
 import io.github.miinhho.point.auth.LoginResponse
 import io.github.miinhho.point.auth.RefreshTokenRepository
-import io.github.miinhho.point.wallet.Balance
-import io.github.miinhho.point.wallet.BalanceRepository
+import io.github.miinhho.point.ledger.Account
+import io.github.miinhho.point.ledger.AccountKind
+import io.github.miinhho.point.ledger.AccountRepository
 import io.github.miinhho.point.pointtype.PointAccent
 import io.github.miinhho.point.pointtype.PointType
 import io.github.miinhho.point.pointtype.PointTypeRepository
@@ -41,7 +42,7 @@ class NameIsSharedTest {
     @Autowired lateinit var restTemplate: TestRestTemplate
     @Autowired lateinit var userRepository: UserRepository
     @Autowired lateinit var pointTypeRepository: PointTypeRepository
-    @Autowired lateinit var balanceRepository: BalanceRepository
+    @Autowired lateinit var accountRepository: AccountRepository
     @Autowired lateinit var transferRepository: TransferRepository
     @Autowired lateinit var refreshTokenRepository: RefreshTokenRepository
     @Autowired lateinit var passwordEncoder: PasswordEncoder
@@ -61,7 +62,7 @@ class NameIsSharedTest {
         pointTypeRepository.save(point("온포인트", "🟣", solcafe, PointAccent.TEAL))
         pointTypeRepository.save(point("솔포인트", "🌞", solcafe, PointAccent.GREEN))
 
-        balanceRepository.save(Balance(user = jisoo, pointType = onFromOnmart, amount = 812_000))
+        accountRepository.save(Account(pointType = onFromOnmart, user = jisoo, kind = AccountKind.HOLDER, balance = 812_000))
     }
 
     @Test

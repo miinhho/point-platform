@@ -9,8 +9,9 @@ import io.github.miinhho.point.auth.LoginRequest
 import io.github.miinhho.point.auth.LoginResponse
 import io.github.miinhho.point.auth.RefreshRequest
 import io.github.miinhho.point.auth.RefreshTokenRepository
-import io.github.miinhho.point.wallet.Balance
-import io.github.miinhho.point.wallet.BalanceRepository
+import io.github.miinhho.point.ledger.Account
+import io.github.miinhho.point.ledger.AccountKind
+import io.github.miinhho.point.ledger.AccountRepository
 import io.github.miinhho.point.pointtype.PointAccent
 import io.github.miinhho.point.pointtype.PointType
 import io.github.miinhho.point.pointtype.PointTypeRepository
@@ -55,7 +56,7 @@ class ConcurrencyTest {
     @Autowired lateinit var restTemplate: TestRestTemplate
     @Autowired lateinit var userRepository: UserRepository
     @Autowired lateinit var pointTypeRepository: PointTypeRepository
-    @Autowired lateinit var balanceRepository: BalanceRepository
+    @Autowired lateinit var accountRepository: AccountRepository
     @Autowired lateinit var transferRepository: TransferRepository
     @Autowired lateinit var refreshTokenRepository: RefreshTokenRepository
     @Autowired lateinit var capChangeRepository: CapChangeRepository
@@ -162,7 +163,7 @@ class ConcurrencyTest {
     fun `다른 사용자가 같은 키로 보내면 둘 다 각각 성공한다`() {
         giveBalance(issuer, 100_000)
         val third = userRepository.save(user("@taeyun", "박태윤"))
-        balanceRepository.save(Balance(user = third, pointType = pointType, amount = 100_000))
+        accountRepository.save(Account(pointType = pointType, user = third, kind = AccountKind.HOLDER, balance = 100_000))
         val key = UUID.randomUUID().toString()
 
         val mine = postTransfer(
@@ -422,11 +423,13 @@ class ConcurrencyTest {
         User(name = name, handle = handle, passwordHash = passwordEncoder.encode("point")!!)
 
     private fun giveBalance(user: User, amount: Long) {
-        balanceRepository.save(Balance(user = user, pointType = pointType, amount = amount))
+        accountRepository.save(
+            Account(pointType = pointType, user = user, kind = AccountKind.HOLDER, balance = amount),
+        )
     }
 
     private fun balanceOf(user: User) =
-        balanceRepository.findByUserId(user.id!!).firstOrNull { it.pointType.id == pointType.id }?.amount ?: 0
+        accountRepository.findByUserId(user.id!!).firstOrNull { it.pointType.id == pointType.id }?.balance ?: 0
 
     private fun publicId(user: User) = user.publicId.toString()
     private fun publicPointTypeId() = pointType.publicId.toString()
