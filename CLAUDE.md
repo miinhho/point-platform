@@ -106,6 +106,7 @@ TanStack Query, 클라이언트가 진실인 것(플로우·선택된 포인트�
 |---|---|
 | 순서와 기술 결정 | `docs/REBUILD.md` |
 | HTTP 계약 | `docs/API.md` |
+| 원장 설계 | `docs/LEDGER.md` |
 | 실기기 관측 | `docs/FIELD.md` |
 | QA 가 보는 법 | `docs/QA.md` |
 | 연출 — 시선·인지·행동 | `docs/MOTION.md` |
