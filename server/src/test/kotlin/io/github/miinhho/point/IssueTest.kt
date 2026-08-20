@@ -59,7 +59,7 @@ class IssueTest {
         point = bankFixture.open(
             PointType(
                 name = "온포인트",
-                emoji = "🔵",
+                emoji = "🏪",
                 issuer = issuer,
                 accent = PointAccent.BLUE,
                 visibility = PointVisibility.PUBLIC,
@@ -96,7 +96,7 @@ class IssueTest {
         // 목록에서 제대로 읽은 것이 그 줄을 눌렀을 때 부정되면 안 된다.
         listOf(created, assertNotNull(get(issuer, "/api/issues/$id").body)).forEach {
             assertTrue(it.contains("\"point\":{"), it)
-            assertTrue(it.contains("\"emoji\":\"🔵\"") && it.contains("\"issuerHandle\":\"@onmart\""), it)
+            assertTrue(it.contains("\"emoji\":\"🏪\"") && it.contains("\"issuerHandle\":\"@onmart\""), it)
         }
     }
 
@@ -174,7 +174,7 @@ class IssueTest {
             assertTrue(points.isNotEmpty(), "모든 줄에 표기가 붙는다: $history")
             points.forEach {
                 assertTrue(it.value.contains("\"name\":\"온포인트\""), it.value)
-                assertTrue(it.value.contains("\"emoji\":\"🔵\""), it.value)
+                assertTrue(it.value.contains("\"emoji\":\"🏪\""), it.value)
                 assertTrue(it.value.contains("\"accent\":\"blue\""), it.value)
                 assertTrue(it.value.contains("\"issuerHandle\":\"@onmart\""), it.value)
                 assertTrue(it.value.contains("\"nameIsShared\":false"), it.value)
