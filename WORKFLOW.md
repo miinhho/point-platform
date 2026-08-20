@@ -424,6 +424,10 @@ Findings are either:
 Findings come from QA, cross-review, or Review. **Review sends them straight to the owning
 session**; the Orchestrator is involved only when the contract itself is wrong.
 
+**보고에 「본 것」 줄이 없으면 되돌린다.** 앞 절의 한 줄이다 — 시점과 범위가 없는 지적은
+받는 쪽이 그 둘을 추측해야 하고, 추측이 틀리면 고칠 필요 없는 것을 고치거나 남의 작업
+순서가 바뀐다.
+
 Blocking findings return to the owning agent:
 
 ```text id="ngqt5s"
