@@ -6,6 +6,7 @@ import type {
   Issue,
   IssueDetail,
   IssueId,
+  Membership,
   PointAccent,
   PointVisibility,
   PointType,
@@ -64,9 +65,10 @@ function seedUsers(): SeedUser[] {
 }
 
 /** 하나는 내가 발행자, 둘은 보유자다. 그 조합이 실제 상태다. */
+/** 씨앗은 보는 사람과 무관한 것만 갖는다. 나머지는 `viewOf` 가 요청자 기준으로 낸다 */
 type SeedPoint = Omit<
   PointType,
-  'canIssue' | 'issuableHeadroom' | 'nameIsShared' | 'memberCount'
+  'canIssue' | 'issuableHeadroom' | 'nameIsShared' | 'memberCount' | 'membership'
 >
 
 function seedPointTypes(): SeedPoint[] {
@@ -377,7 +379,15 @@ export function viewOf(pointType: SeedPoint, userId: UserId): PointType {
     // 공개 은행에는 회원 개념이 없다. 0 이 아니라 null 이어야 그 차이가 남는다.
     memberCount:
       pointType.visibility === 'private' ? (state.members.get(pointType.id)?.size ?? 0) : null,
+    membership: membershipOf(pointType, userId),
   }
+}
+
+/** 계약: docs/API.md 「membership 을 서버가 싣는다」 */
+function membershipOf(pointType: SeedPoint, userId: UserId): Membership | null {
+  if (pointType.visibility === 'public') return null
+  if (isMember(pointType.id, userId)) return 'member'
+  return isInvited(pointType.id, userId) ? 'invited' : 'outsider'
 }
 
 /**

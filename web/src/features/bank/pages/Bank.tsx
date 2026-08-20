@@ -23,7 +23,7 @@ import { ChangeCap } from './ChangeCap'
  */
 export function Bank({ pointTypeId, onBack }: { pointTypeId: PointTypeId; onBack: () => void }) {
   const { t } = useTranslation()
-  const { pointType, balance, me, invite, isPrivate, outside, pending, failed, retry } =
+  const { pointType, balance, me, inviteId, isPrivate, outside, pending, failed, retry } =
     useBankPage(pointTypeId)
   const startTransfer = useSetAtom(startTransferAtom)
   const startIssue = useSetAtom(startIssueAtom)
@@ -81,7 +81,7 @@ export function Bank({ pointTypeId, onBack }: { pointTypeId: PointTypeId; onBack
 
       <Body>
         <Gutter paddingTop="inset" paddingBottom="part" colorPalette={pointType.accent}>
-          {invite ? <Join inviteId={invite.id} pointTypeId={pointTypeId} /> : null}
+          {inviteId ? <Join inviteId={inviteId} pointTypeId={pointTypeId} /> : null}
 
           {/* 나온 사람의 Attention 은 「왜 못 쓰나」다. 잔액보다 먼저 온다 */}
           {outside ? <Outside /> : null}
@@ -149,7 +149,7 @@ export function Bank({ pointTypeId, onBack }: { pointTypeId: PointTypeId; onBack
           ) : null}
 
           {/* 회원이지만 은행장은 아닌 사람 — 명부는 볼 수 있으나 그의 주된 일이 아니다 */}
-          {isPrivate && !invite && !outside && !pointType.canIssue ? (
+          {pointType.membership === 'member' && !pointType.canIssue ? (
             <Box marginTop="inset">
               <Button
                 size="sm"

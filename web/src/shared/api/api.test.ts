@@ -1133,3 +1133,86 @@ describe('토큰 갱신', () => {
     expect(types.length).toBeGreaterThan(0)
   })
 })
+
+/**
+ * 무엇을 증명하고 무엇을 증명하지 않는가.
+ *
+ * **증명한다**: Mock 이 계약에서 멀어지지 않는다.
+ * **증명하지 않는다**: 실서버가 계약을 지킨다. 여기서 도는 것은 MSW 핸들러뿐이라
+ * 서버의 같은 결함(초대 행을 남겨 내보낸 사람이 걸어 들어온 것 — `aed8d72`)은
+ * 이 테스트로 잡히지 않았고 앞으로도 안 잡힌다.
+ *
+ * 그래도 두는 이유는 그 결함이 Mock 에는 **우연히** 없었기 때문이다. 우연은
+ * 다음 변경에서 사라진다.
+ */
+describe('Mock 이 회원 자격 계약에서 멀어지지 않는다', () => {
+  it('내보낸 사람의 초대함에 그 은행이 남지 않는다', async () => {
+    await endpoints.createInvite('pt_cl', 'u_jisu', key())
+
+    setTokens(await endpoints.login({ handle: '@jisu', password: 'point' }))
+    const received = await endpoints.invites()
+    expect(received).toHaveLength(1)
+    await endpoints.acceptInvite(received[0].id)
+    // 수락하면 소진된다
+    await expect(endpoints.invites()).resolves.toEqual([])
+
+    setTokens(await endpoints.login({ handle: '@minho', password: 'point' }))
+    await endpoints.removeMember('pt_cl', 'u_jisu')
+
+    setTokens(await endpoints.login({ handle: '@jisu', password: 'point' }))
+    // 남아 있으면 내보내진 사람이 스스로 걸어 들어온다. 은행장에게는 막을 수단이 없다
+    await expect(endpoints.invites()).resolves.toEqual([])
+
+    /*
+     * 목록에서 숨기는 것만으로는 부족하다. id 를 들고 있는 사람은 목록을 안 거치고
+     * 바로 수락할 수 있으므로, 그 문도 닫혀 있어야 「걸어 들어오지 못한다」가 참이다.
+     *
+     * 소진된 초대 일반의 답은 아직 계약에 없다(조율 판정 대기). 여기서 단언하는 것은
+     * 계약이 이미 정한 것 하나 — **내보내진 사람은 돌아오지 못한다** 뿐이다.
+     */
+    await expect(endpoints.acceptInvite(received[0].id)).rejects.toMatchObject({
+      code: 'INVITE_NOT_FOUND',
+      status: 404,
+    })
+  })
+
+  it('소진된 뒤 다시 초대하면 새 초대가 온다 — 되살리는 것은 은행장의 새 의사다', async () => {
+    await endpoints.createInvite('pt_cl', 'u_jisu', key())
+    setTokens(await endpoints.login({ handle: '@jisu', password: 'point' }))
+    const first = (await endpoints.invites())[0]
+    await endpoints.acceptInvite(first.id)
+
+    setTokens(await endpoints.login({ handle: '@minho', password: 'point' }))
+    await endpoints.removeMember('pt_cl', 'u_jisu')
+    const again = await endpoints.createInvite('pt_cl', 'u_jisu', key())
+    expect(again.id).not.toBe(first.id)
+  })
+})
+
+describe('membership 을 서버가 싣는다', () => {
+  it('공개 은행에는 회원 개념이 없다 — null 이다', async () => {
+    const open = await endpoints.pointType('pt_on')
+    expect(open.membership).toBeNull()
+  })
+
+  it('회원 · 초대받은 사람 · 나온 사람이 셋으로 갈린다', async () => {
+    expect((await endpoints.pointType('pt_cl')).membership).toBe('member')
+
+    await endpoints.createInvite('pt_cl', 'u_jisu', key())
+    setTokens(await endpoints.login({ handle: '@jisu', password: 'point' }))
+    expect((await endpoints.pointType('pt_cl')).membership).toBe('invited')
+
+    const invite = (await endpoints.invites())[0]
+    await endpoints.acceptInvite(invite.id)
+    expect((await endpoints.pointType('pt_cl')).membership).toBe('member')
+
+    // 나온 사람에게 은행 페이지가 보이려면 잔액이 남아 있어야 한다 — 잔액 행이
+    // 이미 닿았다는 증거다. 계약: docs/API.md 「회원 자격」
+    setTokens(await endpoints.login({ handle: '@minho', password: 'point' }))
+    await endpoints.createTransfer({ pointTypeId: 'pt_cl', toId: 'u_jisu', amount: 100 }, key())
+
+    setTokens(await endpoints.login({ handle: '@jisu', password: 'point' }))
+    await endpoints.leaveBank('pt_cl')
+    expect((await endpoints.pointType('pt_cl')).membership).toBe('outsider')
+  })
+})

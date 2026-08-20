@@ -2,6 +2,8 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { screen, waitFor } from '@testing-library/react'
 import { userEvent } from '@testing-library/user-event'
+import { http, HttpResponse } from 'msw'
+import { server } from '@/mocks/node'
 import { renderApp, signInAs } from '@/test/render'
 import App from '@/app/App'
 
@@ -124,6 +126,38 @@ describe('위계는 역할마다 다르다', () => {
       '이 은행의 회원이 아니에요',
       '내 잔액',
     ])
+  })
+
+  /*
+   * 「회원인가」는 서버가 `membership` 으로 답한다 — 계약: docs/API.md.
+   * 명부 조회의 실패에서 역산하던 자리이고, 그때는 서버가 넘어지면 회원에게
+   * 「회원이 아니에요」라고 말했다. 관측: docs/FIELD.md W7
+   */
+  it('명부 조회가 넘어져도 회원에게 회원이 아니라고 하지 않는다', async () => {
+    server.use(
+      http.get('*/api/point-types/:id/members', () =>
+        HttpResponse.json({ code: 'SERVER', outcome: 'none', message: '' }, { status: 500 }),
+      ),
+    )
+    await openBank('동아리회비')
+
+    expect(screen.queryByText('이 은행의 회원이 아니에요')).toBeNull()
+    expect(screen.getByText('회원')).toBeTruthy()
+  })
+
+  // 답을 쓰려는 게 아니라 실패를 읽으려고 쏘던 요청이다. 그 자체가 냄새였다
+  it('회원 여부를 알려고 명부를 쏘지 않는다', async () => {
+    const asked: string[] = []
+    server.events.on('request:start', ({ request }) => asked.push(new URL(request.url).pathname))
+
+    await signInAs('@jisoo')
+    const user = userEvent.setup()
+    renderApp(<App />)
+    await user.click(await screen.findByRole('button', { name: '동아리회비 자세히' }))
+    await screen.findByRole('heading', { name: '동아리회비' })
+    await waitFor(() => expect(screen.getAllByRole('banner')).toHaveLength(1))
+
+    expect(asked.filter((path) => path.endsWith('/members'))).toEqual([])
   })
 })
 

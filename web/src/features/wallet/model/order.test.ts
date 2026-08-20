@@ -14,6 +14,7 @@ const point = (id: string, name: string, accent: PointAccent = 'blue'): PointTyp
   createdAt: '2024-01-01T00:00:00.000Z',
   visibility: 'public',
   memberCount: null,
+  membership: null,
   accent,
   totalIssued: 1_000,
   issueCap: 10_000,
