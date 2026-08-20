@@ -320,6 +320,13 @@ export function findPointType(pointTypeId: PointTypeId, userId: UserId): PointTy
  * 가르는 규칙이 아니다 — 잔액 행이 있다는 것은 이미 닿았다는 증거이고, 이미 아는
  * 것을 감추면 감춰지는 것이 아니라 고장난 것처럼 보인다. 계약: docs/API.md
  */
+/**
+ * 이 은행의 **존재를 알아도 되는가.** 지갑이 담는 기준과 다르고, 맞추면 틀린다 —
+ * 계약: docs/API.md 「지갑과 도달성은 다른 물음이다」
+ *
+ * 여기서 잔액을 보는 이유는 나온 사람의 언 잔액이 계약이 의도해서 만든 상태이기
+ * 때문이다. 카드는 있는데 페이지가 없으면 같은 사실을 두 곳이 다르게 말한다.
+ */
 function reachable(pointType: SeedPoint, userId: UserId): boolean {
   return (
     pointType.visibility === 'public' ||
@@ -352,7 +359,13 @@ export function balanceOf(pointTypeId: PointTypeId, userId: UserId): Points {
   return state.balances.get(balanceKey(pointTypeId, userId)) ?? 0
 }
 
-/** 잔액 0 도 발행자라면 포함한다. 걸러 내면 화면이 그 상태를 표현할 수 없다. */
+/**
+ * **담는 기준은 잔액이 아니라 관계다** — 계약: docs/API.md.
+ *
+ * 잔액 0 이어도 발행자이거나 회원이면 담는다. 걸러 내면 화면이 그 상태를 표현할 수
+ * 없다 — 초대를 수락한 사람은 처음엔 잔액이 0 이고, 수락이 초대를 소진시키므로
+ * 들어온 문마저 닫힌다. 가입은 됐는데 그 은행이 어느 화면에도 없게 된다.
+ */
 export function balancesOf(userId: UserId) {
   return seedPoints()
     .map((pointType) => {
@@ -366,7 +379,10 @@ export function balancesOf(userId: UserId) {
         neverSpent: !state.spent.has(balanceKey(pointType.id, userId)),
       }
     })
-    .filter(({ pointType, amount }) => amount > 0 || pointType.canIssue)
+    .filter(
+      ({ pointType, amount }) =>
+        amount > 0 || pointType.canIssue || pointType.membership === 'member',
+    )
 }
 
 /** 요청자 기준으로 본 포인트. 권한과 여력은 보는 사람에 따라 다르다. */

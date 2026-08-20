@@ -23,7 +23,7 @@ import { ChangeCap } from './ChangeCap'
  */
 export function Bank({ pointTypeId, onBack }: { pointTypeId: PointTypeId; onBack: () => void }) {
   const { t } = useTranslation()
-  const { pointType, balance, me, invited, isPrivate, outside, pending, failed, retry } =
+  const { pointType, balance, me, invited, isPrivate, outside, pending, failed, absent, retry } =
     useBankPage(pointTypeId)
   const startTransfer = useSetAtom(startTransferAtom)
   const startIssue = useSetAtom(startIssueAtom)
@@ -42,6 +42,8 @@ export function Bank({ pointTypeId, onBack }: { pointTypeId: PointTypeId; onBack
           <Loadable
             pending={pending}
             failed={failed}
+            absent={absent}
+            absentLabel={t('bank.absent')}
             onRetry={retry}
             label={t('bank.loadFailed')}
             skeleton={

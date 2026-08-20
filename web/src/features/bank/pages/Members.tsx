@@ -5,6 +5,7 @@ import { failureTitleKey } from '@/shared/i18n/keys'
 import { BackButton } from '@/shared/ui/BackButton'
 import { Loadable, RowSkeleton } from '@/shared/ui/Loadable'
 import { Body, Footer, Gutter, Header, Row, Screen, Title } from '@/shared/ui/Screen'
+import { useBankGate } from '../model/useBankGate'
 import { useMembersPage } from '../model/useMembersPage'
 
 interface Props {
@@ -20,11 +21,46 @@ interface Props {
  */
 export function Members({ pointTypeId, onBack, onLeft }: Props) {
   const { t } = useTranslation()
-  const { pointType, members, error, busy, remove, leave, pending, failed, retry } =
-    useMembersPage(pointTypeId, onLeft)
+  const {
+    pointType, members, error, busy, remove, leave,
+    pending, failed, retry, bankPending, bankFailed, bankAbsent, retryBank,
+  } = useMembersPage(pointTypeId, onLeft)
+  // 회원만 보는 명부다. 막혀 있으면 은행 페이지로 대체한다 — docs/REBUILD.md 「주소」
+  useBankGate(pointTypeId, 'member')
 
-  // 은행 조회는 이 화면에 오기 전에 이미 캐시에 있다. 없으면 잠깐 비었다가 찬다.
-  if (!pointType) return null
+  /*
+   * 은행을 아직 모르면 **헤더는 남긴다.** 통째로 비우면 돌아갈 길이 사라지고,
+   * 못 불러온 것이 「없다」로 읽힌다 — 규칙: CLAUDE.md
+   */
+  if (!pointType) {
+    return (
+      <Screen>
+        <Header>
+          <BackButton onClick={onBack} />
+          <Title>{t('bank.members')}</Title>
+        </Header>
+        <Body>
+          <Loadable
+            pending={bankPending}
+            failed={bankFailed}
+            absent={bankAbsent}
+            absentLabel={t('bank.absent')}
+            onRetry={retryBank}
+            label={t('bank.loadFailed')}
+            skeleton={
+              <>
+                {[0, 1, 2].map((row) => (
+                  <RowSkeleton key={row} trailing="64px" />
+                ))}
+              </>
+            }
+          >
+            {null}
+          </Loadable>
+        </Body>
+      </Screen>
+    )
+  }
 
   return (
     <Screen>

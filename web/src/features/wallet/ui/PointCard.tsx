@@ -21,12 +21,18 @@ export function PointCard({ balance, isMine, onOpen, onBank }: Props) {
   const { t } = useTranslation()
   const { pointType, amount, sendable, neverSpent } = balance
   const empty = amount === 0
+  /*
+   * 세 번째 0 — 들어왔지만 아직 없다. 「가진 적 없는 0」과 같은 값인데 뜻이 다르다.
+   * 방금 가입한 은행이 「보낼 잔액이 없어요」로 흐려지면 다음 할 일이 가장 확실한
+   * 카드가 흐려진다. 근거: docs/JOURNEY.md 여정 1
+   */
+  const justJoined = empty && !isMine && pointType.membership === 'member'
   // 나간 은행의 잔액은 그대로 남지만 쓸 수 없다. 조용히 두면 보낼 수 있다고 믿는다.
   const locked = !empty && sendable === 0
   const openable = !empty && !locked && onOpen
   // 방금 만든 포인트가 정확히 잔액 0 이라 흐려졌다 — 다음 할 일이 가장 확실한 카드였다.
   // 근거: docs/JOURNEY.md 여정 1
-  const dimmed = (empty && !isMine) || locked
+  const dimmed = (empty && !isMine && !justJoined) || locked
   // 카드 안에 버튼을 넣으면 HTML 이 깨지고, 무엇보다 카드의 접근성 이름에
   // 안쪽 버튼의 글자가 섞인다. 카드는 이체로 가는데 이름이 다른 행동을 말하게 된다.
   const Main = openable ? RowButton : Row
@@ -48,7 +54,13 @@ export function PointCard({ balance, isMine, onOpen, onBank }: Props) {
         <IssuerSuffix pointType={pointType} />
         {empty ? (
           <Text textStyle="caption">
-            {t(isMine ? 'home.zeroBalanceIssuer' : 'home.zeroBalance')}
+            {t(
+              isMine
+                ? 'home.zeroBalanceIssuer'
+                : justJoined
+                  ? 'home.joinedNoBalance'
+                  : 'home.zeroBalance',
+            )}
           </Text>
         ) : null}
         {locked ? <Text textStyle="caption">{t('home.locked')}</Text> : null}

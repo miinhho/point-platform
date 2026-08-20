@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { walletQuery } from '@/shared/api'
+import { read, walletQuery } from '@/shared/api'
 import { useSession } from '@/features/auth'
 import type { User } from '@/shared/contract'
 
@@ -9,7 +9,7 @@ export interface SettingsPageView {
 }
 
 export function useSettingsPage(): SettingsPageView {
-  const wallet = useQuery(walletQuery())
+  const wallet = read(useQuery(walletQuery()))
   const { signOut } = useSession()
   return { me: wallet.data?.user ?? null, signOut }
 }

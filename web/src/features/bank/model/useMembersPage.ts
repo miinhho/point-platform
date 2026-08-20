@@ -1,11 +1,20 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ApiError, membersQuery, pointTypeQuery, pointsApi, queryKeys } from '@/shared/api'
+import { ApiError, membersQuery, pointTypeQuery, pointsApi, queryKeys, read } from '@/shared/api'
 import type { PointType, PointTypeId, User, UserId } from '@/shared/contract'
 
 export interface MembersPageView {
+  /** 명부 조회 */
   pending: boolean
   failed: boolean
   retry: () => void
+  /**
+   * 은행 조회. **명부와 따로 다룬다** — 이 화면은 주소로 바로 열 수 있으므로 은행이
+   * 캐시에 있다고 가정할 수 없다. 못 불러온 것을 빈 화면으로 두면 「없다」로 읽힌다.
+   */
+  bankPending: boolean
+  bankFailed: boolean
+  bankAbsent: boolean
+  retryBank: () => void
   pointType: PointType | null
   members: User[]
   /** 내보내기나 나가기가 거절당했다. 둘 중 나중 것이 화면에 남는다 */
@@ -22,8 +31,8 @@ export interface MembersPageView {
  */
 export function useMembersPage(pointTypeId: PointTypeId, onLeft: () => void): MembersPageView {
   const client = useQueryClient()
-  const bank = useQuery(pointTypeQuery(pointTypeId))
-  const list = useQuery(membersQuery(pointTypeId))
+  const bank = read(useQuery(pointTypeQuery(pointTypeId)))
+  const list = read(useQuery(membersQuery(pointTypeId)))
 
   const invalidate = () => {
     void client.invalidateQueries({ queryKey: queryKeys.members(pointTypeId) })
@@ -47,10 +56,14 @@ export function useMembersPage(pointTypeId: PointTypeId, onLeft: () => void): Me
   })
 
   return {
-    pending: list.isPending,
-    failed: list.isError,
-    retry: () => void list.refetch(),
-    pointType: bank.data ?? null,
+    pending: list.pending,
+    failed: list.failed,
+    retry: list.retry,
+    bankPending: bank.pending,
+    bankFailed: bank.failed,
+    bankAbsent: bank.absent,
+    retryBank: bank.retry,
+    pointType: bank.data,
     members: list.data ?? [],
     error:
       [remove.error, leave.error].find(

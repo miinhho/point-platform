@@ -1,9 +1,10 @@
 import { atom } from 'jotai'
-import { pushRoute } from './browserHistory'
+import { pushRoute, replaceRoute } from './browserHistory'
 import {
   currentRoute,
   initialNav,
   push,
+  replace,
   resetToRoot,
   selectTab,
   type NavState,
@@ -19,6 +20,16 @@ export const tabAtom = atom((get) => get(navAtom).tab)
 /** 화면을 연다. 주소가 함께 움직인다 */
 export const goAtom = atom(null, (get, set, route: Route) => {
   commit(set, push(get(navAtom), route))
+})
+
+/**
+ * 지금 화면을 다른 것으로 갈아 끼운다. **히스토리에 쌓지 않는다** — 뒤로 가기가
+ * 막힌 주소로 다시 가면 같은 자리를 돈다.
+ */
+export const replaceRouteAtom = atom(null, (get, set, route: Route) => {
+  const next = replace(get(navAtom), route)
+  set(navAtom, next)
+  replaceRoute(next)
 })
 
 /** 탭을 바꾼다. 그 탭의 스택은 그대로다 — 탭 스택은 세션 안에서 산다 */

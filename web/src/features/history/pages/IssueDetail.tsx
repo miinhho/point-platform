@@ -26,7 +26,7 @@ interface Props {
  */
 export function IssueDetail({ issueId, onBack }: Props) {
   const { t } = useTranslation()
-  const { data: detail, pending, failed, retry } = useIssueDetail(issueId)
+  const { data: detail, pending, failed, absent, retry } = useIssueDetail(issueId)
 
   return (
     <Screen>
@@ -40,6 +40,8 @@ export function IssueDetail({ issueId, onBack }: Props) {
           <Loadable
             pending={pending}
             failed={failed}
+            absent={absent}
+            absentLabel={t('history.detailAbsent')}
             onRetry={retry}
             label={t('history.detailFailed')}
             skeleton={

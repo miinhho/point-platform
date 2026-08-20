@@ -1,6 +1,6 @@
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
-import { invitesApi, newIdempotencyKey, usersQuery } from '@/shared/api'
+import { invitesApi, newIdempotencyKey, read, usersQuery } from '@/shared/api'
 import type { PointTypeId, User, UserId } from '@/shared/contract'
 
 export interface InvitePageView {
@@ -9,7 +9,7 @@ export interface InvitePageView {
   pending: boolean
   failed: boolean
   retry: () => void
-  /** 이미 회원인 사람은 빠져 있다 */
+  /** 이미 회원인 사람은 빠져 있다. 거르지 못했으면 비어 있다 */
   candidates: User[]
   /** 이 화면에 머무는 동안 초대한 사람 */
   invited: ReadonlySet<UserId>
@@ -26,9 +26,10 @@ export function useInvitePage(pointTypeId: PointTypeId): InvitePageView {
   const [query, setQuery] = useState('')
   const [invited, setInvited] = useState<ReadonlySet<UserId>>(new Set())
 
-  const everyone = useQuery(usersQuery(query.trim()))
+  // 전역 검색이다. 이체의 받는 사람 고르기와 같은 목록이라 아무나 부를 수 있다.
+  const everyone = read(useQuery(usersQuery(query.trim())))
   // 회원 판정은 서버가 한다. 화면은 그 답으로 후보를 거를 뿐이다.
-  const members = useQuery(usersQuery('', pointTypeId))
+  const members = read(useQuery(usersQuery('', pointTypeId)))
   const memberIds = new Set(members.data?.map((user) => user.id))
 
   const invite = useMutation({
@@ -38,13 +39,27 @@ export function useInvitePage(pointTypeId: PointTypeId): InvitePageView {
     onSuccess: (_created, toId) => setInvited((previous) => new Set([...previous, toId])),
   })
 
+  /*
+   * **거르지 못한 목록을 보여주지 않는다.** 회원 조회가 실패하면 `memberIds` 가 비고,
+   * 그러면 아무도 안 걸러진 목록이 「초대할 수 있는 사람들」로 보인다 — 못 불러온 것이
+   * 「회원이 없다」로 읽히는 자리다. 그 목록에서 고른 사람은 `ALREADY_MEMBER` 라는
+   * 막다른 답을 만나고, 후보에서 회원을 빼는 것이 바로 그것을 막으려던 것이다.
+   * 규칙: CLAUDE.md · 계약: docs/API.md
+   */
+  const filtered = members.data !== null
+
   return {
     query,
     setQuery,
-    pending: everyone.isPending,
-    failed: everyone.isError,
-    retry: () => void everyone.refetch(),
-    candidates: (everyone.data ?? []).filter((user) => !memberIds.has(user.id)),
+    pending: everyone.pending || members.pending,
+    failed: everyone.failed || members.failed,
+    retry: () => {
+      everyone.retry()
+      members.retry()
+    },
+    candidates: filtered
+      ? (everyone.data ?? []).filter((user) => !memberIds.has(user.id))
+      : [],
     invited,
     busy: invite.isPending,
     invite: (userId) => invite.mutate(userId),

@@ -25,7 +25,7 @@ import { Home } from '@/features/wallet'
 import { ScreenTransition } from '@/shared/ui/ScreenTransition'
 import type { ReactElement } from 'react'
 import { TabBar } from './TabBar'
-import { navAtom, resetNavAtom, routeAtom, toRootAtom } from './atoms'
+import { navAtom, replaceRouteAtom, resetNavAtom, routeAtom, toRootAtom } from './atoms'
 import { useRouting } from './useRouting'
 import type { Route } from './routes'
 
@@ -38,8 +38,14 @@ const TASK: ReadonlySet<Route['name']> = new Set(['createPoint', 'invite', 'memb
 /** 세션을 아직 모른다. 로그아웃(`null`)과 다른 사건이다 */
 const UNKNOWN = Symbol('session-unknown')
 
+interface RouteActions {
+  back: () => void
+  /** 지금 화면을 갈아 끼운다. 돌아갈 수 없게 된 화면을 떠날 때 쓴다 */
+  replace: (route: Route) => void
+}
+
 /** 주소가 있는 화면. switch 라서 라우트를 늘리면 컴파일이 빠뜨린 곳을 잡는다 */
-function RouteScreen({ route, back }: { route: Route; back: () => void }): ReactElement {
+function RouteScreen({ route, back, replace }: { route: Route } & RouteActions): ReactElement {
   switch (route.name) {
     case 'home':
       return <Home />
@@ -56,8 +62,21 @@ function RouteScreen({ route, back }: { route: Route; back: () => void }): React
     case 'invite':
       return <Invite pointTypeId={route.pointTypeId} onBack={back} />
     case 'members':
-      // 나가도 은행 페이지는 계속 보인다. 홈으로 돌려보내면 왜 못 쓰는지 물을 곳이 없다.
-      return <Members pointTypeId={route.pointTypeId} onBack={back} onLeft={back} />
+      /*
+       * 나가면 **홈으로 간다. 잔액이 있든 없든.**
+       *
+       * 은행 페이지로 보내면 잔액이 없는 사람에게는 그 페이지도 없어서 「못
+       * 불러왔어요 · 다시 시도」에 갇힌다 — 자기가 방금 한 일의 결과인데 우리가
+       * 실패했다고 말하는 것이다. 어느 쪽인지 화면이 미리 가르면 서버 규칙을 다시
+       * 계산하게 된다. 잔액이 남았으면 홈 카드로 다시 갈 수 있으니 잃는 것도 없다.
+       */
+      return (
+        <Members
+          pointTypeId={route.pointTypeId}
+          onBack={back}
+          onLeft={() => replace({ name: 'home' })}
+        />
+      )
     case 'createPoint':
       return <CreatePoint onBack={back} />
   }
@@ -123,6 +142,7 @@ export default function App() {
   const endFlow = useSetAtom(endFlowAtom)
   const resetNav = useSetAtom(resetNavAtom)
   const toRoot = useSetAtom(toRootAtom)
+  const replace = useSetAtom(replaceRouteAtom)
   const { submit, check, busy } = useSubmit()
 
   useRouting(busy)
@@ -193,7 +213,7 @@ export default function App() {
           {flow ? (
             <FlowScreen flow={flow} actions={{ back, submit, check, done, busy }} />
           ) : (
-            <RouteScreen route={route} back={back} />
+            <RouteScreen route={route} back={back} replace={replace} />
           )}
         </ScreenTransition>
       </Box>

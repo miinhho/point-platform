@@ -50,6 +50,19 @@ function sourceFiles(dir: string): string[] {
 /** feature 소스 전부. 배럴은 뺀다 — 배럴이 자기 안을 가리키는 것은 정상이다 */
 const FEATURE_SOURCES = sourceFiles('src/features')
 
+/**
+ * 조회를 다루는 곳 전부. `shared/api/read.ts` 는 뺀다 — **그 안에서 가르라고 만든
+ * 함수**라 거기서만 날 상태를 본다.
+ */
+function modelFiles(): string[] {
+  const inFeatures = readdirSync('src/features')
+    .map((name) => join('src/features', name, 'model'))
+    .filter((dir) => existsSync(dir))
+    .flatMap(sourceFiles)
+  const inShared = sourceFiles('src/shared/api').filter((path) => !path.endsWith('read.ts'))
+  return [...inFeatures, ...inShared]
+}
+
 describe('상태 규율', () => {
   // T1 이 호출부 0개인 쿼리 6개를 만들었고, 그 뒤 atom 하나가 또 그랬다 — CLAUDE.md F3
   it('export 된 atom 과 query 는 쓰는 곳이 있다', () => {
@@ -123,6 +136,40 @@ describe('feature 안의 세 자리', () => {
             )
           : []
       }),
+    )
+    expect(offenders).toEqual([])
+  })
+
+  /*
+   * **조회는 `read()` 를 지나서 화면에 간다.**
+   *
+   * TanStack 은 재조회가 실패해도 마지막 성공 데이터를 버리지 않는다. `data` 를
+   * `isError` 보다 먼저 보면 화면이 **옛말을 확신에 차서 한다** — 나간 사람에게
+   * 「나가기」 버튼이 그대로 남은 것이 그것이었다(docs/FIELD.md W16).
+   *
+   * 한 곳이 아니라 열 곳이 넘었다. 그래서 하나씩 막지 않고 한 자리에서 가른다.
+   *
+   * **표기법이 아니라 수를 센다.** `read(useQuery(...))` 를 강요하면 `const q =
+   * useQuery(...)` 로 나눠 쓴 **맞는 코드가 빨개지고**, 그때 사람은 규칙을 끄는 쪽으로
+   * 간다. 줄이 길어져 포매터가 개행해도 같은 일이 난다.
+   */
+  it('조회를 감싸지 않고 지나가지 않는다', () => {
+    const offenders = modelFiles().filter((path) => {
+      const body = readFileSync(path, 'utf8')
+      const queries = [...body.matchAll(/\buseQuer(?:y|ies)\(/g)].length
+      const reads = [...body.matchAll(/\bread\(/g)].length
+      return queries > reads
+    })
+    expect(offenders).toEqual([])
+  })
+
+  /*
+   * 감싼 뒤에 원본을 다시 들여다보면 감싼 의미가 없다. `read()` 는 `failed` 와
+   * `absent` 를 주므로 이 둘이 필요할 일이 없다 — 뮤테이션은 쓰지 않는다.
+   */
+  it('쿼리의 날 상태를 model 이 직접 읽지 않는다', () => {
+    const offenders = modelFiles().filter((path) =>
+      /\.(isError|isSuccess)\b/.test(readFileSync(path, 'utf8')),
     )
     expect(offenders).toEqual([])
   })

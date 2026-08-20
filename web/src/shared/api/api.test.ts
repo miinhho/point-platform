@@ -1240,3 +1240,67 @@ describe('membership 을 서버가 싣는다', () => {
     expect((await endpoints.pointType('pt_cl')).membership).toBe('outsider')
   })
 })
+
+/*
+ * **담는 기준은 잔액이 아니라 관계다** — 계약: docs/API.md.
+ *
+ * 초대를 수락한 사람은 처음엔 잔액이 0 이고, 수락이 초대를 소진시키므로 들어온
+ * 문마저 닫힌다. 걸러 내면 가입은 됐는데 그 은행이 어느 화면에도 없다.
+ */
+describe('지갑은 관계로 담는다', () => {
+  it('회원이면 잔액 0 이어도 담긴다', async () => {
+    await endpoints.createInvite('pt_cl', 'u_jisu', key())
+    setTokens(await endpoints.login({ handle: '@jisu', password: 'point' }))
+
+    const before = (await endpoints.wallet()).balances.find((b) => b.pointType.id === 'pt_cl')
+    expect(before, '초대만 받은 상태에서는 담기지 않는다').toBeUndefined()
+
+    await endpoints.acceptInvite('pt_cl')
+    const after = (await endpoints.wallet()).balances.find((b) => b.pointType.id === 'pt_cl')
+    expect(after).toMatchObject({ amount: 0, sendable: 0 })
+    expect(after?.pointType.membership).toBe('member')
+  })
+
+  it('나가면 다시 빠진다 — 잔액이 없으면 관계도 없다', async () => {
+    await endpoints.createInvite('pt_cl', 'u_jisu', key())
+    setTokens(await endpoints.login({ handle: '@jisu', password: 'point' }))
+    await endpoints.acceptInvite('pt_cl')
+    await endpoints.leaveBank('pt_cl')
+
+    const held = (await endpoints.wallet()).balances.find((b) => b.pointType.id === 'pt_cl')
+    expect(held).toBeUndefined()
+  })
+
+  /*
+   * 지갑을 넓히면 내역이 따라 넓어진다. 계약이 「상한 변경은 **그 포인트가 자기 지갑에
+   * 있는 사람**과 발행자에게 간다」고 하고, 이 Mock 은 그 집합을 `balancesOf` 에서
+   * 그대로 읽는다 — 한 곳을 고쳐 두 곳이 함께 움직인다.
+   *
+   * 방향은 맞아 보인다. 상한은 은행 페이지에 보이는 공개 사실이고, 회원이 그 변화를
+   * 아는 것이 일관된다. 다만 **아무도 의도한 적 없이 따라 움직인 것**이라 적어 둔다.
+   */
+  it('잔액 0 인 회원도 상한 변경 내역을 받는다', async () => {
+    await endpoints.createInvite('pt_cl', 'u_jisu', key())
+    setTokens(await endpoints.login({ handle: '@jisu', password: 'point' }))
+    await endpoints.acceptInvite('pt_cl')
+    await expect(endpoints.history()).resolves.toEqual([])
+
+    setTokens(await endpoints.login({ handle: '@minho', password: 'point' }))
+    await endpoints.changeCap('pt_cl', 9_000_000, key())
+
+    setTokens(await endpoints.login({ handle: '@jisu', password: 'point' }))
+    const mine = await endpoints.history()
+    expect(mine).toHaveLength(1)
+    expect(mine[0]).toMatchObject({ type: 'capChange' })
+  })
+
+  // 잔액이 남으면 나가도 담긴다. 쓸 수 없을 뿐이다 — 계약: docs/API.md
+  it('나가도 잔액이 남으면 담긴다. 보낼 수 있는 양만 0 이다', async () => {
+    setTokens(await endpoints.login({ handle: '@jisoo', password: 'point' }))
+    await endpoints.leaveBank('pt_cl')
+
+    const held = (await endpoints.wallet()).balances.find((b) => b.pointType.id === 'pt_cl')
+    expect(held).toMatchObject({ amount: 30_000, sendable: 0 })
+    expect(held?.pointType.membership).toBe('outsider')
+  })
+})

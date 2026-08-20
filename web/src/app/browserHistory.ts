@@ -32,6 +32,11 @@ export function pushRoute(nav: NavState): void {
   history.pushState({ nav } satisfies Entry, '', toPath(currentRoute(nav)))
 }
 
+/** 항목을 쌓지 않고 지금 것을 갈아 끼운다 */
+export function replaceRoute(nav: NavState): void {
+  history.replaceState({ nav } satisfies Entry, '', toPath(currentRoute(nav)))
+}
+
 /** 주소는 그대로 두고 항목만 하나 놓는다. back 이 흐름 안에서 소비되게 하는 자리다 */
 export function armFlow(nav: NavState): void {
   if ((history.state as Entry | null)?.flow) return

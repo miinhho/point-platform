@@ -21,7 +21,7 @@ interface Props {
  */
 export function HistoryDetail({ transferId, onBack }: Props) {
   const { t } = useTranslation()
-  const { data: detail, pending, failed, retry } = useTransferDetail(transferId)
+  const { data: detail, pending, failed, absent, retry } = useTransferDetail(transferId)
 
   // 못 불러온 것을 빈 화면으로 두지 않는다. 헤더는 남겨야 돌아갈 길이 보인다.
   if (!detail) {
@@ -35,6 +35,8 @@ export function HistoryDetail({ transferId, onBack }: Props) {
           <Loadable
             pending={pending}
             failed={failed}
+            absent={absent}
+            absentLabel={t('history.detailAbsent')}
             onRetry={retry}
             label={t('history.detailFailed')}
             skeleton={

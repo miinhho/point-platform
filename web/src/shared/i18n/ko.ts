@@ -37,6 +37,7 @@ export const ko = {
     empty: '아직 보낸 것이 없어요',
     loadFailed: '내역을 불러오지 못했어요',
     detailFailed: '이 내역을 불러오지 못했어요',
+    detailAbsent: '이 기록은 볼 수 없어요',
     /** 발행 줄. 상대 자리를 비우고 무엇을 발행했는지만 말한다 */
     issuedTo: '{{name}} 발행',
     detailTitleTransfer: '이체 내역',
@@ -132,6 +133,8 @@ export const ko = {
   bank: {
     title: '은행',
     loadFailed: '이 은행을 불러오지 못했어요',
+    /** 못 불러온 것이 아니라 답이다. 다시 하는 길을 주지 않는다 — 규칙: CLAUDE.md */
+    absent: '이 은행은 볼 수 없어요',
     membersFailed: '회원을 불러오지 못했어요',
     /** 앱이 보증한 글이 아니라는 것을 라벨이 말한다 — 여정 10 */
     descriptionLabel: '발행자가 쓴 소개',
@@ -181,6 +184,8 @@ export const ko = {
     locked: '지금은 보낼 수 없어요',
     /** 발행할 수 있는 사람에게는 다음 할 일이 기다리기가 아니라 발행이다 */
     zeroBalanceIssuer: '발행해서 채울 수 있어요',
+    /** 세 번째 0 — 가진 적 없는 것도 가졌던 것도 아니고, 들어왔지만 아직 없는 것 */
+    joinedNoBalance: '들어왔어요. 아직 받은 것이 없어요',
     /** 표시를 지우는 것은 실제로 그 포인트를 쓴 일뿐이다 — 여정 10 */
     neverSpent: '아직 써 보지 않은 포인트예요',
     loadFailed: '지갑을 불러오지 못했어요',
