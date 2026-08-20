@@ -1,5 +1,6 @@
 package io.github.miinhho.point.wallet
 
+import io.github.miinhho.point.ledger.AccountRepository
 import io.github.miinhho.point.pointtype.MembershipRepository
 import io.github.miinhho.point.pointtype.PointTypeRepository
 import io.github.miinhho.point.pointtype.PointTypeResponses
@@ -14,7 +15,7 @@ import org.springframework.transaction.annotation.Transactional
 class WalletService(
     private val userRepository: UserRepository,
     private val pointTypeRepository: PointTypeRepository,
-    private val balanceRepository: BalanceRepository,
+    private val accountRepository: AccountRepository,
     private val pointTypeResponses: PointTypeResponses,
     private val membershipRepository: MembershipRepository,
     private val transferRepository: TransferRepository,
@@ -26,7 +27,7 @@ class WalletService(
     @Transactional(readOnly = true)
     fun wallet(userId: Long): WalletResponse {
         val user = requireUser(userId)
-        val amountByType = balanceRepository.findByUserId(userId).associate { it.id.pointTypeId to it.amount }
+        val amountByType = accountRepository.findByUserId(userId).associate { it.pointType.id to it.balance }
         val held = pointTypeRepository.findAll().filter { pointType ->
             (amountByType[pointType.id] ?: 0) > 0 || pointType.issuer.id == userId
         }

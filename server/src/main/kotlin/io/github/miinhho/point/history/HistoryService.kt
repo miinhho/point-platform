@@ -1,6 +1,6 @@
 package io.github.miinhho.point.history
 
-import io.github.miinhho.point.wallet.BalanceRepository
+import io.github.miinhho.point.ledger.AccountRepository
 import io.github.miinhho.point.issue.IssueRepository
 import io.github.miinhho.point.issue.toResponse
 import io.github.miinhho.point.pointtype.CapChange
@@ -20,7 +20,7 @@ class HistoryService(
     private val transferRepository: TransferRepository,
     private val capChangeRepository: CapChangeRepository,
     private val pointTypeRepository: PointTypeRepository,
-    private val balanceRepository: BalanceRepository,
+    private val accountRepository: AccountRepository,
     private val userRepository: UserRepository,
     private val issueRepository: IssueRepository,
 ) {
@@ -56,7 +56,7 @@ class HistoryService(
     private fun visibleCapChanges(userId: Long, filterId: Long?, limit: Int): List<CapChange> {
         // 지갑에 나오는 것과 같은 기준이어야 한다. 행의 존재로 세면 거절당한 이체가 남긴
         // 잔액 0 행이 무관한 사람에게 비공개 은행의 상한 변경을 보여준다.
-        val held = balanceRepository.pointTypeIdsHeldBy(userId)
+        val held = accountRepository.pointTypeIdsHeldBy(userId)
         val issued = pointTypeRepository.findAll().filter { it.issuer.id == userId }.mapNotNull { it.id }
         val visible = (held + issued).toSet()
         if (visible.isEmpty()) return emptyList()

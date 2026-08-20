@@ -13,8 +13,9 @@ import io.github.miinhho.point.issue.IssueRequest
 import io.github.miinhho.point.transfer.TransferRequest
 import io.github.miinhho.point.user.User
 import io.github.miinhho.point.user.UserRepository
-import io.github.miinhho.point.wallet.Balance
-import io.github.miinhho.point.wallet.BalanceRepository
+import io.github.miinhho.point.ledger.Account
+import io.github.miinhho.point.ledger.AccountKind
+import io.github.miinhho.point.ledger.AccountRepository
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -48,7 +49,7 @@ class PrivateBankMembersTest {
     @Autowired lateinit var userRepository: UserRepository
     @Autowired lateinit var pointTypeRepository: PointTypeRepository
     @Autowired lateinit var membershipRepository: MembershipRepository
-    @Autowired lateinit var balanceRepository: BalanceRepository
+    @Autowired lateinit var accountRepository: AccountRepository
     @Autowired lateinit var passwordEncoder: PasswordEncoder
 
     lateinit var issuer: User
@@ -72,9 +73,9 @@ class PrivateBankMembersTest {
 
         listOf(issuer, member).forEach { membershipRepository.save(Membership(pointType = closed, user = it)) }
         listOf(issuer, member, leftBehind).forEach {
-            balanceRepository.save(Balance(user = it, pointType = closed, amount = 100_000))
+            accountRepository.save(Account(pointType = closed, user = it, kind = AccountKind.HOLDER, balance = 100_000))
         }
-        balanceRepository.save(Balance(user = issuer, pointType = open, amount = 100_000))
+        accountRepository.save(Account(pointType = open, user = issuer, kind = AccountKind.HOLDER, balance = 100_000))
     }
 
     @Test
@@ -219,7 +220,7 @@ class PrivateBankMembersTest {
     @Test
     fun `잔액 0 행은 비공개 은행의 상한 변경을 보여주지 않는다`() {
         // 거절당한 이체가 남기는 것과 같은 행이다.
-        balanceRepository.save(Balance(user = outsider, pointType = closed, amount = 0))
+        accountRepository.save(Account(pointType = closed, user = outsider, kind = AccountKind.HOLDER, balance = 0))
         val cap = patch(issuer, "/api/point-types/${closed.publicId}/cap", ChangeCapRequest(BigDecimal(9_000_000)))
         assertEquals(HttpStatus.OK, cap.statusCode, cap.body)
 

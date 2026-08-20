@@ -1,5 +1,6 @@
 package io.github.miinhho.point.pointtype
 
+import io.github.miinhho.point.ledger.Accounts
 import io.github.miinhho.point.user.UserRepository
 import org.springframework.boot.ApplicationArguments
 import org.springframework.boot.ApplicationRunner
@@ -21,6 +22,7 @@ import org.springframework.transaction.annotation.Transactional
 class DevPointTypeSeed(
     private val pointTypeRepository: PointTypeRepository,
     private val userRepository: UserRepository,
+    private val accounts: Accounts,
 ) : ApplicationRunner {
     // 발행자 핸들을 읽는다 — open-in-view=false 라 트랜잭션 밖이면 프록시가 열리지 않는다.
     @Transactional
@@ -39,7 +41,9 @@ class DevPointTypeSeed(
                 totalIssued = 0,
             )
         }
-        if (created.isNotEmpty()) pointTypeRepository.saveAll(created)
+        // 창설 엔드포인트와 같은 자리를 지난다 — 발행 계정 없는 포인트를 남기면
+        // 상한을 보는 쪽이 잠글 행을 못 찾는다.
+        pointTypeRepository.saveAll(created).forEach(accounts::openIssuance)
     }
 
     private companion object {

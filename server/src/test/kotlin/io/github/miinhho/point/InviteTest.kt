@@ -12,8 +12,9 @@ import io.github.miinhho.point.pointtype.PointTypeRepository
 import io.github.miinhho.point.pointtype.PointVisibility
 import io.github.miinhho.point.user.User
 import io.github.miinhho.point.user.UserRepository
-import io.github.miinhho.point.wallet.Balance
-import io.github.miinhho.point.wallet.BalanceRepository
+import io.github.miinhho.point.ledger.Account
+import io.github.miinhho.point.ledger.AccountKind
+import io.github.miinhho.point.ledger.AccountRepository
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -44,7 +45,7 @@ class InviteTest {
     @Autowired lateinit var pointTypeRepository: PointTypeRepository
     @Autowired lateinit var membershipRepository: MembershipRepository
     @Autowired lateinit var inviteRepository: InviteRepository
-    @Autowired lateinit var balanceRepository: BalanceRepository
+    @Autowired lateinit var accountRepository: AccountRepository
     @Autowired lateinit var passwordEncoder: PasswordEncoder
 
     lateinit var issuer: User
@@ -153,7 +154,7 @@ class InviteTest {
         // 아무 관계도 없으면 페이지 자체가 404 라, outsider 가 보이는 자리는
         // 잔액이 남은 채 나온 사람이다. 잔액이 닿을 자격을 준다.
         assertEquals(HttpStatus.NOT_FOUND, get(outsider, "/api/point-types/${closed.publicId}").statusCode)
-        balanceRepository.save(Balance(user = outsider, pointType = closed, amount = 3_000))
+        accountRepository.save(Account(pointType = closed, user = outsider, kind = AccountKind.HOLDER, balance = 3_000))
         assertTrue(bankOf(outsider, closed).contains("\"membership\":\"outsider\""), bankOf(outsider, closed))
 
         val inviteId = idOf(assertNotNull(invite(issuer, closed, outsider).body))
@@ -173,7 +174,7 @@ class InviteTest {
     @Test
     fun `내보내면 초대함이 비고 스스로 걸어 들어올 수 없다`() {
         // 잔액이 은행에 닿을 자격을 준다 — 그래야 「보이는데 못 들어온다」가 시험된다.
-        balanceRepository.save(Balance(user = outsider, pointType = closed, amount = 3_000))
+        accountRepository.save(Account(pointType = closed, user = outsider, kind = AccountKind.HOLDER, balance = 3_000))
         invite(issuer, closed, outsider)
         assertEquals(HttpStatus.OK, accept(outsider).statusCode)
 
@@ -232,7 +233,7 @@ class InviteTest {
     @Test
     fun `이미 나간 사람이 다시 나가도 204 다`() {
         // 잔액이 은행에 닿을 자격을 주므로 비회원도 이 길을 부를 수 있다.
-        balanceRepository.save(Balance(user = outsider, pointType = closed, amount = 3_000))
+        accountRepository.save(Account(pointType = closed, user = outsider, kind = AccountKind.HOLDER, balance = 3_000))
 
         // 그가 원한 것은 회원이 아니게 되는 것이고 그는 이미 회원이 아니다.
         val leaving = delete(outsider, "/api/point-types/${closed.publicId}/members/me")
@@ -241,7 +242,7 @@ class InviteTest {
 
     @Test
     fun `나가도 잔액은 남고 은행장은 나갈 수 없다`() {
-        balanceRepository.save(Balance(user = member, pointType = closed, amount = 5_000))
+        accountRepository.save(Account(pointType = closed, user = member, kind = AccountKind.HOLDER, balance = 5_000))
 
         assertEquals(HttpStatus.NO_CONTENT, delete(member, "/api/point-types/${closed.publicId}/members/me").statusCode)
         val wallet = assertNotNull(get(member, "/api/wallet").body)

@@ -3,7 +3,7 @@ package io.github.miinhho.point.auth
 import io.github.miinhho.point.LedgerReset
 import io.github.miinhho.point.TestcontainersConfiguration
 import io.github.miinhho.point.shared.FailureResponse
-import io.github.miinhho.point.wallet.BalanceRepository
+import io.github.miinhho.point.ledger.AccountRepository
 import io.github.miinhho.point.pointtype.PointTypeRepository
 import io.github.miinhho.point.transfer.TransferRepository
 import io.github.miinhho.point.user.User
@@ -37,7 +37,7 @@ class AuthIntegrationTest {
     @Autowired lateinit var userRepository: UserRepository
     @Autowired lateinit var refreshTokenRepository: RefreshTokenRepository
     @Autowired lateinit var transferRepository: TransferRepository
-    @Autowired lateinit var balanceRepository: BalanceRepository
+    @Autowired lateinit var accountRepository: AccountRepository
     @Autowired lateinit var pointTypeRepository: PointTypeRepository
     @Autowired lateinit var passwordEncoder: PasswordEncoder
 

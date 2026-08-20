@@ -1,6 +1,6 @@
 package io.github.miinhho.point.pointtype
 
-import io.github.miinhho.point.wallet.BalanceRepository
+import io.github.miinhho.point.ledger.AccountRepository
 import org.springframework.stereotype.Service
 
 /** 누가 이 은행에 닿을 수 있는가. 근거: docs/API.md 「회원 자격」. */
@@ -8,7 +8,7 @@ import org.springframework.stereotype.Service
 class BankAccess(
     private val membershipRepository: MembershipRepository,
     private val inviteRepository: InviteRepository,
-    private val balanceRepository: BalanceRepository,
+    private val accountRepository: AccountRepository,
 ) {
     // 초대받은 사람은 아직 회원이 아니어도 판단하러 페이지에 와야 한다.
     // 나갔거나 내보내진 사람이 잔액으로 포함된다. 지갑이 그 카드를 계속 실어 주므로
@@ -16,7 +16,7 @@ class BankAccess(
     fun reachablePrivateIds(viewerId: Long): Set<Long> =
         membershipRepository.pointTypeIdsOf(viewerId) +
             inviteRepository.pointTypeIdsInvitedTo(viewerId) +
-            balanceRepository.pointTypeIdsHeldBy(viewerId)
+            accountRepository.pointTypeIdsHeldBy(viewerId)
 
     // 공개이거나 은행장이면 조회하지 않는다 — 단락되도록 집합을 인자로 받지 않는다.
     fun canReach(pointType: PointType, viewerId: Long): Boolean =
