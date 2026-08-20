@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
+import ts from 'typescript'
 
 /**
  * 규칙: CLAUDE.md 「디자인은 토큰 이름만 쓴다」 · 「문자열은 i18next 키로 둔다」
@@ -49,6 +50,66 @@ function sourceFiles(dir: string): string[] {
 
 /** feature 소스 전부. 배럴은 뺀다 — 배럴이 자기 안을 가리키는 것은 정상이다 */
 const FEATURE_SOURCES = sourceFiles('src/features')
+
+/** 조회 훅. `useQueryClient` 는 조회가 아니다 */
+const QUERY_HOOKS = new Set(['useQuery', 'useQueries'])
+
+const isCallTo = (node: ts.Node | undefined, name: string): node is ts.CallExpression =>
+  node !== undefined &&
+  ts.isCallExpression(node) &&
+  ts.isIdentifier(node.expression) &&
+  node.expression.text === name
+
+/** 이 자리에서 값이 곧바로 `read()` 에 들어가는가 */
+function goesIntoRead(node: ts.Expression): boolean {
+  const parent = node.parent
+  return isCallTo(parent, 'read') && parent.arguments.some((argument) => argument === node)
+}
+
+/**
+ * 조회의 값이 `read()` 를 지나지 않고 새는 자리. 값을 따라간다 —
+ * `read(useQuery(..))` 도, `const q = useQuery(..)` 뒤의 `read(q)` 도 지난다.
+ * 구조분해는 지나지 못한다: `read()` 가 주지 않는 이름을 꺼내는 것이기 때문이다.
+ */
+function leakedQueries(path: string): string[] {
+  const source = ts.createSourceFile(
+    path,
+    readFileSync(path, 'utf8'),
+    ts.ScriptTarget.Latest,
+    true,
+  )
+  const line = (node: ts.Node) =>
+    `${path}:${source.getLineAndCharacterOfPosition(node.getStart(source)).line + 1}`
+
+  const uses = (name: string): ts.Identifier[] => {
+    const out: ts.Identifier[] = []
+    const walk = (node: ts.Node) => {
+      if (ts.isIdentifier(node) && node.text === name && !ts.isVariableDeclaration(node.parent)) {
+        out.push(node)
+      }
+      ts.forEachChild(node, walk)
+    }
+    walk(source)
+    return out
+  }
+
+  const leaks: string[] = []
+  const visit = (node: ts.Node) => {
+    if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && QUERY_HOOKS.has(node.expression.text)) {
+      if (!goesIntoRead(node)) {
+        const declaration = node.parent
+        const bound =
+          ts.isVariableDeclaration(declaration) && ts.isIdentifier(declaration.name)
+            ? declaration.name.text
+            : null
+        if (bound === null || !uses(bound).every(goesIntoRead)) leaks.push(line(node))
+      }
+    }
+    ts.forEachChild(node, visit)
+  }
+  visit(source)
+  return leaks
+}
 
 /**
  * 조회를 다루는 곳 전부. `shared/api/read.ts` 는 뺀다 — **그 안에서 가르라고 만든
@@ -149,29 +210,13 @@ describe('feature 안의 세 자리', () => {
    *
    * 한 곳이 아니라 열 곳이 넘었다. 그래서 하나씩 막지 않고 한 자리에서 가른다.
    *
-   * **표기법이 아니라 수를 센다.** `read(useQuery(...))` 를 강요하면 `const q =
-   * useQuery(...)` 로 나눠 쓴 **맞는 코드가 빨개지고**, 그때 사람은 규칙을 끄는 쪽으로
-   * 간다. 줄이 길어져 포매터가 개행해도 같은 일이 난다.
+   * **세는 것은 짝짓는 것이 아니다.** `read(` 의 수를 세면 주석과 문자열도 세어져,
+   * 주석 한 줄이 감싸지 않은 조회 하나를 숨길 자리를 만든다. 표기법도 아니다 —
+   * 붙여쓰기를 강요하면 나눠 쓴 **맞는 코드가 빨개지고**, 그때 사람은 규칙을 끈다.
+   * 그래서 값이 어디로 가는지를 본다.
    */
-  it('조회를 감싸지 않고 지나가지 않는다', () => {
-    const offenders = modelFiles().filter((path) => {
-      const body = readFileSync(path, 'utf8')
-      const queries = [...body.matchAll(/\buseQuer(?:y|ies)\(/g)].length
-      const reads = [...body.matchAll(/\bread\(/g)].length
-      return queries > reads
-    })
-    expect(offenders).toEqual([])
-  })
-
-  /*
-   * 감싼 뒤에 원본을 다시 들여다보면 감싼 의미가 없다. `read()` 는 `failed` 와
-   * `absent` 를 주므로 이 둘이 필요할 일이 없다 — 뮤테이션은 쓰지 않는다.
-   */
-  it('쿼리의 날 상태를 model 이 직접 읽지 않는다', () => {
-    const offenders = modelFiles().filter((path) =>
-      /\.(isError|isSuccess)\b/.test(readFileSync(path, 'utf8')),
-    )
-    expect(offenders).toEqual([])
+  it('조회의 값이 read() 를 지나지 않고 새지 않는다', () => {
+    expect(modelFiles().flatMap(leakedQueries)).toEqual([])
   })
 
   // ViewModel 이 뷰를 만들면 나눈 의미가 없다. 확장자로 막는다.
