@@ -403,7 +403,7 @@ export const handlers = [
     }
   }),
 
-  http.post('*/api/invites/:id/accept', async ({ request, params }) => {
+  http.post('*/api/point-types/:id/invites/accept', async ({ request, params }) => {
     const blocked = await gate()
     if (blocked) return blocked
     const auth = requireUser(request)

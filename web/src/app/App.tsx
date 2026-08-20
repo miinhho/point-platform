@@ -35,6 +35,9 @@ import type { Route } from './routes'
  */
 const TASK: ReadonlySet<Route['name']> = new Set(['createPoint', 'invite', 'members'])
 
+/** 세션을 아직 모른다. 로그아웃(`null`)과 다른 사건이다 */
+const UNKNOWN = Symbol('session-unknown')
+
 /** 주소가 있는 화면. switch 라서 라우트를 늘리면 컴파일이 빠뜨린 곳을 잡는다 */
 function RouteScreen({ route, back }: { route: Route; back: () => void }): ReactElement {
   switch (route.name) {
@@ -132,14 +135,30 @@ export default function App() {
   )
 
   /*
-   * 사람이 바뀌면 앞사람의 화면을 물려주지 않는다.
-   * 첫 렌더에서는 하지 않는다 — 주소로 들어온 화면을 그 자리에서 홈으로 되돌린다.
+   * 사람이 **바뀌면** 앞사람의 화면을 물려주지 않는다.
+   *
+   * 세션은 셋이고 앞의 둘을 같은 값으로 접으면 안 된다 — **아직 모른다** ·
+   * 없다(로그아웃) · 이 사람이다. 토큰이 메모리에만 있어서 새로고침은 언제나
+   * 「아직 모른다」에서 시작하는데, 그것을 「없다」로 읽으면 세션이 도착하는 순간
+   * 「사람이 바뀌었다」가 되어 주소로 들어온 화면이 홈으로 떨어진다.
+   *
+   * 규칙: CLAUDE.md 「아직 모르는 것과 없는 것도 가른다」 · 관측: docs/FIELD.md W11·W12
    */
-  const userId = session.data?.id ?? null
-  const lastUser = useRef(userId)
+  const userId = session.isPending ? UNKNOWN : (session.data?.id ?? null)
+  const lastUser = useRef<typeof userId>(UNKNOWN)
   useEffect(() => {
-    if (lastUser.current === userId) return
+    const previous = lastUser.current
     lastUser.current = userId
+    /*
+     * 앞사람이 **있었고** 다른 사람일 때만. 아직 모르는 데서 오는 것도, 로그아웃에서
+     * 오는 것도 사람이 바뀐 것이 아니다 — 물려받을 앞사람의 화면이 없다.
+     *
+     * 이름을 두는 것은 식이 그 물음을 말하게 하려는 것이다. 값이 셋이라 줄여 쓰는
+     * 흔한 관용이 전부 틀린다 — `previous == null` 은 심볼에 거짓이고, `!previous`
+     * 도 심볼이 truthy 라 거짓이다.
+     */
+    const hadUser = typeof previous === 'string'
+    if (!hadUser || previous === userId) return
     resetNav()
     endFlow()
   }, [userId, resetNav, endFlow])

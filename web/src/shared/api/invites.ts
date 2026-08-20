@@ -15,9 +15,12 @@ export const invitesApi = {
       idempotencyKey,
     }),
 
-  /** 수락하면 초대가 사라지고 회원이 된다 */
-  acceptInvite: (inviteId: string) =>
-    request<PointType>(`/invites/${inviteId}/accept`, { method: 'POST' }),
+  /**
+   * 수락. **초대가 아니라 은행을 가리킨다** — 초대는 소진되면 새것이 나므로 화면이
+   * 붙들고 있던 id 는 낡는다. 계약: docs/API.md 「수락은 은행을 가리킨다」
+   */
+  acceptInvite: (pointTypeId: PointTypeId) =>
+    request<PointType>(`/point-types/${pointTypeId}/invites/accept`, { method: 'POST' }),
 }
 
 /** 내가 받은 초대. 수락하면 사라지므로 「초대가 있다」가 곧 「아직 회원이 아니다」다 */
