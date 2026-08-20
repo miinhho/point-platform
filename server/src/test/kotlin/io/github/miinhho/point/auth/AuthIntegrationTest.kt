@@ -40,6 +40,17 @@ class AuthIntegrationTest {
     @Autowired lateinit var accountRepository: AccountRepository
     @Autowired lateinit var pointTypeRepository: PointTypeRepository
     @Autowired lateinit var passwordEncoder: PasswordEncoder
+    @Autowired lateinit var passwordCheck: PasswordCheck
+
+    @Test
+    fun `없는 핸들에 돌리는 해시가 실제 것과 같은 비용이다`() {
+        // 비용이 갈리면 응답 시간이 갈리고, 그것 하나로 핸들의 존재가 샌다.
+        // 상수로 박혀 있던 것이 cost 12 였고 실제는 10 이라 없는 핸들이 3.7 배 느렸다.
+        assertEquals(costOf(passwordEncoder.encode("point")!!), costOf(passwordCheck.absentHandleHash))
+    }
+
+    // BCrypt 해시는 $2a$10$... 꼴이고 셋째 칸이 cost 다.
+    private fun costOf(hash: String) = hash.split("$")[2].toInt()
 
     @BeforeEach
     fun seedUser() {
