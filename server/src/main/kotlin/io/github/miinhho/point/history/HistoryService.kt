@@ -6,6 +6,7 @@ import io.github.miinhho.point.issue.toResponse
 import io.github.miinhho.point.pointtype.CapChange
 import io.github.miinhho.point.pointtype.toMark
 import io.github.miinhho.point.pointtype.CapChangeRepository
+import io.github.miinhho.point.pointtype.MembershipRepository
 import io.github.miinhho.point.pointtype.PointTypeRepository
 import io.github.miinhho.point.transfer.TransferRepository
 import io.github.miinhho.point.user.UserRepository
@@ -22,6 +23,7 @@ class HistoryService(
     private val pointTypeRepository: PointTypeRepository,
     private val accountRepository: AccountRepository,
     private val userRepository: UserRepository,
+    private val membershipRepository: MembershipRepository,
     private val issueRepository: IssueRepository,
 ) {
     @Transactional(readOnly = true)
@@ -54,11 +56,14 @@ class HistoryService(
 
     // 그 포인트가 자기 지갑에 있는 사람과 발행자가 본다 — 발행자만 아는 변경은 약속이 아니다.
     private fun visibleCapChanges(userId: Long, filterId: Long?, limit: Int): List<CapChange> {
-        // 지갑에 나오는 것과 같은 기준이어야 한다. 행의 존재로 세면 거절당한 이체가 남긴
-        // 잔액 0 행이 무관한 사람에게 비공개 은행의 상한 변경을 보여준다.
+        // 지갑이 담는 것과 같은 기준이어야 한다 — 셋 다. 카드를 주기로 한 순간 그는 상한이라는
+        // 약속을 보는 사람이 됐는데 약속이 바뀐 기록만 안 오면 「아직 아무 일도 없었구나」로 읽는다.
+        // 잔액은 행의 존재가 아니라 값으로 센다. 거절당한 이체가 남긴 0 행을 세면
+        // 무관한 사람에게 비공개 은행의 상한 변경이 보인다.
         val held = accountRepository.pointTypeIdsHeldBy(userId)
         val issued = pointTypeRepository.findAll().filter { it.issuer.id == userId }.mapNotNull { it.id }
-        val visible = (held + issued).toSet()
+        val member = membershipRepository.pointTypeIdsOf(userId)
+        val visible = (held + issued + member).toSet()
         if (visible.isEmpty()) return emptyList()
         return capChangeRepository.visible(visible, filterId, Limit.of(limit))
     }
