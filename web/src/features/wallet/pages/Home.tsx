@@ -6,8 +6,8 @@ import { goAtom } from '@/app/atoms'
 import { Loadable, RowSkeleton } from '@/shared/ui/Loadable'
 import {
   Body,
-  Footer,
   Header,
+  ListAction,
   Note,
   RowButton,
   Screen,
@@ -76,10 +76,12 @@ export function Home() {
 
         </Loadable>
 
-        {/* 목록 끝에 둔다 — 계좌 목록 아래의 「계좌 개설」과 같은 자리다 */}
-        {/* 목록 끝에 둔다 — 계좌 목록 아래의 「계좌 개설」과 같은 자리다 */}
+        {/*
+          홈에는 하단에 고정되는 행동이 없다. 이 화면의 주된 행동은 카드를 고르는
+          것이고, 포인트 만들기는 목록을 다 본 사람의 다음 할 일이다.
+        */}
         {loaded ? (
-          <Footer>
+          <ListAction>
             <Button
               size="lg"
               width="full"
@@ -88,7 +90,7 @@ export function Home() {
             >
               {t('create.entry')}
             </Button>
-          </Footer>
+          </ListAction>
         ) : null}
       </Body>
     </Screen>

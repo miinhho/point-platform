@@ -33,6 +33,15 @@ export const Footer = chakra('div', {
   },
 })
 
+/**
+ * 목록 끝에 오는 행동. **`Footer` 와 다르다** — 함께 스크롤하고 엄지 자리를 차지하지
+ * 않는다. 목록을 다 본 사람에게 다음 할 일을 주는 자리이지 그 화면의 주된 행동이
+ * 아니다. 계좌 목록 아래의 「계좌 개설」이 같은 자리다.
+ */
+export const ListAction = chakra('div', {
+  base: { paddingInline: 'gutter', paddingTop: 'inset', paddingBottom: 'block' },
+})
+
 /** 사실을 담는 면. 화면이 저마다 상자를 정의하면 같은 뜻의 상자가 화면마다 달라진다 */
 export const Panel = chakra('div', {
   base: { bg: 'bg.panel', borderRadius: 'panel', padding: 'inset' },
