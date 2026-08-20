@@ -22,4 +22,19 @@ class ReachabilityTest {
             "지갑에 담기는데 은행에 못 닿는 관계가 있다 — 카드는 있고 페이지는 없다",
         )
     }
+
+    /**
+     * 집합은 순서 없는 것으로 읽히지만 `setOf` 는 적은 순서로 돌고 [BankAccess.canReach] 는
+     * 첫 참에서 멈춘다. 알파벳순으로 정리하면 동작은 그대로인 채 공개 은행 조회가 조회 셋을
+     * 더 한다 — 값만 늘고 아무 테스트도 안 빨개진다.
+     */
+    @Test
+    fun `도달성은 조회 없는 관계부터 본다`() {
+        val needsQuery = BankAccess.REACHES.map { it.needsQuery }
+        assertEquals(
+            needsQuery.sorted(),
+            needsQuery,
+            "REACHES 에 조회 드는 관계가 앞에 있다 — 싼 것으로 끝날 수 있는 은행이 조회를 한다",
+        )
+    }
 }

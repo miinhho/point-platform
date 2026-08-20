@@ -75,7 +75,12 @@ class BankAccess(
     fun canReach(pointType: PointType, relations: Relations): Boolean = relations.any(pointType, REACHES)
 
     companion object {
-        /** 은행 페이지에 닿게 해 주는 관계. 지갑이 담는 것은 이 안에 있어야 한다. */
+        /**
+         * 은행 페이지에 닿게 해 주는 관계. 지갑이 담는 것은 이 안에 있어야 한다.
+         *
+         * **순서가 값을 정한다** — [canReach] 가 앞에서부터 보고 첫 참에서 멈추므로
+         * 조회가 드는 것([Relation.needsQuery])을 뒤에 둔다.
+         */
         val REACHES: Set<Relation> = setOf(
             Relation.PUBLIC,
             Relation.ISSUER,
