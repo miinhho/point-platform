@@ -2,6 +2,7 @@ package io.github.miinhho.point
 
 import io.github.miinhho.point.auth.LoginRequest
 import io.github.miinhho.point.auth.LoginResponse
+import io.github.miinhho.point.pointtype.InviteRepository
 import io.github.miinhho.point.pointtype.InviteRequest
 import io.github.miinhho.point.pointtype.Membership
 import io.github.miinhho.point.pointtype.MembershipRepository
@@ -42,6 +43,7 @@ class InviteTest {
     @Autowired lateinit var userRepository: UserRepository
     @Autowired lateinit var pointTypeRepository: PointTypeRepository
     @Autowired lateinit var membershipRepository: MembershipRepository
+    @Autowired lateinit var inviteRepository: InviteRepository
     @Autowired lateinit var balanceRepository: BalanceRepository
     @Autowired lateinit var passwordEncoder: PasswordEncoder
 
@@ -103,14 +105,42 @@ class InviteTest {
     fun `수락하면 회원이 되고 초대가 사라진다`() {
         val inviteId = idOf(assertNotNull(invite(issuer, closed, outsider).body))
 
-        val accepted = post(outsider, "/api/invites/$inviteId/accept")
+        val accepted = accept(outsider)
         assertEquals(HttpStatus.OK, accepted.statusCode, accepted.body)
         assertTrue(assertNotNull(accepted.body).contains("\"memberCount\":3"), accepted.body)
         assertEquals("[]", get(outsider, "/api/invites").body, "수락하면 초대가 사라진다")
 
         // 응답을 못 받고 다시 눌러도 실패를 주지 않는다 — 그가 원한 결과가 이미 있다.
-        val again = post(outsider, "/api/invites/$inviteId/accept")
+        val again = accept(outsider)
         assertEquals(HttpStatus.OK, again.statusCode, again.body)
+    }
+
+    @Test
+    fun `회원은 살아 있는 초대를 갖지 않는다`() {
+        val first = idOf(assertNotNull(invite(issuer, closed, outsider).body))
+        assertEquals(HttpStatus.OK, accept(outsider).statusCode)
+        assertNoLiveInvite(outsider, "수락이 소진시킨다")
+
+        val again = invite(issuer, closed, outsider)
+        assertEquals(HttpStatus.CONFLICT, again.statusCode, again.body)
+        assertNoLiveInvite(outsider, "회원 재초대는 409 라 초대를 만들지 않는다")
+
+        assertEquals(
+            HttpStatus.NO_CONTENT,
+            delete(issuer, "/api/point-types/${closed.publicId}/members/${publicId(outsider)}").statusCode,
+        )
+        assertNoLiveInvite(outsider, "내보내기는 회원 자격만 끝낸다")
+
+        val second = idOf(assertNotNull(invite(issuer, closed, outsider).body))
+        assertEquals(HttpStatus.OK, accept(outsider).statusCode)
+        assertNoLiveInvite(outsider, "다시 회원이 돼도 그대로다")
+    }
+
+    // 깨지면 내보내진 사람의 초대함에 그 은행이 남아 스스로 걸어 들어온다.
+    private fun assertNoLiveInvite(who: User, hint: String) {
+        val both = membershipRepository.pointTypeIdsOf(who.id!!) intersect
+            inviteRepository.pointTypeIdsInvitedTo(who.id!!)
+        assertTrue(both.isEmpty(), "$hint — 회원인데 살아 있는 초대가 있다: $both")
     }
 
     @Test
@@ -124,7 +154,7 @@ class InviteTest {
         val inviteId = idOf(assertNotNull(invite(issuer, closed, outsider).body))
         assertTrue(bankOf(outsider, closed).contains("\"membership\":\"invited\""), bankOf(outsider, closed))
 
-        post(outsider, "/api/invites/$inviteId/accept")
+        accept(outsider)
         assertTrue(bankOf(outsider, closed).contains("\"membership\":\"member\""), bankOf(outsider, closed))
 
         delete(issuer, "/api/point-types/${closed.publicId}/members/${publicId(outsider)}")
@@ -136,9 +166,11 @@ class InviteTest {
     }
 
     @Test
-    fun `내보내면 초대함에서도 사라지고 옛 초대로는 돌아올 수 없다`() {
-        val inviteId = idOf(assertNotNull(invite(issuer, closed, outsider).body))
-        assertEquals(HttpStatus.OK, post(outsider, "/api/invites/$inviteId/accept").statusCode)
+    fun `내보내면 초대함이 비고 스스로 걸어 들어올 수 없다`() {
+        // 잔액이 은행에 닿을 자격을 준다 — 그래야 「보이는데 못 들어온다」가 시험된다.
+        balanceRepository.save(Balance(user = outsider, pointType = closed, amount = 3_000))
+        invite(issuer, closed, outsider)
+        assertEquals(HttpStatus.OK, accept(outsider).statusCode)
 
         assertEquals(
             HttpStatus.NO_CONTENT,
@@ -147,25 +179,25 @@ class InviteTest {
 
         assertEquals("[]", get(outsider, "/api/invites").body, "내보내진 사람의 초대함은 비어 있다")
 
-        // 은행장에게는 초대를 취소할 길이 없다. 옛 초대가 살아 있으면 내보내기가 무효가 된다.
-        val walkBack = post(outsider, "/api/invites/$inviteId/accept")
+        // 은행장에게는 초대를 취소할 길이 없다. 초대가 남아 있으면 내보내기가 무효가 된다.
+        val walkBack = accept(outsider)
         assertEquals(HttpStatus.NOT_FOUND, walkBack.statusCode, walkBack.body)
+        assertTrue(assertNotNull(walkBack.body).contains("INVITE_NOT_FOUND"), walkBack.body)
         assertFalse(assertNotNull(get(issuer, "/api/point-types/${closed.publicId}/members").body).contains("@mose"))
     }
 
     @Test
     fun `내보낸 사람을 다시 초대하면 새 초대가 선다`() {
         val first = idOf(assertNotNull(invite(issuer, closed, outsider).body))
-        post(outsider, "/api/invites/$first/accept")
+        accept(outsider)
         delete(issuer, "/api/point-types/${closed.publicId}/members/${publicId(outsider)}")
 
         val again = invite(issuer, closed, outsider)
         assertEquals(HttpStatus.CREATED, again.statusCode, again.body)
-        val second = idOf(assertNotNull(again.body))
-        assertTrue(second != first, "소진된 초대를 되살리지 않고 새로 만든다")
+        assertTrue(idOf(assertNotNull(again.body)) != first, "소진된 초대를 되살리지 않고 새로 만든다")
 
         // 되살리는 것은 은행장의 새 의사다.
-        assertEquals(HttpStatus.OK, post(outsider, "/api/invites/$second/accept").statusCode)
+        assertEquals(HttpStatus.OK, accept(outsider).statusCode)
     }
 
     @Test
@@ -181,14 +213,15 @@ class InviteTest {
     }
 
     @Test
-    fun `남의 초대와 없는 초대는 같은 404 다`() {
-        val inviteId = idOf(assertNotNull(invite(issuer, closed, outsider).body))
-        val theirs = post(member, "/api/invites/$inviteId/accept")
-        val absent = post(member, "/api/invites/${UUID.randomUUID()}/accept")
+    fun `초대받지 않은 사람에게는 은행이 있다는 것도 알려 주지 않는다`() {
+        invite(issuer, closed, outsider)
+        val stranger = save("@taeyun", "박태윤")
+
+        val theirs = accept(stranger)
+        val absent = post(stranger, "/api/point-types/${UUID.randomUUID()}/invites/accept")
         assertEquals(HttpStatus.NOT_FOUND, theirs.statusCode, theirs.body)
-        assertEquals(absent.statusCode, theirs.statusCode)
-        assertEquals(absent.body, theirs.body, "다르면 누가 초대됐는지가 샌다")
-        assertTrue(assertNotNull(theirs.body).contains("INVITE_NOT_FOUND"), theirs.body)
+        assertEquals(absent.body, theirs.body, "다르면 그 은행이 있다는 것이 샌다")
+        assertTrue(assertNotNull(theirs.body).contains("POINT_TYPE_NOT_FOUND"), theirs.body)
     }
 
     @Test
@@ -231,6 +264,10 @@ class InviteTest {
             String::class.java,
         )
     }
+
+    // 수락은 은행을 가리킨다 — 초대 id 는 소진되면 새것이 난다.
+    private fun accept(who: User, bank: PointType = closed) =
+        post(who, "/api/point-types/${bank.publicId}/invites/accept")
 
     private fun bankOf(who: User, bank: PointType) =
         assertNotNull(get(who, "/api/point-types/${bank.publicId}").body)
