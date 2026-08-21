@@ -6,6 +6,11 @@ All engineering tasks follow this workflow.
 
 * **Orchestrator** — plans, assesses risk, routes work, and owns completion.
 
+  **전파 전에 근거를 연다.** 남의 판정을 옮기는 것이 다른 세션의 **작업 순서를 바꾸는
+  것**이면 그 근거를 직접 본다. 판정을 다시 하는 것이 아니라 범위만 확인하는 것이고
+  대개 한 줄이다. 안 하면 조율이 증폭기가 된다 — 한 세션의 과장이 다른 세션의 작업
+  지시가 된다.
+
 * **Backend** — implements backend changes.
 
 * **Frontend** — implements frontend changes.
@@ -157,13 +162,14 @@ PR 제목도 같은 형식이다.
 리뷰를 안 거친 것이 `main` 에 들어간다. **PR 이 열려 있으면 다음 것은 워크트리를 하나
 더 만든다.** `git worktree add` 는 싸다.
 
-**커밋할 때 경로를 못박는다 — `git commit <경로>`.** `git add X && git commit` 은 X 를
-스테이지에 **더할** 뿐이고, 커밋은 스테이지 전체를 담는다. 앞선 rebase 나 다른 작업이
-남긴 것이 있으면 함께 간다. 한 체크아웃을 여러 손이 지나가는 곳에서는 그것이 남의 파일이다.
+**담기는 것을 담기 전에 본다.** `main` 에 직접 커밋할 때는 `git diff --cached --stat`,
+PR 을 올린 뒤에는 `gh pr diff --name-only`. 둘 다 한 줄이고 둘 다 **의도한 것만 있는지**를
+묻는다.
 
-**PR 을 올린 뒤 `gh pr diff --name-only` 로 파일 목록을 본다.** 그 슬라이스의 것만
-있어야 한다. 위 규칙을 지켜도 실수는 나고, 이것은 한 줄이며 섞임을 머지 전에 잡는
-마지막 자리다.
+`git add X && git commit` 은 X 를 스테이지에 **더할** 뿐이고 커밋은 스테이지 전체를 담는다.
+경로를 인자로 주는 것(`git commit <경로>`)으로 대신하지 않는다 — **반대 방향으로 조용히
+틀린다.** 새 파일을 경로에 안 적으면 그것만 빠진 채 커밋되고, 빠진 것은 담긴 것보다 안
+보인다.
 
 ### PR
 
@@ -315,6 +321,14 @@ Implementation agents must:
 
 Passing tests alone does not imply completion. Neither does an author check.
 
+**검사를 세울 때 하나를 묻는다 — 이 검사가 아무것도 안 보고 통과하는 경우가 있는가,
+그때 소리가 나는가.** 빈 표를 보고 통과한 가드, 짝이 없어 늘 참이던 단언, 주석이 셈을
+채운 규율은 전부 초록이었고 전부 아무것도 안 지키고 있었다. **꺼진 것과 볼 것이 없는
+것이 같아 보이면, 꺼진 것은 영영 안 보인다.**
+
+**답하는 법은 부수는 것이다.** 지켜야 할 것을 없애고 **몇 개가 빨개지는지** 센다. 하나도
+안 빨개지면 그 검사는 없는 것이고, 하나만 빨개지면 그 하나만 지키고 있다.
+
 ---
 
 ## Cross-Review
@@ -425,10 +439,6 @@ Do not repeat a general code review.
 넓혀 말하려면 넓힌 자리를 열어야 한다. 화면에서 본 것으로 서버가 무엇을 하는지 말하는
 것도 같다.
 
-**조율은 전파 전에 근거를 연다.** 남의 판정을 옮기는 것이 다른 세션의 **작업 순서를 바꾸는
-것**이면 그 근거를 직접 본다. 판정을 다시 하는 것이 아니라 범위만 확인하는 것이고 대개
-한 줄이다.
-
 ---
 
 ## Findings and Rework
@@ -441,6 +451,13 @@ Findings are either:
 
 Findings come from QA, cross-review, or Review. **Review sends them straight to the owning
 session**; the Orchestrator is involved only when the contract itself is wrong.
+
+**판정을 쓰는 자리에서 바로 보낸다.** 요약은 보낸 뒤에 한다 — 순서를 바꾸면 빠뜨릴
+자리가 없어진다. 내려놓고 안 보낸 판정은 없는 판정이다.
+
+**승인은 버튼이 아니라 문장이다.** GitHub 은 자기 계정의 PR 을 승인하지 못하게 막아서
+`gh pr review --approve` 가 실패한다. 코멘트로 남기되 **「이 문장이 승인이다」를 적는다** —
+안 적으면 저자가 승인인지 의견인지 가릴 수 없다.
 
 **보고에 「본 것」 줄이 없으면 되돌린다.** 앞 절의 한 줄이다 — 시점과 범위가 없는 지적은
 받는 쪽이 그 둘을 추측해야 하고, 추측이 틀리면 고칠 필요 없는 것을 고치거나 남의 작업

@@ -3833,3 +3833,33 @@ Mock, `@jisu` 를 「동아리회비」에 초대→수락(잔액 0)→회원 �
 `back` 케이스 대조(낮은 우선순위, 같은 코드 경로일 가능성). (2)
 `@jisoo` 실서버 경로 — 다음 라운드에 아무 계정 하나로 스팟체크만.
 (3) `ISSUER_CANNOT_LEAVE` 회귀(계속 이월).
+
+## W18 — `ISSUER_CANNOT_LEAVE` 회귀, 여러 라운드 이월분 닫음
+
+> 본 것: `bad81ba`(main) · 실서버(`8080`, `2c25e32`)
+
+`web/discipline-pairs` 가 아직 안 열려서, W7 부터 계속 이월돼 온
+`ISSUER_CANNOT_LEAVE` 를 실서버에서 직접 닫았다. 은행 `동아리비`
+(`b6f3691c-...`), 은행장 `@onmart`.
+
+**HTTP**: `DELETE /api/point-types/<id>/members/me` 를 `@onmart` 로
+직접 호출 → `409 ISSUER_CANNOT_LEAVE`("은행장은 나갈 수 없음"). 계약
+그대로.
+
+**화면**: `@onmart` 로 `/points/<id>/members` 직접 진입 → 자기 행
+("온마트 · 은행장")에 "내보내기" 버튼 없음(다른 회원 행에는 있음),
+화면 맨 아래 "나가기" 자리 자체가 없음(비활성이 아니라 렌더 자체가
+없음 — `Members.tsx` 의 `pointType.canIssue ? null : <Footer>...`
+그대로). HTTP 와 화면 둘 다 같은 결론.
+
+### 실기기 vs 자동화
+
+HTTP 는 `curl`, 화면은 실서버 붙인 Mock 프론트(`5174`,
+`VITE_API_ORIGIN`)로 확인. 자동화로 충분 — 손 조작이 필요한 자리
+없음.
+
+### 남은 것
+
+**다음에 여기부터.** (1) `web/discipline-pairs` 가 열리면 「본 것」
+해시로 시작. (2) 잔액 남기고 나간 `back` 케이스, `@jisoo` 실서버
+스팟체크 — 계속 이월.

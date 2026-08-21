@@ -71,7 +71,7 @@ class BankPageTest {
         leftBehind = save("@nara", "이나라")
         stranger = save("@mose", "정모세")
 
-        open = bankFixture.open(point("온포인트", "🔵", PointVisibility.PUBLIC))
+        open = bankFixture.open(point("온포인트", "🏪", PointVisibility.PUBLIC))
         closed = bankFixture.open(point("동아리비", "🎪", PointVisibility.PRIVATE))
 
         // 은행장은 언제나 회원이다. 나간 사람은 회원이 아닌 채로 잔액만 남는다.

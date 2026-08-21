@@ -77,7 +77,7 @@ class ConcurrencyTest {
         pointType = bankFixture.open(
             PointType(
                 name = "금머니",
-                emoji = "💰",
+                emoji = "🎁",
                 issuer = issuer,
                 accent = PointAccent.PURPLE,
                 visibility = PointVisibility.PUBLIC,

@@ -1,6 +1,8 @@
 package io.github.miinhho.point.pointtype
 
-import io.github.miinhho.point.ledger.Accounts
+import io.github.miinhho.point.ledger.Account
+import io.github.miinhho.point.ledger.AccountKind
+import io.github.miinhho.point.ledger.AccountRepository
 import io.github.miinhho.point.shared.DomainFailureException
 import io.github.miinhho.point.shared.FailureCode
 import io.github.miinhho.point.user.UserRepository
@@ -19,7 +21,7 @@ class PointTypeCreateService(
     private val membershipRepository: MembershipRepository,
     private val userRepository: UserRepository,
     private val pointTypeResponses: PointTypeResponses,
-    private val accounts: Accounts,
+    private val accountRepository: AccountRepository,
     private val bankAccess: BankAccess,
 ) {
     @Transactional(readOnly = true)
@@ -64,13 +66,24 @@ class PointTypeCreateService(
                 idempotencyKey = idempotencyKey,
             ),
         )
-        accounts.openIssuance(created)
+        openIssuance(created)
 
         // 은행장은 나갈 수도 내보내질 수도 없다 — 창설과 같은 트랜잭션에서 회원이 된다.
         if (created.visibility == PointVisibility.PRIVATE) {
             membershipRepository.saveAndFlush(Membership(pointType = created, user = issuer))
         }
         return pointTypeResponses.of(created, creatorId)
+    }
+
+    /**
+     * 발행 계정은 포인트가 나는 순간 함께 난다. 보유자 계정과 달리 미리 있어야 한다 —
+     * 상한을 보는 쪽이 잠글 행이고, 없으면 첫 발행과 첫 상한 변경이 그것을 만들려고 겹친다.
+     *
+     * private 인 것이 이 성질을 지킨다. 포인트를 만드는 길이 이 클래스 하나뿐이고 밖에서는
+     * 계정을 열 수 없으므로, 계정 없는 포인트를 만드는 코드가 아예 컴파일되지 않는다.
+     */
+    private fun openIssuance(pointType: PointType) {
+        accountRepository.saveAndFlush(Account(pointType = pointType, user = null, kind = AccountKind.ISSUANCE))
     }
 
     /** 소개는 이력에 남지 않는다 — 약속이 아니라 소개이므로 마지막에 쓴 것이 지금 값이다. */

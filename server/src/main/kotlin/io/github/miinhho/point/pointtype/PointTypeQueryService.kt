@@ -19,8 +19,8 @@ class PointTypeQueryService(
 ) {
     @Transactional(readOnly = true)
     fun all(viewerId: Long): List<PointTypeResponse> {
-        val reachable = bankAccess.reachablePrivateIds(viewerId)
-        val visible = pointTypeRepository.findAll().filter { bankAccess.canReach(it, viewerId, reachable) }
+        val relations = bankAccess.relationsOf(viewerId)
+        val visible = pointTypeRepository.findAll().filter { bankAccess.canReach(it, relations) }
         return pointTypeResponses.of(visible, viewerId)
     }
 

@@ -59,9 +59,9 @@ class NameIsSharedTest {
         save("@taeyun", "박태윤")
 
         // 이름이 겹치는 포인트 둘. jisoo 는 그중 한쪽만 가진다.
-        val onFromOnmart = bankFixture.open(point("온포인트", "🔵", onmart, PointAccent.BLUE))
-        bankFixture.open(point("온포인트", "🟣", solcafe, PointAccent.TEAL))
-        bankFixture.open(point("솔포인트", "🌞", solcafe, PointAccent.GREEN))
+        val onFromOnmart = bankFixture.open(point("온포인트", "🏪", onmart, PointAccent.BLUE))
+        bankFixture.open(point("온포인트", "🌸", solcafe, PointAccent.TEAL))
+        bankFixture.open(point("솔포인트", "☀️", solcafe, PointAccent.GREEN))
 
         accountRepository.save(Account(pointType = onFromOnmart, user = jisoo, kind = AccountKind.HOLDER, balance = 812_000))
     }
