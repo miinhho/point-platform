@@ -8,6 +8,7 @@ import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.math.BigDecimal
 import java.util.UUID
+import io.github.miinhho.point.membership.BankAccess
 
 private const val MAX_SAFE_INTEGER = 9_007_199_254_740_991L
 

@@ -1,4 +1,4 @@
-package io.github.miinhho.point.pointtype
+package io.github.miinhho.point.membership
 
 import io.github.miinhho.point.shared.DomainFailureException
 import io.github.miinhho.point.shared.FailureCode
@@ -6,6 +6,11 @@ import io.github.miinhho.point.user.UserRepository
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.util.UUID
+import io.github.miinhho.point.pointtype.PointType
+import io.github.miinhho.point.pointtype.PointTypeRepository
+import io.github.miinhho.point.pointtype.PointTypeResponse
+import io.github.miinhho.point.pointtype.PointTypeResponses
+import io.github.miinhho.point.pointtype.PointVisibility
 
 @Service
 class MembershipService(

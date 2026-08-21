@@ -11,6 +11,9 @@ import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.math.BigDecimal
 import java.util.UUID
+import io.github.miinhho.point.membership.BankAccess
+import io.github.miinhho.point.membership.Membership
+import io.github.miinhho.point.membership.MembershipRepository
 
 // JS Number.MAX_SAFE_INTEGER — 프론트가 안전하게 다룰 수 있는 정수 상한. 근거: docs/API.md
 private const val MAX_SAFE_INTEGER = 9_007_199_254_740_991L

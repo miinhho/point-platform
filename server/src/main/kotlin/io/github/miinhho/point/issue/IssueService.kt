@@ -1,7 +1,7 @@
 package io.github.miinhho.point.issue
 
 import io.github.miinhho.point.ledger.Ledger
-import io.github.miinhho.point.pointtype.BankAccess
+import io.github.miinhho.point.membership.BankAccess
 import io.github.miinhho.point.pointtype.PointTypeRepository
 import io.github.miinhho.point.shared.DomainFailureException
 import io.github.miinhho.point.shared.FailureCode

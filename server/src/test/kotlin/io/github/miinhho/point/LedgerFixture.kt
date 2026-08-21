@@ -1,9 +1,9 @@
 package io.github.miinhho.point
 
 import io.github.miinhho.point.issue.IssueService
-import io.github.miinhho.point.pointtype.MembershipId
-import io.github.miinhho.point.pointtype.MembershipRepository
-import io.github.miinhho.point.pointtype.MembershipService
+import io.github.miinhho.point.membership.MembershipId
+import io.github.miinhho.point.membership.MembershipRepository
+import io.github.miinhho.point.membership.MembershipService
 import io.github.miinhho.point.pointtype.PointType
 import io.github.miinhho.point.pointtype.PointVisibility
 import io.github.miinhho.point.transfer.TransferService

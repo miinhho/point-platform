@@ -1,6 +1,7 @@
-package io.github.miinhho.point.pointtype
+package io.github.miinhho.point.membership
 
 import java.time.Instant
+import io.github.miinhho.point.pointtype.PointTypeResponse
 
 // 받는 사람이 판단할 것이 여기 다 있다 — 은행을 따로 물으러 가지 않는다.
 data class InviteResponse(

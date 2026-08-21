@@ -8,7 +8,7 @@ import io.github.miinhho.point.ledger.JournalEntryRepository
 import io.github.miinhho.point.ledger.JournalKind
 import io.github.miinhho.point.pointtype.CapChange
 import io.github.miinhho.point.pointtype.CapChangeRepository
-import io.github.miinhho.point.pointtype.MembershipRepository
+import io.github.miinhho.point.membership.MembershipRepository
 import io.github.miinhho.point.pointtype.PointTypeRepository
 import io.github.miinhho.point.pointtype.toMark
 import io.github.miinhho.point.transfer.TransferRepository
