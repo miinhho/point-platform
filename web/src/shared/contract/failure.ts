@@ -30,6 +30,8 @@ export const FAILURE_CODES = [
   'MALFORMED_REQUEST',
   /** 그 이체가 없거나 내 것이 아니다 */
   'TRANSFER_NOT_FOUND',
+  /** 그 발행이 없거나 내 것이 아니다. 발행은 이체가 아니라 코드를 빌려 쓰지 않는다 */
+  'ISSUE_NOT_FOUND',
   /** 결과를 알 수 없다. 이 둘만 그렇다 */
   'NETWORK',
   'SERVER',

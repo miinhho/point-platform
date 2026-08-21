@@ -23,6 +23,7 @@ const STATUS: Record<FailureCode, number> = {
   CAP_BELOW_ISSUED: 422,
   MALFORMED_REQUEST: 400,
   TRANSFER_NOT_FOUND: 404,
+  ISSUE_NOT_FOUND: 404,
   NETWORK: 599,
   SERVER: 500,
 }
@@ -321,7 +322,7 @@ export const handlers = [
     const auth = requireUser(request)
     if (auth instanceof Response) return auth
     const issue = ledger.findIssue(String(params.id), auth.userId)
-    if (!issue) return fail('TRANSFER_NOT_FOUND')
+    if (!issue) return fail('ISSUE_NOT_FOUND')
     return HttpResponse.json(issue)
   }),
 

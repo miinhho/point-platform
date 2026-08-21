@@ -232,6 +232,32 @@ describe('발행', () => {
     expect(types.find((t) => t.id === 'pt_gm')?.totalIssued).toBe(1_300_000)
   })
 
+  async function refusedIssue(id: string): Promise<ApiError> {
+    const error: unknown = await endpoints.issue(id).then(() => null, (thrown: unknown) => thrown)
+    expect(error).toBeInstanceOf(ApiError)
+    return error as ApiError
+  }
+
+  /*
+   * 발행 id 도 내역에서 새어 나갈 수 있으므로 남의 것과 없는 것이 같은 답이다. 다만
+   * 이체의 코드를 빌리지는 않는다 — 화면이 코드로 갈리므로, 빌리면 발행 상세가
+   * 이체 이야기를 한다. 계약: docs/API.md 「발행도 같다」
+   */
+  it('남의 발행은 없는 발행과 같은 답이고, 이체의 코드를 빌리지 않는다', async () => {
+    const mine = await endpoints.createIssue({ pointTypeId: 'pt_gm', amount: 100_000 }, key())
+    setTokens(await endpoints.login({ handle: '@jisoo', password: 'point' }))
+
+    const theirs = await refusedIssue(mine.id)
+    const nothing = await refusedIssue('is_nope')
+    // 답이 갈리면 그 차이가 곧 「그 id 는 존재한다」가 된다
+    expect([theirs.status, theirs.code, theirs.message]).toEqual([
+      nothing.status,
+      nothing.code,
+      nothing.message,
+    ])
+    expect([theirs.status, theirs.code]).toEqual([404, 'ISSUE_NOT_FOUND'])
+  })
+
   /*
    * 일어난 일은 일어난 때의 값을 갖는다. 지금 값에서 거꾸로 계산하면 그 사이 발행이
    * 끼거나 상한이 바뀌었을 때 틀린다. 계약: docs/API.md

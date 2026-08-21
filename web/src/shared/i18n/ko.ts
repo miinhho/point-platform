@@ -344,6 +344,11 @@ export const ko = {
       whereTransfer: '아무것도 나가지 않았어요',
       whereIssue: '발행되지 않았어요',
     },
+    ISSUE_NOT_FOUND: {
+      title: '그 발행을 찾을 수 없어요',
+      whereTransfer: '아무것도 나가지 않았어요',
+      whereIssue: '발행되지 않았어요',
+    },
     BAD_CREDENTIALS: {
       title: '핸들이나 암호가 맞지 않아요',
       whereTransfer: '아무것도 나가지 않았어요',

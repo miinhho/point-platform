@@ -117,6 +117,23 @@ describe('내역', () => {
     expect(document.body.textContent).not.toContain('무에서')
   })
 
+  /*
+   * `404` 는 답이지 실패가 아니다. 답인 것에 「다시 시도」를 주면 영원히 같은 답을 받는다.
+   *
+   * 서버가 발행 단건에 제 코드를 주지 않고 이체의 것을 빌리면 이 자리가 이체 이야기를
+   * 한다 — 화면이 코드로 갈리기 때문이다. 계약: docs/API.md 「발행도 같다」
+   */
+  it('없는 발행은 답이라고 말하고, 이체 이야기를 하지 않는다', async () => {
+    renderApp(<App />)
+    await screen.findByText('내 포인트')
+    history.pushState(null, '', '/history/issues/is_nope')
+    dispatchEvent(new PopStateEvent('popstate'))
+
+    expect(await screen.findByText('이 기록은 볼 수 없어요')).toBeTruthy()
+    expect(screen.queryByRole('button', { name: '다시 시도' })).toBeNull()
+    expect(document.body.textContent).not.toContain('이체')
+  })
+
   // 그 뒤에 더 발행해도 앞의 상세는 그대로다.
   it('나중 발행이 앞 발행의 상세를 바꾸지 않는다', async () => {
     await issuesApi.createIssue({ pointTypeId: 'pt_gm', amount: 5_000 }, newIdempotencyKey())
