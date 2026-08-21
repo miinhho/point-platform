@@ -1,11 +1,9 @@
 package io.github.miinhho.point
 
-import io.github.miinhho.point.auth.JwtProperties
 import io.github.miinhho.point.shared.ProductionGuard
 import org.junit.jupiter.api.Test
 import org.springframework.boot.DefaultApplicationArguments
 import org.springframework.mock.env.MockEnvironment
-import java.time.Duration
 import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
@@ -28,8 +26,8 @@ class ProductionGuardTest {
     }
 
     private fun guard(secret: String, seed: Boolean) = ProductionGuard(
-        JwtProperties(secret, Duration.ofMinutes(15), Duration.ofDays(14)),
         MockEnvironment()
+            .withProperty("point.jwt.secret", secret)
             .withProperty("point.seed-users", seed.toString())
             .withProperty("point.login-rate-limited-upstream", (!seed).toString()),
     )
