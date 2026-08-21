@@ -1,5 +1,6 @@
 package io.github.miinhho.point.pointtype
 
+import io.github.miinhho.point.ledger.Supply
 import java.time.Instant
 
 data class PointTypeResponse(
@@ -48,7 +49,7 @@ fun PointType.toResponse(
     issuerName = issuer.name,
     issuerHandle = issuer.handle,
     canIssue = issuer.id == viewerId,
-    issuableHeadroom = maxOf(0, issueCap - totalIssued),
+    issuableHeadroom = Supply(issued = totalIssued, cap = issueCap).headroom,
     accent = accent.name.lowercase(),
     totalIssued = totalIssued,
     issueCap = issueCap,

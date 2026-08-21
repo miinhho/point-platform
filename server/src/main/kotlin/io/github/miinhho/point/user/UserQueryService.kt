@@ -1,7 +1,7 @@
 package io.github.miinhho.point.user
 
-import io.github.miinhho.point.pointtype.BankAccess
-import io.github.miinhho.point.pointtype.MembershipRepository
+import io.github.miinhho.point.membership.BankAccess
+import io.github.miinhho.point.membership.MembershipRepository
 import io.github.miinhho.point.pointtype.PointType
 import io.github.miinhho.point.pointtype.PointTypeRepository
 import io.github.miinhho.point.pointtype.PointVisibility

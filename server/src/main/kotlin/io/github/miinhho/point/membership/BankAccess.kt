@@ -1,7 +1,10 @@
-package io.github.miinhho.point.pointtype
+package io.github.miinhho.point.membership
 
 import io.github.miinhho.point.ledger.AccountRepository
 import org.springframework.stereotype.Service
+import io.github.miinhho.point.pointtype.PointType
+import io.github.miinhho.point.pointtype.PointTypeRepository
+import io.github.miinhho.point.pointtype.PointVisibility
 
 /** 누가 이 은행에 닿을 수 있는가. 근거: docs/API.md 「회원 자격」. */
 @Service

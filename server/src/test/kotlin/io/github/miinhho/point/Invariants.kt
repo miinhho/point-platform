@@ -18,6 +18,11 @@ import kotlin.test.assertEquals
  *
  * 자동 등록이라 붙이는 것을 잊을 자리가 없다 — `junit-platform.properties` 와
  * `META-INF/services` 가 짝이다. 근거: docs/LEDGER.md 「불변식」.
+ *
+ * **문서의 다섯 중 넷만 여기 있다.** 「보유자 잔액은 음수가 아니다」는 스키마 CHECK 가,
+ * 「발행 총량은 상한을 넘지 않는다」는 적용부가 잠금 아래에서 지킨다 — 불변식은 길을 하나로
+ * 만드는 것이 제일 위이고 그다음이 스키마다. 더 위에서 막은 것을 테스트로 한 벌 더 적으면
+ * 그것이 중복이고, 둘 중 한쪽이 곧 거짓이 된다.
  */
 class Invariants : AfterEachCallback {
     override fun afterEach(context: ExtensionContext) {

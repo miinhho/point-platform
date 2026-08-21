@@ -1,4 +1,4 @@
-package io.github.miinhho.point.pointtype
+package io.github.miinhho.point.membership
 
 import io.github.miinhho.point.issue.IssueService
 import io.github.miinhho.point.transfer.TransferService
@@ -12,6 +12,9 @@ import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Propagation
 import org.springframework.transaction.annotation.Transactional
 import java.math.BigDecimal
+import io.github.miinhho.point.pointtype.CreatePointTypeRequest
+import io.github.miinhho.point.pointtype.PointTypeCreateService
+import io.github.miinhho.point.pointtype.PointTypeRepository
 
 /**
  * 비공개 은행 하나와 **관계 넷**을 채운다 — 회원 · 잔액 0 인 회원 · 초대만 받은 사람 ·

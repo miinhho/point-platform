@@ -3,10 +3,10 @@ package io.github.miinhho.point
 import io.github.miinhho.point.auth.LoginRequest
 import io.github.miinhho.point.auth.LoginResponse
 import io.github.miinhho.point.pointtype.ChangeCapRequest
-import io.github.miinhho.point.pointtype.InviteRepository
-import io.github.miinhho.point.pointtype.InviteRequest
-import io.github.miinhho.point.pointtype.Membership
-import io.github.miinhho.point.pointtype.MembershipRepository
+import io.github.miinhho.point.membership.InviteRepository
+import io.github.miinhho.point.membership.InviteRequest
+import io.github.miinhho.point.membership.Membership
+import io.github.miinhho.point.membership.MembershipRepository
 import io.github.miinhho.point.pointtype.PointAccent
 import io.github.miinhho.point.pointtype.PointType
 import io.github.miinhho.point.pointtype.PointTypeRepository

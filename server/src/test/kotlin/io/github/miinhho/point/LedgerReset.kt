@@ -3,8 +3,8 @@ package io.github.miinhho.point
 import io.github.miinhho.point.auth.RefreshTokenRepository
 import io.github.miinhho.point.issue.IssueRepository
 import io.github.miinhho.point.pointtype.CapChangeRepository
-import io.github.miinhho.point.pointtype.InviteRepository
-import io.github.miinhho.point.pointtype.MembershipRepository
+import io.github.miinhho.point.membership.InviteRepository
+import io.github.miinhho.point.membership.MembershipRepository
 import io.github.miinhho.point.pointtype.PointTypeRepository
 import io.github.miinhho.point.transfer.TransferRepository
 import io.github.miinhho.point.user.UserRepository

@@ -8,6 +8,7 @@ import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.math.BigDecimal
 import java.util.UUID
+import io.github.miinhho.point.membership.BankAccess
 
 private const val MAX_SAFE_INTEGER = 9_007_199_254_740_991L
 
@@ -48,12 +49,11 @@ class CapChangeService(
 
         // 사건 행이 첫 쓰기다 — 같은 키가 동시에 오면 여기서 갈리고 상한에 닿지 않는다.
         val capped = ledger.changeCap(actorId, idempotencyKey, pointType.id!!)
-        if (newCap < capped.totalIssued) {
-            // 그 아래로 내리면 유통량이 상한을 넘은 상태가 되어 상한이 뜻을 잃는다.
+        if (!capped.supply.canLowerTo(newCap)) {
             throw DomainFailureException(FailureCode.CAP_BELOW_ISSUED, "이미 발행한 양보다 낮음")
         }
-        // 잠근 뒤에 현재 값으로 읽는다 — 엔티티의 상한은 잠금 전에 로드돼 낡았을 수 있다.
-        val previousCap = pointTypeRepository.lockIssueCap(pointType.id!!)!!
+        // 잠근 뒤의 값이다 — 엔티티의 상한은 잠금 전에 로드돼 낡았을 수 있다.
+        val previousCap = capped.supply.cap
         if (newCap == previousCap) {
             // 이력에 남는 사건이므로 아무것도 바꾸지 않는 줄을 만들지 않는다.
             throw DomainFailureException(FailureCode.MALFORMED_REQUEST, "지금과 같은 값")

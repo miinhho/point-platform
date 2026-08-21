@@ -1,4 +1,4 @@
-package io.github.miinhho.point.pointtype
+package io.github.miinhho.point.membership
 
 import io.github.miinhho.point.user.User
 import jakarta.persistence.Column
@@ -11,6 +11,7 @@ import jakarta.persistence.ManyToOne
 import jakarta.persistence.MapsId
 import jakarta.persistence.Table
 import java.time.Instant
+import io.github.miinhho.point.pointtype.PointType
 
 @Entity
 @Table(name = "memberships", indexes = [Index(name = "ix_memberships_user", columnList = "user_id")])
