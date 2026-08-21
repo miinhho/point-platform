@@ -67,7 +67,6 @@ class ConnectionCliffTest {
                 issuer = issuer,
                 accent = PointAccent.PURPLE,
                 visibility = PointVisibility.PUBLIC,
-                issueCap = 1_000_000,
             ),
         )
     }

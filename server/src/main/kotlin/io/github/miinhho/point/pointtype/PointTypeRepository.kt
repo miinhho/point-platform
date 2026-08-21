@@ -32,11 +32,4 @@ interface PointTypeRepository : JpaRepository<PointType, Long> {
     @Query("select p.id from PointType p where p.publicId = :publicId")
     fun findIdByPublicId(publicId: UUID): Long?
 
-    /**
-     * 상한을 **현재 값으로** 읽는다. 일반 읽기는 REPEATABLE READ 스냅샷을 보므로, 공급을
-     * 잠그기 전에 커밋된 상한 변경이 안 보인다 — 낡은 상한으로 발행이 통과한다.
-     * 잠금 읽기만 현재를 본다. 공유 락이라 이체가 FK 로 잡는 같은 락과 부딪히지 않는다.
-     */
-    @Query(value = "select issue_cap from point_types where id = :id for share", nativeQuery = true)
-    fun lockIssueCap(id: Long): Long?
 }

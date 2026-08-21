@@ -84,7 +84,6 @@ class ConcurrencyTest {
                 issuer = issuer,
                 accent = PointAccent.PURPLE,
                 visibility = PointVisibility.PUBLIC,
-                issueCap = 1_000_000,
             ),
         )
     }
@@ -355,7 +354,7 @@ class ConcurrencyTest {
 
         assertTrue(responses.all { it.statusCode.is2xxSuccessful }, "전부 성공 응답이어야 한다: ${responses.map { it.statusCode }}")
         assertEquals(1, capChangeRepository.count(), "이력은 한 줄만 남아야 한다")
-        assertEquals(2_000_000, pointTypeRepository.findById(pointType.id!!).orElseThrow().issueCap)
+        assertEquals(2_000_000, accountRepository.findAll().single { it.pointTypeId == pointType.id && it.kind == AccountKind.ISSUANCE }.issueCap!!)
     }
 
     // 계약: docs/API.md — 쓰기는 멱등성 키를 상태 검사보다 먼저 본다.
@@ -492,7 +491,7 @@ class ConcurrencyTest {
     private fun issuedOf() = -accountRepository.findAll()
         .single { it.pointTypeId == pointType.id && it.kind == AccountKind.ISSUANCE }.balance
 
-    private fun capOf() = pointTypeRepository.findById(pointType.id!!).orElseThrow().issueCap
+    private fun capOf() = accountRepository.findAll().single { it.pointTypeId == pointType.id && it.kind == AccountKind.ISSUANCE }.issueCap!!
 
     private fun balanceOf(user: User) =
         accountRepository.findByUserId(user.id!!).firstOrNull { it.pointTypeId == pointType.id }?.balance ?: 0
@@ -551,7 +550,6 @@ class ConcurrencyTest {
                 issuer = issuer,
                 accent = PointAccent.BLUE,
                 visibility = PointVisibility.PRIVATE,
-                issueCap = 1_000_000,
             ),
         )
         membershipRepository.save(Membership(pointType = bank, user = issuer))

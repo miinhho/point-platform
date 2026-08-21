@@ -116,5 +116,5 @@ class NameIsSharedTest {
 
     private fun point(name: String, emoji: String, issuer: User, accent: PointAccent) =
         PointType(name = name, emoji = emoji, issuer = issuer, accent = accent,
-            visibility = PointVisibility.PUBLIC, issueCap = 1_000_000)
+            visibility = PointVisibility.PUBLIC,)
 }

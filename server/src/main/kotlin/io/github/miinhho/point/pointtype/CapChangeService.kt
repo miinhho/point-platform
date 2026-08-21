@@ -58,8 +58,7 @@ class CapChangeService(
             throw DomainFailureException(FailureCode.MALFORMED_REQUEST, "지금과 같은 값")
         }
 
-        pointType.issueCap = newCap
-        pointTypeRepository.save(pointType)
+        ledger.setCap(pointType.id!!, newCap)
         capChangeRepository.saveAndFlush(
             CapChange(
                 journalEntry = capped.entry,

@@ -27,6 +27,10 @@ class Account(
 
     @Column(nullable = false)
     var balance: Long = 0,
+
+    /** 발행 계정에만 있다 — 상한은 공급의 성질이고 공급은 이 행이다. */
+    @Column(name = "issue_cap")
+    var issueCap: Long? = null,
 ) {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

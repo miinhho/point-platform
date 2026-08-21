@@ -60,15 +60,19 @@ class Ledger(
     /**
      * 공급을 잠그고 지금 값을 준다. 발행 계정 행이 그 포인트의 뮤텍스다.
      *
-     * 둘 다 잠금 읽기다 — 일반 읽기는 REPEATABLE READ 스냅샷이라, 잠그기 전에 커밋된 상한
-     * 변경이 안 보여 낡은 상한으로 발행이 통과한다.
+     * 잠금 읽기라 현재 값을 본다 — 일반 읽기는 REPEATABLE READ 스냅샷이라, 잠그기 전에
+     * 커밋된 상한 변경이 안 보여 낡은 상한으로 발행이 통과한다.
      */
     @Transactional(propagation = Propagation.MANDATORY)
     fun lockSupply(pointTypeId: Long): Supply {
-        val issued = -(accountRepository.lockIssuance(pointTypeId) ?: error("발행 계정이 없다: $pointTypeId"))
-        val cap = pointTypeRepository.lockIssueCap(pointTypeId)
-            ?: throw DomainFailureException(FailureCode.POINT_TYPE_NOT_FOUND, "포인트 없음")
-        return Supply(issued = issued, cap = cap)
+        val row = accountRepository.lockIssuance(pointTypeId).firstOrNull() ?: error("발행 계정이 없다: $pointTypeId")
+        return Supply(issued = -(row[0] as Long), cap = row[1] as Long)
+    }
+
+    /** 상한을 바꾼다. [lockSupply] 로 공급을 쥔 아래에서만 부른다. */
+    @Transactional(propagation = Propagation.MANDATORY)
+    fun setCap(pointTypeId: Long, newCap: Long) {
+        check(accountRepository.setIssueCap(pointTypeId, newCap) == 1) { "발행 계정이 없다: $pointTypeId" }
     }
 
     /**

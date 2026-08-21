@@ -64,11 +64,10 @@ class PointTypeCreateService(
                 issuer = issuer,
                 accent = PointAccent.valueOf(accent!!),
                 visibility = visibility!!,
-                issueCap = issueCap!!,
                 idempotencyKey = idempotencyKey,
             ),
         )
-        openIssuance(created)
+        openIssuance(created, issueCap!!)
 
         // 은행장은 나갈 수도 내보내질 수도 없다 — 창설과 같은 트랜잭션에서 회원이 된다.
         if (created.visibility == PointVisibility.PRIVATE) {
@@ -78,14 +77,16 @@ class PointTypeCreateService(
     }
 
     /**
-     * 발행 계정은 포인트가 나는 순간 함께 난다. 보유자 계정과 달리 미리 있어야 한다 —
+     * 발행 계정은 포인트가 나는 순간 **상한을 갖고** 함께 난다. 보유자 계정과 달리 미리 있어야 한다 —
      * 상한을 보는 쪽이 잠글 행이고, 없으면 첫 발행과 첫 상한 변경이 그것을 만들려고 겹친다.
      *
      * private 인 것이 이 성질을 지킨다. 포인트를 만드는 길이 이 클래스 하나뿐이고 밖에서는
      * 계정을 열 수 없으므로, 계정 없는 포인트를 만드는 코드가 아예 컴파일되지 않는다.
      */
-    private fun openIssuance(pointType: PointType) {
-        accountRepository.saveAndFlush(Account(pointTypeId = pointType.id!!, userId = null, kind = AccountKind.ISSUANCE))
+    private fun openIssuance(pointType: PointType, issueCap: Long) {
+        accountRepository.saveAndFlush(
+            Account(pointTypeId = pointType.id!!, userId = null, kind = AccountKind.ISSUANCE, issueCap = issueCap),
+        )
     }
 
     /** 소개는 이력에 남지 않는다 — 약속이 아니라 소개이므로 마지막에 쓴 것이 지금 값이다. */

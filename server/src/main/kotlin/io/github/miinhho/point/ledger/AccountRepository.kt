@@ -18,19 +18,29 @@ interface AccountRepository : JpaRepository<Account, Long> {
     @Query("select a.pointTypeId from Account a where a.userId = :userId")
     fun pointTypeIdsHeldBy(userId: Long): Set<Long>
 
-    /** 포인트별 발행량. 발행 계정 잔액의 부호를 뒤집은 것이다. */
-    @Query("select a.pointTypeId, -a.balance from Account a where a.kind = io.github.miinhho.point.ledger.AccountKind.ISSUANCE and a.pointTypeId in :pointTypeIds")
-    fun issuedOf(pointTypeIds: Collection<Long>): List<Array<Any>>
+    /** 포인트별 공급. 발행량은 발행 계정 잔액의 부호를 뒤집은 것이다. */
+    @Query("select a.pointTypeId, -a.balance, a.issueCap from Account a where a.kind = io.github.miinhho.point.ledger.AccountKind.ISSUANCE and a.pointTypeId in :pointTypeIds")
+    fun suppliesOf(pointTypeIds: Collection<Long>): List<Array<Any>>
 
     /**
-     * 공급을 잠근다. 값으로 읽는다 — 엔티티 잠금 조회는 1 차 캐시에 이미 있으면 락은 잡되
-     * 낡은 값을 준다. 없으면 null 이고 그것은 불변식이 깨진 것이다.
+     * 공급을 잠그고 **발행량과 상한을 함께** 준다. 값으로 읽는다 — 엔티티 잠금 조회는 락은
+     * 잡되 1 차 캐시에 이미 있으면 낡은 값을 준다. 없으면 null 이고 불변식이 깨진 것이다.
      */
     @Query(
-        value = "select balance from accounts where point_type_id = :pointTypeId and holder_key = 0 for update",
+        value = "select balance, issue_cap from accounts where point_type_id = :pointTypeId and holder_key = 0 for update",
         nativeQuery = true,
     )
-    fun lockIssuance(pointTypeId: Long): Long?
+    // 리스트로 받는다 — 배열로 선언하면 스프링이 그것을 행 컬렉션으로 보고 한 겹을 더 씌운다.
+    fun lockIssuance(pointTypeId: Long): List<Array<Any>>
+
+    // 컨텍스트를 비우지 않는다 — 비우면 응답을 조립하려던 엔티티가 그 자리에서 떨어져 나간다.
+    /** 상한을 바꾼다. 공급을 잠근 아래에서만 부른다. */
+    @Modifying(flushAutomatically = true)
+    @Query(
+        value = "update accounts set issue_cap = :issueCap where point_type_id = :pointTypeId and holder_key = 0",
+        nativeQuery = true,
+    )
+    fun setIssueCap(pointTypeId: Long, issueCap: Long): Int
 
     /** 보유자 입금. 행이 없으면 만든다 — 보유자 계정은 받을 때 생긴다 (docs/LEDGER.md). */
     @Modifying(flushAutomatically = true)

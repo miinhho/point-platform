@@ -18,7 +18,6 @@ create table point_types (
     id              bigint      not null auto_increment,
     accent          enum ('BLUE','GREEN','ORANGE','PINK','PURPLE','TEAL') not null,
     idempotency_key varchar(36) null,
-    issue_cap       bigint      not null,
     name            varchar(50) not null,
     -- 결합 이모지(ZWJ·이형 선택자·피부색)는 코드포인트가 여럿이라 한 글자로 세지 않는다.
     emoji           varchar(32) not null,
@@ -43,6 +42,9 @@ create table accounts (
     user_id       bigint null,
     kind          enum ('HOLDER','ISSUANCE') not null,
     balance       bigint not null,
+    -- 공급의 두 값이 한 행에 있다. 발행도 상한 변경도 이 행을 잠그므로, 잠금 한 번이
+    -- 발행량과 상한을 함께 현재 값으로 준다 (docs/LEDGER.md).
+    issue_cap     bigint null,
     -- NULL 끼리는 unique 에서 안 부딪히므로 그대로 두면 한 포인트에 발행 계정이 둘 생긴다.
     -- 0 으로 접어서 막는다. users.id 가 AUTO_INCREMENT 라 0 을 넣어도 저장되지 않고
     -- 다음 번호가 들어가므로 보유자와 겹치지 않는다 (sql_mode 에 NO_AUTO_VALUE_ON_ZERO 가 없어야 한다).
@@ -52,6 +54,8 @@ create table accounts (
     -- kind 와 user_id 가 같은 사실을 두 번 말한다. 어긋난 행을 막지 않으면
     -- (user_id null, HOLDER) 가 holder_key 0 을 먹고 진짜 발행 계정을 밀어낸다.
     constraint ck_accounts_issuance_has_no_holder check ((user_id is null) = (kind = 'ISSUANCE')),
+    -- 상한은 공급의 성질이라 보유자 계정에는 없다. 어긋나면 상한 없는 발행 계정이 생긴다.
+    constraint ck_accounts_cap_only_on_issuance check ((issue_cap is null) = (kind = 'HOLDER')),
     -- 부호는 계정 유형이 정한다. 보유자 잔액은 은행이 진 빚이라 음수가 될 수 없고,
     -- 발행 계정은 그 빚의 반대편이라 음수가 정상이다 (docs/LEDGER.md).
     constraint ck_accounts_holder_not_negative check (kind = 'ISSUANCE' or balance >= 0),

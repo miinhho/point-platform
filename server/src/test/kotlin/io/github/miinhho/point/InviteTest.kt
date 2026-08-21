@@ -369,6 +369,5 @@ class InviteTest {
         issuer = issuer,
         accent = PointAccent.BLUE,
         visibility = visibility,
-        issueCap = 1_000_000,
     )
 }
