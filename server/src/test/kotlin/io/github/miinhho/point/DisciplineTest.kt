@@ -17,9 +17,20 @@ import kotlin.test.assertTrue
  */
 class DisciplineTest {
     @Test
-    fun `잔액을 바꾸는 문장은 적용부에만 있다`() {
-        val callers = sourcesOutside("ledger").filter { (_, text) -> BALANCE_WRITES.any { it in text } }
+    fun `잔액을 바꾸거나 잠그는 문장은 적용부에만 있다`() {
+        val names = balanceWriteNames()
+        // 목록을 손으로 적으면 새 메서드가 생긴 날부터 검사가 조용히 안 본다 — 소스에서 뽑는다.
+        assertTrue(names.size >= 4, "잔액을 바꾸는 메서드를 못 찾았다: $names")
+
+        val callers = sourcesOutside("ledger").filter { (_, text) -> names.any { "$it(" in text } }
         assertEquals(emptyList(), callers.map { it.first }, "적용부 밖에서 잔액을 바꾼다 — 락 순서와 전기가 그 자리를 안 지난다")
+    }
+
+    /** 쓰거나(`@Modifying`) 잠그는(`for update`·`for share`) 것 전부. 읽기만 하는 것은 뺀다. */
+    private fun balanceWriteNames(): List<String> {
+        val text = text("ledger/AccountRepository.kt")
+        return Regex("(@Modifying|for update|for share)[\\s\\S]{0,600}?\\bfun\\s+(\\w+)")
+            .findAll(text).map { it.groupValues[2] }.distinct().toList()
     }
 
     // 읽는 것은 막지 않는다 — 내역이 사건을 읽어야 세 목록을 합치지 않는다.
@@ -39,10 +50,14 @@ class DisciplineTest {
         assertEquals(emptyList(), users.map { it.first }, "허용된 자리는 refresh 재사용 탐지뿐이다 — 그쪽은 돈이 아니다")
     }
 
-    /** 락은 잡되 1 차 캐시에 이미 있으면 낡은 값을 준다 — 판정이 조용히 옛 값으로 돈다. */
+    /**
+     * 락은 잡되 1 차 캐시에 이미 있으면 낡은 값을 준다 — 판정이 조용히 옛 값으로 돈다.
+     * 읽기 락이든 쓰기 락이든 같으므로 `PESSIMISTIC_WRITE` 하나가 아니라 **잠그는 길 전부**를
+     * 본다. 좁게 세면 검사가 이름만 남고 눈이 먼다.
+     */
     @Test
     fun `엔티티를 잠금 조회하지 않는다`() {
-        val users = sources().filter { (_, text) -> "PESSIMISTIC_WRITE" in text }
+        val users = sources().filter { (_, text) -> ENTITY_LOCKS.any { it in text } }
         assertEquals(emptyList(), users.map { it.first }, "잠금 읽기는 값으로 한다 — 스칼라 for update 또는 조건부 UPDATE")
     }
 
@@ -82,10 +97,10 @@ class DisciplineTest {
     private companion object {
         val SEP: String = java.io.File.separator
 
-        // AccountRepository 의 쓰기 메서드. 이름이 바뀌면 여기도 바뀌어야 한다 —
-        // 안 바꾸면 검사가 조용히 아무것도 안 보게 된다.
-        val BALANCE_WRITES = listOf("creditHolder", "debitHolder", "debitIssuance", "lockIssuance")
         val LEDGER_WRITES = listOf("journalEntryRepository.save", "postingRepository.save")
+
+        // @Lock 은 애너테이션, LockModeType 은 그 인자, entityManager.lock 은 직접 부르는 길.
+        val ENTITY_LOCKS = listOf("LockModeType", "@Lock", "entityManager.lock")
 
         // DB 도 스프링도 모르는 자리. 늘어나면 여기 적는다 — 적지 않으면 검사를 안 받는다.
         val PURE = listOf("ledger/Draft.kt", "ledger/Supply.kt", "ledger/JournalKind.kt", "ledger/AccountKind.kt")
