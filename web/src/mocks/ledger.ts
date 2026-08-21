@@ -747,11 +747,29 @@ export function membersOf(pointTypeId: PointTypeId, meId: UserId): User[] {
  * 나가기와 내보내기는 같은 일을 하고 누가 정했느냐만 다르다. 둘 다 **포인트를
  * 회수하지 않는다** — 잔액은 그대로 남고 쓸 수 없다. 계약: docs/API.md
  */
+/**
+ * 나간다. **답은 「지금 회원인가」 하나로 갈린다** — 방금 나갔든, 처음부터 아니든,
+ * 닿지 못하든, 그 id 의 은행이 없든 전부 성공이다. 계약: docs/API.md
+ *
+ * 「닿지 못하면 없는 은행」을 여기 적용하면 틀린다. 잔액 0 으로 나간 사람은 더는 닿지
+ * 못하므로, 응답을 못 받고 다시 누른 그 사람이 「이 은행이 없어요」를 본다.
+ */
+export function leaveBank(meId: UserId, pointTypeId: PointTypeId): void {
+  const pointType = state.pointTypes.get(pointTypeId)
+  if (!pointType) return
+  // 감출 것이 없는 자리 둘 — 공개 은행은 감추지 않고, 은행장은 언제나 닿는다
+  if (pointType.visibility === 'public') throw new LedgerError('NOT_A_PRIVATE_BANK')
+  if (pointType.issuerId === meId) throw new LedgerError('ISSUER_CANNOT_LEAVE')
+
+  state.members.get(pointTypeId)?.delete(meId)
+}
+
 export function removeMember(meId: UserId, pointTypeId: PointTypeId, targetId: UserId): void {
   const pointType = state.pointTypes.get(pointTypeId)
   // 닿지 않는 은행은 없는 은행이다.
-  if (!pointType || !reachable(pointType, meId)) throw new LedgerError('POINT_TYPE_NOT_FOUND')
-  if (pointType.visibility === 'public') throw new LedgerError('NOT_A_PRIVATE_BANK')
+  if (!pointType || pointType.visibility === 'public' || !isMember(pointTypeId, meId)) {
+    throw new LedgerError('POINT_TYPE_NOT_FOUND')
+  }
   // 남을 내보내는 것은 은행장만 한다. 나가는 것은 누구나 자기에 대해 한다.
   if (targetId !== meId && pointType.issuerId !== meId) throw new LedgerError('NOT_ISSUER')
   // 발행할 사람이 없는 은행이 되고, 상한도 품목도 관리할 수 없어진다.

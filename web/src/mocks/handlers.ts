@@ -370,9 +370,10 @@ export const handlers = [
     const auth = requireUser(request)
     if (auth instanceof Response) return auth
 
-    const target = String(params.userId) === 'me' ? auth.userId : String(params.userId)
     try {
-      ledger.removeMember(auth.userId, String(params.id), target)
+      // 나가기와 내보내기는 다른 물음이다 — 「지금 회원인가」와 「은행장인가」
+      if (String(params.userId) === 'me') ledger.leaveBank(auth.userId, String(params.id))
+      else ledger.removeMember(auth.userId, String(params.id), String(params.userId))
       if (drawResponseLoss()) return HttpResponse.error()
       return new HttpResponse(null, { status: 204 })
     } catch (error) {

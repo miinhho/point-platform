@@ -939,6 +939,21 @@ describe('나가기와 내보내기', () => {
     await expect(endpoints.leaveBank('pt_cl')).resolves.toBeUndefined()
   })
 
+  /*
+   * 「닿지 못하면 없는 은행」을 나가기에 적용하면 틀린다 — 잔액 0 으로 나간 사람은 더는
+   * 닿지 못하므로 다시 눌렀을 때 「이 은행이 없어요」를 본다. 방금까지 보던 은행이다.
+   * 그래서 답을 「지금 회원인가」 하나로 모은다. 계약: docs/API.md 「회원 자격」
+   */
+  it('닿지도 못하는 사람이 나가도 성공이다', async () => {
+    setTokens(await endpoints.login({ handle: '@jisu', password: 'point' }))
+    await expect(endpoints.leaveBank('pt_cl')).resolves.toBeUndefined()
+  })
+
+  // 답이 하나라 존재가 새지 않는다. 갈리는 순간 없는 id 와 감춘 은행이 구별된다
+  it('그 id 의 은행이 없어도 나가기는 성공이다', async () => {
+    await expect(endpoints.leaveBank('pt_nope' as PointTypeId)).resolves.toBeUndefined()
+  })
+
   // 공개 은행에는 회원이 없다. 「없는 은행」이라고 답하면 있는 은행에 거짓말을 한다
   it('공개 은행에서 나가려 하면 회원 개념이 없다고 답한다', async () => {
     await expect(endpoints.leaveBank('pt_on')).rejects.toMatchObject({
