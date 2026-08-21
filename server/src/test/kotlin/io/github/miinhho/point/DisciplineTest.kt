@@ -2,6 +2,7 @@ package io.github.miinhho.point
 
 import org.junit.jupiter.api.Test
 import java.nio.file.Path
+import kotlin.io.path.exists
 import kotlin.io.path.extension
 import kotlin.io.path.readText
 import kotlin.io.path.walk
@@ -52,6 +53,23 @@ class DisciplineTest {
         assertEquals(emptyList(), users.map { it.first }, "컨트롤러가 트랜잭션을 열면 그 경계가 화면 조립까지 늘어난다")
     }
 
+    /**
+     * 규칙이 DB 를 모른다는 것은 주석이 아니라 **import 가 없다**는 사실이어야 한다. 하나라도
+     * 들어오는 순간 규칙을 고치려면 판을 띄워야 하고, 그때부터 규칙은 어댑터로 스며든다.
+     */
+    @Test
+    fun `원장의 규칙은 아무것도 import 하지 않는다`() {
+        val leaked = PURE.map { it to text(it) }
+            .filter { (_, text) -> text.lineSequence().any { it.startsWith("import ") } }
+        assertEquals(emptyList(), leaked.map { it.first }, "규칙이 바깥을 알기 시작했다")
+    }
+
+    private fun text(relative: String): String {
+        val path = Path.of("src", "main", "kotlin", "io", "github", "miinhho", "point", *relative.split("/").toTypedArray())
+        assertTrue(path.exists(), "$relative 이 없다 — 경로가 어긋나면 이 검사는 아무것도 지키지 않는다")
+        return path.readText()
+    }
+
     private fun sources(): List<Pair<String, String>> {
         val root = Path.of("src", "main", "kotlin")
         val all = root.walk().filter { it.extension == "kt" }.map { root.relativize(it).toString() to it.readText() }.toList()
@@ -68,6 +86,9 @@ class DisciplineTest {
         // 안 바꾸면 검사가 조용히 아무것도 안 보게 된다.
         val BALANCE_WRITES = listOf("creditHolder", "debitHolder", "debitIssuance", "lockIssuance")
         val LEDGER_WRITES = listOf("journalEntryRepository.save", "postingRepository.save")
+
+        // DB 도 스프링도 모르는 자리. 늘어나면 여기 적는다 — 적지 않으면 검사를 안 받는다.
+        val PURE = listOf("ledger/Draft.kt", "ledger/Supply.kt", "ledger/JournalKind.kt", "ledger/AccountKind.kt")
         val ALLOWED_REQUIRES_NEW = listOf("auth${SEP}")
     }
 }
