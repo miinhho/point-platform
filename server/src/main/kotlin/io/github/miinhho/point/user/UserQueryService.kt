@@ -37,8 +37,11 @@ class UserQueryService(
     // 근거: docs/API.md — 최근 대상은 포인트별로 다르다. 최신순, 대상 중복 제거.
     @Transactional(readOnly = true)
     fun recent(pointTypePublicId: String, limit: Int, userId: Long): List<UserResponse> {
-        val pointType = findPointType(pointTypePublicId)?.takeIf { bankAccess.canReach(it, userId) } ?: return emptyList()
+        val pointType = findPointType(pointTypePublicId) ?: return emptyList()
         val members = membersOf(pointType)
+        // 문은 검색과 같다 — 회원인가. 도달성으로 열면 잔액 남은 채 나간 사람에게 「지금도
+        // 회원인 사람」의 이름이 나간다 (docs/API.md 「필터 인자」).
+        if (members != null && userId !in members) return emptyList()
 
         val seen = LinkedHashSet<Long>()
         for (transfer in transferRepository.sentByPointType(userId, pointType.id!!, Limit.of(200))) {

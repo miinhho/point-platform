@@ -122,6 +122,22 @@ class PrivateBankMembersTest {
         assertEquals("[]", get(outsider, "/api/users?pointTypeId=${closed.publicId}").body)
     }
 
+    // 계약: docs/API.md 「필터 인자」 — 전역을 뒤지는 조회의 문은 「회원인가」다. 최근 목록이
+    // 지금 회원만 걸러 돌려주면, 이름이 나온다는 것 자체가 그 사람이 아직 회원이라는 답이 된다.
+    @Test
+    fun `최근 보낸 사람도 회원이 아니면 나가지 않는다`() {
+        // 회원이던 동안 보낸 기록을 남기고 나간다.
+        membershipRepository.save(Membership(pointType = closed, user = leftBehind))
+        assertEquals(HttpStatus.CREATED, send(leftBehind, closed, member).statusCode)
+        assertEquals(HttpStatus.NO_CONTENT, delete(leftBehind, "/api/point-types/${closed.publicId}/members/me").statusCode)
+
+        assertEquals("[]", get(leftBehind, "/api/recent?pointTypeId=${closed.publicId}").body, "나간 사람에게 지금 회원의 이름이 나간다")
+
+        // 회원에게는 그대로 나온다 — 문이 닫힌 것이지 기능이 꺼진 것이 아니다.
+        assertEquals(HttpStatus.CREATED, send(issuer, closed, member).statusCode)
+        assertTrue(assertNotNull(get(issuer, "/api/recent?pointTypeId=${closed.publicId}").body).contains("@jisoo"))
+    }
+
     @Test
     fun `없는 포인트로 좁히면 빈 목록이다`() {
         assertEquals("[]", get(issuer, "/api/users?pointTypeId=${UUID.randomUUID()}").body)
@@ -236,6 +252,9 @@ class PrivateBankMembersTest {
         "/api/transfers",
         TransferRequest(pointType.publicId.toString(), publicId(to), BigDecimal(1_000)),
     )
+
+    private fun delete(who: User, path: String): ResponseEntity<String> =
+        restTemplate.exchange(path, HttpMethod.DELETE, HttpEntity<Void>(authOf(who)), String::class.java)
 
     private fun get(who: User, path: String): ResponseEntity<String> =
         restTemplate.exchange(path, HttpMethod.GET, HttpEntity<Void>(authOf(who)), String::class.java)
