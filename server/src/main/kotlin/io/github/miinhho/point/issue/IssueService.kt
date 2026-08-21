@@ -33,7 +33,7 @@ class IssueService(
         val issue = runCatching { UUID.fromString(publicId) }.getOrNull()
             ?.let(issueRepository::findByPublicId)
             ?.takeIf { it.issuer.id == viewerId }
-            ?: throw DomainFailureException(FailureCode.TRANSFER_NOT_FOUND, "없음")
+            ?: throw DomainFailureException(FailureCode.ISSUE_NOT_FOUND, "없음")
         return issue.toResponse(pointTypeRepository.sharedNames())
     }
 
