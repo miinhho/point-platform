@@ -79,15 +79,14 @@ class MembershipService(
             throw failure(FailureCode.NOT_A_PRIVATE_BANK, "공개 은행에는 회원이 없음")
         }
 
-        val locked = lock(bank)
-        if (locked.issuer.id == userId) throw failure(FailureCode.ISSUER_CANNOT_LEAVE, "은행장은 나갈 수 없음")
-        removeMember(locked, userId)
+        if (bank.issuer.id == userId) throw failure(FailureCode.ISSUER_CANNOT_LEAVE, "은행장은 나갈 수 없음")
+        removeMember(bank, userId)
     }
 
     /** 내보낸다. 나가기와 같은 일이고 누가 정했느냐만 다르다. */
     @Transactional
     fun remove(bankPublicId: String, issuerId: Long, targetPublicId: String) {
-        val pointType = lock(requirePrivateBank(bankPublicId, issuerId))
+        val pointType = requirePrivateBank(bankPublicId, issuerId)
         if (pointType.issuer.id != issuerId) throw failure(FailureCode.NOT_ISSUER, "발행자가 아님")
 
         val target = runCatching { UUID.fromString(targetPublicId) }.getOrNull()
@@ -112,10 +111,6 @@ class MembershipService(
         }
         return pointType
     }
-
-    // 은행 행을 잠그고 센다 — 은행장 자격을 읽고 지우는 사이에 다른 요청이 끼면
-    // 회원이 0 인 은행이 생긴다.
-    private fun lock(pointType: PointType): PointType = pointTypeRepository.findForUpdate(pointType.id!!)!!
 
     private fun failure(code: FailureCode, message: String) = DomainFailureException(code, message)
 
