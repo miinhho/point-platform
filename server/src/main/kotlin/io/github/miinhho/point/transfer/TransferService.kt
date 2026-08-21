@@ -53,8 +53,6 @@ class TransferService(
         return transferRepository.saveAndFlush(
             Transfer(
                 journalEntry = entry,
-                pointType = pointType,
-                from = userRepository.getReferenceById(meId),
                 to = recipient,
                 amount = amount,
             ),
@@ -66,7 +64,7 @@ class TransferService(
     fun findById(publicId: String, viewerId: Long): TransferResponse {
         val transfer = runCatching { UUID.fromString(publicId) }.getOrNull()
             ?.let(transferRepository::findByPublicId)
-            ?.takeIf { it.from?.id == viewerId || it.to.id == viewerId }
+            ?.takeIf { it.journalEntry.requester.id == viewerId || it.to.id == viewerId }
             ?: throw DomainFailureException(FailureCode.TRANSFER_NOT_FOUND, "없음")
         return transfer.toResponse(viewerId, userRepository.sharedNames(), pointTypeRepository.sharedNames())
     }

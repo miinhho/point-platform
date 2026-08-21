@@ -81,9 +81,9 @@ class HistoryService(
 private fun CapChange.toResponse() = CapChangeResponse(
     id = publicId.toString(),
     idempotencyKey = journalEntry.idempotencyKey,
-    pointTypeId = pointType.publicId.toString(),
-    byId = by.publicId.toString(),
+    pointTypeId = journalEntry.pointType.publicId.toString(),
+    byId = journalEntry.requester.publicId.toString(),
     previousCap = previousCap,
     issueCap = issueCap,
-    changedAt = changedAt,
+    changedAt = journalEntry.occurredAt,
 )

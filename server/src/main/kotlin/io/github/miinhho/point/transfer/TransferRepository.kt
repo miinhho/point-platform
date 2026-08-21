@@ -16,19 +16,21 @@ interface TransferRepository : JpaRepository<Transfer, Long> {
     fun byJournalEntryIds(ids: Collection<Long>): List<Transfer>
 
     @Query(
-        "select t from Transfer t where (t.from.id = :userId or t.to.id = :userId) " +
-            "and (:pointTypeId is null or t.pointType.id = :pointTypeId) order by t.createdAt desc",
+        "select t from Transfer t where (t.journalEntry.requester.id = :userId or t.to.id = :userId) " +
+            "and (:pointTypeId is null or t.journalEntry.pointType.id = :pointTypeId) " +
+            "order by t.journalEntry.occurredAt desc, t.journalEntry.id desc",
     )
     fun history(userId: Long, pointTypeId: Long?, limit: Limit): List<Transfer>
 
     // 포인트별 최근 대상 후보 — 서비스가 최신순으로 대상을 중복 제거해 limit 만큼 뽑는다.
     @Query(
-        "select t from Transfer t where t.from.id = :userId and t.pointType.id = :pointTypeId " +
-            "order by t.createdAt desc",
+        "select t from Transfer t where t.journalEntry.requester.id = :userId " +
+            "and t.journalEntry.pointType.id = :pointTypeId " +
+            "order by t.journalEntry.occurredAt desc, t.journalEntry.id desc",
     )
     fun sentByPointType(userId: Long, pointTypeId: Long, limit: Limit): List<Transfer>
 
     // 발행은 세지 않는다 — from 이 없다. 「보낸 적 있는가」만 본다.
-    @Query("select t.pointType.id from Transfer t where t.from.id = :userId")
+    @Query("select t.journalEntry.pointType.id from Transfer t where t.journalEntry.requester.id = :userId")
     fun spentPointTypeIdsOf(userId: Long): Set<Long>
 }

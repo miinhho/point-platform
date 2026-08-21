@@ -28,16 +28,20 @@ data class TransferResponse(
     val confirmedAt: Instant,
 )
 
-fun Transfer.toResponse(viewerId: Long, sharedNames: Set<String>, sharedPointNames: Set<String>) = TransferResponse(
-    id = publicId.toString(),
-    idempotencyKey = journalEntry.idempotencyKey,
-    pointTypeId = pointType.publicId.toString(),
-    point = pointType.toMark(sharedPointNames),
-    fromId = from.publicId.toString(),
-    toId = to.publicId.toString(),
-    counterparty = (if (from.id == viewerId) to else from)
-        .let { CounterpartyResponse(it.name, it.handle, it.name in sharedNames) },
-    amount = amount,
-    createdAt = createdAt,
-    confirmedAt = confirmedAt,
-)
+fun Transfer.toResponse(viewerId: Long, sharedNames: Set<String>, sharedPointNames: Set<String>): TransferResponse {
+    val from = journalEntry.requester
+    return TransferResponse(
+        id = publicId.toString(),
+        idempotencyKey = journalEntry.idempotencyKey,
+        pointTypeId = journalEntry.pointType.publicId.toString(),
+        point = journalEntry.pointType.toMark(sharedPointNames),
+        fromId = from.publicId.toString(),
+        toId = to.publicId.toString(),
+        counterparty = (if (from.id == viewerId) to else from)
+            .let { CounterpartyResponse(it.name, it.handle, it.name in sharedNames) },
+        amount = amount,
+        // 만들어진 때와 확정된 때가 갈리지 않는다 — 저장된 이체는 언제나 확정이다.
+        createdAt = journalEntry.occurredAt,
+        confirmedAt = journalEntry.occurredAt,
+    )
+}

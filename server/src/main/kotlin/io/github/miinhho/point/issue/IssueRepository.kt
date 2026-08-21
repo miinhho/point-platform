@@ -17,8 +17,9 @@ interface IssueRepository : JpaRepository<Issue, Long> {
     fun byJournalEntryIds(ids: Collection<Long>): List<Issue>
 
     @Query(
-        "select i from Issue i where i.issuer.id = :userId " +
-            "and (:pointTypeId is null or i.pointType.id = :pointTypeId) order by i.confirmedAt desc",
+        "select i from Issue i where i.journalEntry.requester.id = :userId " +
+            "and (:pointTypeId is null or i.journalEntry.pointType.id = :pointTypeId) " +
+            "order by i.journalEntry.occurredAt desc, i.journalEntry.id desc",
     )
     fun history(userId: Long, pointTypeId: Long?, limit: Limit): List<Issue>
 }

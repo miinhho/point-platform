@@ -5,7 +5,6 @@ import io.github.miinhho.point.membership.BankAccess
 import io.github.miinhho.point.pointtype.PointTypeRepository
 import io.github.miinhho.point.shared.DomainFailureException
 import io.github.miinhho.point.shared.FailureCode
-import io.github.miinhho.point.user.UserRepository
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.util.UUID
@@ -15,7 +14,6 @@ import java.util.UUID
 class IssueService(
     private val issueRepository: IssueRepository,
     private val pointTypeRepository: PointTypeRepository,
-    private val userRepository: UserRepository,
     private val ledger: Ledger,
     private val bankAccess: BankAccess,
 ) {
@@ -28,7 +26,7 @@ class IssueService(
     fun findById(publicId: String, viewerId: Long): IssueResponse {
         val issue = runCatching { UUID.fromString(publicId) }.getOrNull()
             ?.let(issueRepository::findByPublicId)
-            ?.takeIf { it.issuer.id == viewerId }
+            ?.takeIf { it.journalEntry.requester.id == viewerId }
             ?: throw DomainFailureException(FailureCode.ISSUE_NOT_FOUND, "없음")
         return issue.toResponse(pointTypeRepository.sharedNames())
     }
@@ -48,8 +46,6 @@ class IssueService(
         return issueRepository.saveAndFlush(
             Issue(
                 journalEntry = issued.entry,
-                issuer = userRepository.getReferenceById(meId),
-                pointType = pointType,
                 amount = amount,
                 totalIssuedAfter = issued.totalIssuedAfter,
                 issueCapAt = issued.issueCapAt,

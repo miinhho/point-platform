@@ -80,6 +80,8 @@ create table journal_entries (
     -- 답하므로 요청자와 함께 건다 — 전역 unique 는 남이 내 키를 선점하게 한다.
     constraint uk_journal_entries_requester_key unique (requester_id, idempotency_key),
     key ix_journal_entries_point_type (point_type_id, occurred_at),
+    -- 「내가 보낸 것」·「내가 발행한 것」이 부속 기록이 아니라 사건에서 답해진다.
+    key ix_journal_entries_requester (requester_id, occurred_at),
     constraint uk_journal_entries_id_point_type unique (id, point_type_id),
     constraint fk_journal_entries_requester foreign key (requester_id) references users (id),
     constraint fk_journal_entries_point_type foreign key (point_type_id) references point_types (id)
@@ -109,68 +111,49 @@ create table postings (
 
 -- status 컬럼이 없다. 저장된 이체는 언제나 확정된 것이다 (docs/JOURNEY.md 「버린 것」).
 create table transfers (
-    id              bigint      not null auto_increment,
-    amount          bigint      not null,
-    confirmed_at    datetime(6) not null,
-    created_at      datetime(6) not null,
-    journal_entry_id   bigint      not null,
-    public_id       binary(16)  not null,
-    from_id         bigint      not null,
-    point_type_id   bigint      not null,
-    to_id           bigint      not null,
+    id               bigint     not null auto_increment,
+    -- 사건이 아는 것을 다시 갖지 않는다 — 포인트도 보낸 사람도 시각도 키도 사건의 것이다.
+    journal_entry_id bigint     not null,
+    -- 받는 사람만 사건이 모른다. 사건의 요청자가 보낸 사람이다.
+    to_id            bigint     not null,
+    amount           bigint     not null,
+    public_id        binary(16) not null,
     primary key (id),
     constraint uk_transfers_public_id unique (public_id),
-    -- 키는 「내가 같은 요청을 두 번 보냈나」에 답한다. 전역 unique 로 두면 남이 내 키를
-    -- 선점하고, 선점당한 쪽은 재조회가 비어서 끝없이 재시도한다.
     constraint uk_transfers_journal_entry unique (journal_entry_id),
     constraint fk_transfers_journal_entry foreign key (journal_entry_id) references journal_entries (id),
-    -- point_type_id 를 인덱스 중간에 두면 조건 없는 조회의 정렬이 filesort 로 떨어진다.
-    key ix_transfers_from (from_id, created_at),
-    key ix_transfers_to (to_id, created_at),
-    constraint fk_transfers_from foreign key (from_id) references users (id),
-    constraint fk_transfers_point_type foreign key (point_type_id) references point_types (id),
+    key ix_transfers_to (to_id),
     constraint fk_transfers_to foreign key (to_id) references users (id)
 ) engine = InnoDB;
 
 -- 발행은 이체가 아니다. 대상이 없고, 잔액이 아니라 상한을 본다 (docs/API.md).
+-- 발행은 이체가 아니다. 대상이 없고, 잔액이 아니라 상한을 본다 (docs/API.md).
 create table issues (
-    id                 bigint      not null auto_increment,
-    amount             bigint      not null,
-    confirmed_at       datetime(6) not null,
-    journal_entry_id   bigint      not null,
+    id                 bigint     not null auto_increment,
+    journal_entry_id   bigint     not null,
+    amount             bigint     not null,
     -- 일어난 때의 값이다. 지금 값에서 거꾸로 계산할 수 없다.
-    issue_cap_at       bigint      not null,
-    total_issued_after bigint      not null,
-    public_id          binary(16)  not null,
-    issuer_id          bigint      not null,
-    point_type_id      bigint      not null,
+    total_issued_after bigint     not null,
+    issue_cap_at       bigint     not null,
+    public_id          binary(16) not null,
     primary key (id),
     constraint uk_issues_public_id unique (public_id),
     constraint uk_issues_journal_entry unique (journal_entry_id),
-    constraint fk_issues_journal_entry foreign key (journal_entry_id) references journal_entries (id),
-    key ix_issues_issuer (issuer_id, confirmed_at),
-    key ix_issues_point_type (point_type_id, confirmed_at),
-    constraint fk_issues_issuer foreign key (issuer_id) references users (id),
-    constraint fk_issues_point_type foreign key (point_type_id) references point_types (id)
+    constraint fk_issues_journal_entry foreign key (journal_entry_id) references journal_entries (id)
 ) engine = InnoDB;
 
 -- 상한 변경은 그 포인트를 가진 사람이 본다 — 발행자만 아는 값이 아니라 별도 테이블이다.
+-- 상한 변경은 그 포인트를 가진 사람이 본다 — 발행자만 아는 값이 아니라 별도 테이블이다.
 create table cap_changes (
-    id              bigint      not null auto_increment,
-    changed_at      datetime(6) not null,
-    journal_entry_id   bigint      not null,
-    issue_cap       bigint      not null,
-    previous_cap    bigint      not null,
-    public_id       binary(16)  not null,
-    by_id           bigint      not null,
-    point_type_id   bigint      not null,
+    id               bigint     not null auto_increment,
+    journal_entry_id bigint     not null,
+    previous_cap     bigint     not null,
+    issue_cap        bigint     not null,
+    public_id        binary(16) not null,
     primary key (id),
     constraint uk_cap_changes_public_id unique (public_id),
     constraint uk_cap_changes_journal_entry unique (journal_entry_id),
-    constraint fk_cap_changes_journal_entry foreign key (journal_entry_id) references journal_entries (id),
-    key ix_cap_changes_point_type (point_type_id, changed_at),
-    constraint fk_cap_changes_by foreign key (by_id) references users (id),
-    constraint fk_cap_changes_point_type foreign key (point_type_id) references point_types (id)
+    constraint fk_cap_changes_journal_entry foreign key (journal_entry_id) references journal_entries (id)
 ) engine = InnoDB;
 
 -- 회원 자격은 비공개 은행에만 있다. 공개 은행에는 행이 생기지 않는다.

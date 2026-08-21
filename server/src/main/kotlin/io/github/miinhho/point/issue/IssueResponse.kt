@@ -22,11 +22,11 @@ data class IssueResponse(
 fun Issue.toResponse(sharedPointNames: Set<String>) = IssueResponse(
     id = publicId.toString(),
     idempotencyKey = journalEntry.idempotencyKey,
-    pointTypeId = pointType.publicId.toString(),
-    point = pointType.toMark(sharedPointNames),
-    issuerId = issuer.publicId.toString(),
+    pointTypeId = journalEntry.pointType.publicId.toString(),
+    point = journalEntry.pointType.toMark(sharedPointNames),
+    issuerId = journalEntry.requester.publicId.toString(),
     amount = amount,
     totalIssuedAfter = totalIssuedAfter,
     issueCapAt = issueCapAt,
-    confirmedAt = confirmedAt,
+    confirmedAt = journalEntry.occurredAt,
 )
