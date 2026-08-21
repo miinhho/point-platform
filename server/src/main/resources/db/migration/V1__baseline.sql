@@ -24,7 +24,6 @@ create table point_types (
     emoji           varchar(32) not null,
     description     varchar(255) null,
     public_id       binary(16)  not null,
-    total_issued    bigint      not null,
     created_at      datetime(6) not null,
     -- 기본값을 두지 않는다. 바꿀 수 없는 값이라 고른 적 없는 상태가 영구히 고정된다.
     visibility      enum ('PUBLIC','PRIVATE') not null,
@@ -70,7 +69,7 @@ create table journal_entries (
     id              bigint      not null auto_increment,
     public_id       binary(16)  not null,
     -- 전기 모양에서 유추하지 않는다. 유추하면 내역을 그리는 쪽이 원장 규칙을 알아야 한다.
-    kind            enum ('ISSUE','TRANSFER') not null,
+    kind            enum ('ISSUE','TRANSFER','CAP_CHANGE') not null,
     requester_id    bigint      not null,
     idempotency_key varchar(36) not null,
     point_type_id   bigint      not null,
@@ -114,7 +113,7 @@ create table transfers (
     amount          bigint      not null,
     confirmed_at    datetime(6) not null,
     created_at      datetime(6) not null,
-    idempotency_key varchar(36) not null,
+    journal_entry_id   bigint      not null,
     public_id       binary(16)  not null,
     from_id         bigint      not null,
     point_type_id   bigint      not null,
@@ -123,7 +122,8 @@ create table transfers (
     constraint uk_transfers_public_id unique (public_id),
     -- 키는 「내가 같은 요청을 두 번 보냈나」에 답한다. 전역 unique 로 두면 남이 내 키를
     -- 선점하고, 선점당한 쪽은 재조회가 비어서 끝없이 재시도한다.
-    constraint uk_transfers_from_key unique (from_id, idempotency_key),
+    constraint uk_transfers_journal_entry unique (journal_entry_id),
+    constraint fk_transfers_journal_entry foreign key (journal_entry_id) references journal_entries (id),
     -- point_type_id 를 인덱스 중간에 두면 조건 없는 조회의 정렬이 filesort 로 떨어진다.
     key ix_transfers_from (from_id, created_at),
     key ix_transfers_to (to_id, created_at),
@@ -137,7 +137,7 @@ create table issues (
     id                 bigint      not null auto_increment,
     amount             bigint      not null,
     confirmed_at       datetime(6) not null,
-    idempotency_key    varchar(36) not null,
+    journal_entry_id   bigint      not null,
     -- 일어난 때의 값이다. 지금 값에서 거꾸로 계산할 수 없다.
     issue_cap_at       bigint      not null,
     total_issued_after bigint      not null,
@@ -146,7 +146,8 @@ create table issues (
     point_type_id      bigint      not null,
     primary key (id),
     constraint uk_issues_public_id unique (public_id),
-    constraint uk_issues_issuer_key unique (issuer_id, idempotency_key),
+    constraint uk_issues_journal_entry unique (journal_entry_id),
+    constraint fk_issues_journal_entry foreign key (journal_entry_id) references journal_entries (id),
     key ix_issues_issuer (issuer_id, confirmed_at),
     key ix_issues_point_type (point_type_id, confirmed_at),
     constraint fk_issues_issuer foreign key (issuer_id) references users (id),
@@ -157,7 +158,7 @@ create table issues (
 create table cap_changes (
     id              bigint      not null auto_increment,
     changed_at      datetime(6) not null,
-    idempotency_key varchar(36) not null,
+    journal_entry_id   bigint      not null,
     issue_cap       bigint      not null,
     previous_cap    bigint      not null,
     public_id       binary(16)  not null,
@@ -165,7 +166,8 @@ create table cap_changes (
     point_type_id   bigint      not null,
     primary key (id),
     constraint uk_cap_changes_public_id unique (public_id),
-    constraint uk_cap_changes_by_key unique (by_id, idempotency_key),
+    constraint uk_cap_changes_journal_entry unique (journal_entry_id),
+    constraint fk_cap_changes_journal_entry foreign key (journal_entry_id) references journal_entries (id),
     key ix_cap_changes_point_type (point_type_id, changed_at),
     constraint fk_cap_changes_by foreign key (by_id) references users (id),
     constraint fk_cap_changes_point_type foreign key (point_type_id) references point_types (id)
