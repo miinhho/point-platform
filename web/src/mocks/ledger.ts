@@ -750,9 +750,8 @@ export function membersOf(pointTypeId: PointTypeId, meId: UserId): User[] {
 export function removeMember(meId: UserId, pointTypeId: PointTypeId, targetId: UserId): void {
   const pointType = state.pointTypes.get(pointTypeId)
   // 닿지 않는 은행은 없는 은행이다.
-  if (!pointType || pointType.visibility === 'public' || !isMember(pointTypeId, meId)) {
-    throw new LedgerError('POINT_TYPE_NOT_FOUND')
-  }
+  if (!pointType || !reachable(pointType, meId)) throw new LedgerError('POINT_TYPE_NOT_FOUND')
+  if (pointType.visibility === 'public') throw new LedgerError('NOT_A_PRIVATE_BANK')
   // 남을 내보내는 것은 은행장만 한다. 나가는 것은 누구나 자기에 대해 한다.
   if (targetId !== meId && pointType.issuerId !== meId) throw new LedgerError('NOT_ISSUER')
   // 발행할 사람이 없는 은행이 되고, 상한도 품목도 관리할 수 없어진다.
