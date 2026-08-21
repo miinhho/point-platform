@@ -748,10 +748,6 @@ export function membersOf(pointTypeId: PointTypeId, meId: UserId): User[] {
 }
 
 /**
- * 나가기와 내보내기는 같은 일을 하고 누가 정했느냐만 다르다. 둘 다 **포인트를
- * 회수하지 않는다** — 잔액은 그대로 남고 쓸 수 없다. 계약: docs/API.md
- */
-/**
  * 나간다. **답은 「지금 회원인가」 하나로 갈린다** — 방금 나갔든, 처음부터 아니든,
  * 닿지 못하든, 그 id 의 은행이 없든 전부 성공이다. 계약: docs/API.md
  *
@@ -768,6 +764,13 @@ export function leaveBank(meId: UserId, pointTypeId: PointTypeId): void {
   state.members.get(pointTypeId)?.delete(meId)
 }
 
+/**
+ * 내보낸다. 나가기와 같은 일을 하고 누가 정했느냐만 다르다 — 둘 다 **포인트를 회수하지
+ * 않는다.** 잔액은 그대로 남고 쓸 수 없다. 계약: docs/API.md
+ *
+ * 문이 나가기와 다른 이유는 부르는 사람이 다르기 때문이다. 은행장은 언제나 회원이라
+ * 여기서 감추는 것은 「남의 은행 명부를 건드리려는 사람」이다.
+ */
 export function removeMember(meId: UserId, pointTypeId: PointTypeId, targetId: UserId): void {
   const pointType = state.pointTypes.get(pointTypeId)
   // 닿지 않는 은행은 없는 은행이다.
