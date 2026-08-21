@@ -7,8 +7,13 @@ import java.util.UUID
 
 interface TransferRepository : JpaRepository<Transfer, Long> {
     // 키는 「내가 같은 요청을 두 번 보냈나」에 답한다 — 임자와 함께 찾는다.
-    fun findByFromIdAndIdempotencyKey(fromId: Long, idempotencyKey: String): Transfer?
+    // 키만으로 찾는 길을 두면 남의 것을 물을 수 있다.
+    @Query("select t from Transfer t where t.journalEntry.requester.id = :requesterId and t.journalEntry.idempotencyKey = :key")
+    fun findByRequesterAndKey(requesterId: Long, key: String): Transfer?
     fun findByPublicId(publicId: UUID): Transfer?
+
+    @Query("select t from Transfer t where t.journalEntry.id in :ids")
+    fun byJournalEntryIds(ids: Collection<Long>): List<Transfer>
 
     @Query(
         "select t from Transfer t where (t.from.id = :userId or t.to.id = :userId) " +
