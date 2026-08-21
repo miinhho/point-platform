@@ -67,18 +67,26 @@ class MembershipService(
         return pointTypeResponses.of(pointType, userId)
     }
 
-    /** 나간다. 은행장은 나갈 수 없다 — 발행할 사람이 없는 은행이 된다. */
+    /** 나간다. 답은 「지금 회원이 아닌가」 하나로 갈린다 — 근거: docs/API.md 「나가기」. */
     @Transactional
     fun leave(bankPublicId: String, userId: Long) {
-        val pointType = lockPrivateBank(bankPublicId, userId)
-        if (pointType.issuer.id == userId) throw failure(FailureCode.ISSUER_CANNOT_LEAVE, "은행장은 나갈 수 없음")
-        removeMember(pointType, userId)
+        // 없는 id 도 닿지 못하는 은행도 여기서는 같은 답이다. 가르면 잔액 0 으로 나간 사람이
+        // 다시 눌렀을 때 방금까지 보던 은행을 「없어요」로 듣는다.
+        val bank = runCatching { UUID.fromString(bankPublicId) }.getOrNull()
+            ?.let(pointTypeRepository::findByPublicId)
+            ?: return
+        if (bank.visibility == PointVisibility.PUBLIC) {
+            throw failure(FailureCode.NOT_A_PRIVATE_BANK, "공개 은행에는 회원이 없음")
+        }
+
+        if (bank.issuer.id == userId) throw failure(FailureCode.ISSUER_CANNOT_LEAVE, "은행장은 나갈 수 없음")
+        removeMember(bank, userId)
     }
 
     /** 내보낸다. 나가기와 같은 일이고 누가 정했느냐만 다르다. */
     @Transactional
     fun remove(bankPublicId: String, issuerId: Long, targetPublicId: String) {
-        val pointType = lockPrivateBank(bankPublicId, issuerId)
+        val pointType = requirePrivateBank(bankPublicId, issuerId)
         if (pointType.issuer.id != issuerId) throw failure(FailureCode.NOT_ISSUER, "발행자가 아님")
 
         val target = runCatching { UUID.fromString(targetPublicId) }.getOrNull()
@@ -90,8 +98,9 @@ class MembershipService(
 
     // 잔액도 초대도 건드리지 않는다. 회원은 살아 있는 초대를 갖지 않으므로 여기서 끝낼
     // 초대가 없고, 대기 중인 초대를 끝내면 계약에 없는 「초대 취소」가 된다.
-    private fun removeMember(pointType: PointType, userId: Long) =
-        membershipRepository.deleteById(MembershipId(pointType.id!!, userId))
+    private fun removeMember(pointType: PointType, userId: Long) {
+        membershipRepository.remove(pointType.id!!, userId)
+    }
 
     private fun requirePrivateBank(publicId: String, viewerId: Long): PointType {
         val pointType = runCatching { UUID.fromString(publicId) }.getOrNull()
@@ -102,13 +111,6 @@ class MembershipService(
             throw failure(FailureCode.NOT_A_PRIVATE_BANK, "공개 은행에는 회원이 없음")
         }
         return pointType
-    }
-
-    // 은행 행을 잠그고 센다 — 은행장 자격을 읽고 지우는 사이에 다른 요청이 끼면
-    // 회원이 0 인 은행이 생긴다.
-    private fun lockPrivateBank(publicId: String, viewerId: Long): PointType {
-        val reachable = requirePrivateBank(publicId, viewerId)
-        return pointTypeRepository.findForUpdate(reachable.id!!)!!
     }
 
     private fun failure(code: FailureCode, message: String) = DomainFailureException(code, message)

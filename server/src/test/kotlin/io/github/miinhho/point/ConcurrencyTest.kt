@@ -4,6 +4,7 @@ import io.github.miinhho.point.pointtype.ChangeCapRequest
 import io.github.miinhho.point.pointtype.CreatePointTypeRequest
 import io.github.miinhho.point.pointtype.InviteRequest
 import io.github.miinhho.point.pointtype.Membership
+import io.github.miinhho.point.pointtype.MembershipId
 import io.github.miinhho.point.pointtype.MembershipRepository
 import io.github.miinhho.point.auth.LoginRequest
 import io.github.miinhho.point.auth.LoginResponse
@@ -41,6 +42,7 @@ import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
@@ -395,6 +397,32 @@ class ConcurrencyTest {
         responses.forEach { assertEquals(HttpStatus.OK, it.statusCode, it.body) }
     }
 
+    // 계약: docs/API.md — 나가기의 답은 「지금 회원이 아닌가」 하나다. 빨리 두 번 누르거나
+    // 두 기기면 순차가 아니라 동시이고, 확실히 끝난 일에 500 을 주면 화면이 「확인하기」로 간다.
+    @Test
+    fun `잔액 없는 회원이 동시에 나가도 전부 204 다`() {
+        val bank = privateBank()
+        membershipRepository.save(Membership(pointType = bank, user = recipient))
+        val token = login(recipient.handle).accessToken
+
+        val responses = inParallel(8) { delete("/api/point-types/${bank.publicId}/members/me", token) }
+
+        responses.forEach { assertEquals(HttpStatus.NO_CONTENT, it.statusCode, it.body) }
+        assertFalse(membershipRepository.existsById(MembershipId(bank.id!!, recipient.id!!)))
+    }
+
+    @Test
+    fun `같은 사람을 동시에 내보내도 전부 204 다`() {
+        val bank = privateBank()
+        membershipRepository.save(Membership(pointType = bank, user = recipient))
+        val token = login("@minho").accessToken
+
+        val responses = inParallel(8) { delete("/api/point-types/${bank.publicId}/members/${publicId(recipient)}", token) }
+
+        responses.forEach { assertEquals(HttpStatus.NO_CONTENT, it.statusCode, it.body) }
+        assertFalse(membershipRepository.existsById(MembershipId(bank.id!!, recipient.id!!)))
+    }
+
     @Test
     fun `같은 사람을 동시에 두 번 초대해도 초대는 하나다`() {
         val bank = privateBank()
@@ -516,6 +544,9 @@ class ConcurrencyTest {
         }
         return restTemplate.exchange(path, HttpMethod.POST, HttpEntity(body, headers), String::class.java)
     }
+
+    private fun delete(path: String, token: String): ResponseEntity<String> =
+        restTemplate.exchange(path, HttpMethod.DELETE, HttpEntity<Void>(HttpHeaders().apply { setBearerAuth(token) }), String::class.java)
 
     private fun idOf(response: ResponseEntity<String>) =
         assertNotNull(Regex("\"id\":\"([^\"]+)\"").find(assertNotNull(response.body))).groupValues[1]

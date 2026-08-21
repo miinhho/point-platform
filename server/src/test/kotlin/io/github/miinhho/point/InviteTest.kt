@@ -272,6 +272,25 @@ class InviteTest {
     }
 
     @Test
+    fun `잔액 없이 나간 사람이 다시 나가도 204 다`() {
+        val first = delete(member, "/api/point-types/${closed.publicId}/members/me")
+        assertEquals(HttpStatus.NO_CONTENT, first.statusCode, first.body)
+
+        // 잔액이 없으면 나간 순간 은행에 닿지 못한다. 그래도 그가 원한 것은 이미 참이라
+        // 「없어요」로 답하면 방금까지 보던 은행이 사라진 것으로 들린다.
+        val again = delete(member, "/api/point-types/${closed.publicId}/members/me")
+        assertEquals(HttpStatus.NO_CONTENT, again.statusCode, again.body)
+
+        val absent = delete(member, "/api/point-types/${UUID.randomUUID()}/members/me")
+        assertEquals(HttpStatus.NO_CONTENT, absent.statusCode, "없는 은행도 같은 답이다: ${absent.body}")
+
+        // 공개 은행은 감출 것이 없어 답이 다르다 — 나갈 회원 자격이라는 개념이 없다.
+        val public = delete(member, "/api/point-types/${open.publicId}/members/me")
+        assertEquals(HttpStatus.NOT_FOUND, public.statusCode, public.body)
+        assertTrue(assertNotNull(public.body).contains("NOT_A_PRIVATE_BANK"), public.body)
+    }
+
+    @Test
     fun `나가도 잔액은 남고 은행장은 나갈 수 없다`() {
         accountRepository.save(Account(pointType = closed, user = member, kind = AccountKind.HOLDER, balance = 5_000))
 
