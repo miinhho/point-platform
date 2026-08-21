@@ -98,8 +98,9 @@ class MembershipService(
 
     // 잔액도 초대도 건드리지 않는다. 회원은 살아 있는 초대를 갖지 않으므로 여기서 끝낼
     // 초대가 없고, 대기 중인 초대를 끝내면 계약에 없는 「초대 취소」가 된다.
-    private fun removeMember(pointType: PointType, userId: Long) =
-        membershipRepository.deleteById(MembershipId(pointType.id!!, userId))
+    private fun removeMember(pointType: PointType, userId: Long) {
+        membershipRepository.remove(pointType.id!!, userId)
+    }
 
     private fun requirePrivateBank(publicId: String, viewerId: Long): PointType {
         val pointType = runCatching { UUID.fromString(publicId) }.getOrNull()
