@@ -38,6 +38,7 @@ fun PointType.toResponse(
     sharedNames: Set<String>,
     memberCount: Long?,
     membership: String?,
+    totalIssued: Long,
 ) = PointTypeResponse(
     id = publicId.toString(),
     name = name,

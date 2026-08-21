@@ -1,9 +1,9 @@
 package io.github.miinhho.point.pointtype
 
+import io.github.miinhho.point.ledger.Ledger
 import io.github.miinhho.point.shared.DomainFailureException
 import io.github.miinhho.point.shared.FailureCode
 import io.github.miinhho.point.user.UserRepository
-import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.math.BigDecimal
@@ -16,20 +16,20 @@ class CapChangeService(
     private val pointTypeRepository: PointTypeRepository,
     private val capChangeRepository: CapChangeRepository,
     private val userRepository: UserRepository,
-    private val capChangeLookup: CapChangeLookup,
+    private val ledger: Ledger,
     private val pointTypeResponses: PointTypeResponses,
     private val bankAccess: BankAccess,
 ) {
     @Transactional(readOnly = true)
     fun findByIdempotencyKey(key: String, viewerId: Long): PointTypeResponse? =
-        capChangeRepository.findByByIdAndIdempotencyKey(viewerId, key)
+        capChangeRepository.findByRequesterAndKey(viewerId, key)
             ?.let { pointTypeResponses.of(it.pointType, viewerId) }
 
     /**
      * 상한을 바꾼다. 되돌릴 수 없고 이력에 남는다.
      *
-     * 발행이 상한을 읽을 때와 **같은 행을 잠근다** — 「이미 발행한 양보다 낮출 수 없다」를
-     * 확인하는 동안 발행이 끼어들면 확인은 통과하고 결과는 유통량이 상한을 넘은 상태가 된다.
+     * 발행이 여유를 볼 때와 **같은 행을 잠근다**(발행 계정) — 「이미 발행한 양보다 낮출 수
+     * 없다」를 확인하는 동안 발행이 끼어들면 확인은 통과하고 결과는 유통량이 상한을 넘는다.
      */
     @Transactional
     fun changeCap(actorId: Long, publicId: String, idempotencyKey: String, requested: BigDecimal?): PointTypeResponse {
@@ -37,39 +37,33 @@ class CapChangeService(
             ?: throw DomainFailureException(FailureCode.MALFORMED_REQUEST, "요청 형식 오류")
         if (newCap <= 0) throw DomainFailureException(FailureCode.MALFORMED_REQUEST, "요청 형식 오류")
 
-        val id = runCatching { UUID.fromString(publicId) }.getOrNull()?.let(pointTypeRepository::findIdByPublicId)
+        val pointType = runCatching { UUID.fromString(publicId) }.getOrNull()
+            ?.let(pointTypeRepository::findByPublicId)
+            // 닿을 수 없는 은행에 NOT_ISSUER 로 답하면 없는 포인트(404)와 갈려 존재가 샌다.
+            ?.takeIf { bankAccess.canReach(it, actorId) }
             ?: throw DomainFailureException(FailureCode.POINT_TYPE_NOT_FOUND, "포인트 없음")
-        val pointType = pointTypeRepository.findForUpdate(id)!!
-
-        // 닿을 수 없는 은행에 NOT_ISSUER 로 답하면 없는 포인트(404)와 갈려 존재가 샌다.
-        if (!bankAccess.canReach(pointType, actorId)) {
-            throw DomainFailureException(FailureCode.POINT_TYPE_NOT_FOUND, "포인트 없음")
-        }
-
-        // 멱등 재요청 판정이 검증보다 먼저다 — 경쟁에서 진 쪽은 이 시점에 상한이 이미
-        // 바뀌어 있어, 순서가 뒤바뀌면 "지금과 같은 값" 으로 잘못 거절된다.
-        capChangeLookup.freshFindByIdempotencyKey(actorId, idempotencyKey)?.let {
-            return pointTypeResponses.of(pointType, actorId)
-        }
-
         if (pointType.issuer.id != actorId) {
             throw DomainFailureException(FailureCode.NOT_ISSUER, "발행자가 아님")
         }
-        if (newCap < pointType.totalIssued) {
+
+        // 사건 행이 첫 쓰기다 — 같은 키가 동시에 오면 여기서 갈리고 상한에 닿지 않는다.
+        val capped = ledger.changeCap(actorId, idempotencyKey, pointType.id!!)
+        if (newCap < capped.totalIssued) {
             // 그 아래로 내리면 유통량이 상한을 넘은 상태가 되어 상한이 뜻을 잃는다.
             throw DomainFailureException(FailureCode.CAP_BELOW_ISSUED, "이미 발행한 양보다 낮음")
         }
-        if (newCap == pointType.issueCap) {
+        // 잠근 뒤에 현재 값으로 읽는다 — 엔티티의 상한은 잠금 전에 로드돼 낡았을 수 있다.
+        val previousCap = pointTypeRepository.lockIssueCap(pointType.id!!)!!
+        if (newCap == previousCap) {
             // 이력에 남는 사건이므로 아무것도 바꾸지 않는 줄을 만들지 않는다.
             throw DomainFailureException(FailureCode.MALFORMED_REQUEST, "지금과 같은 값")
         }
 
-        val previousCap = pointType.issueCap
         pointType.issueCap = newCap
         pointTypeRepository.save(pointType)
         capChangeRepository.saveAndFlush(
             CapChange(
-                idempotencyKey = idempotencyKey,
+                journalEntry = capped.entry,
                 pointType = pointType,
                 by = userRepository.getReferenceById(actorId),
                 previousCap = previousCap,

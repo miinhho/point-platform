@@ -1,5 +1,6 @@
 package io.github.miinhho.point.pointtype
 
+import io.github.miinhho.point.ledger.JournalEntry
 import io.github.miinhho.point.user.User
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
@@ -22,8 +23,10 @@ import java.util.UUID
     indexes = [Index(name = "ix_cap_changes_point_type", columnList = "point_type_id,changed_at")],
 )
 class CapChange(
-    @Column(name = "idempotency_key", nullable = false, length = 36, updatable = false)
-    val idempotencyKey: String,
+    /** 전기 없는 사건이다 — 잔액은 안 움직이지만 키도 시각도 사건이 갖는다. */
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "journal_entry_id", nullable = false, updatable = false)
+    val journalEntry: JournalEntry,
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "point_type_id", nullable = false)
@@ -41,7 +44,7 @@ class CapChange(
     val issueCap: Long,
 
     @Column(name = "changed_at", nullable = false, updatable = false)
-    val changedAt: Instant = Instant.now(),
+    val changedAt: Instant = journalEntry.occurredAt,
 ) {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

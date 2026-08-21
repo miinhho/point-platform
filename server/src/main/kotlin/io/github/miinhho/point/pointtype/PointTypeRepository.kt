@@ -1,8 +1,6 @@
 package io.github.miinhho.point.pointtype
 
-import jakarta.persistence.LockModeType
 import org.springframework.data.jpa.repository.JpaRepository
-import org.springframework.data.jpa.repository.Lock
 import org.springframework.data.jpa.repository.Query
 import java.util.UUID
 
@@ -18,14 +16,27 @@ interface PointTypeRepository : JpaRepository<PointType, Long> {
     @Query("select p.name from PointType p group by p.name having count(p) > 1")
     fun sharedNames(): Set<String>
 
-    // 엔티티를 먼저 로드하지 않고 id 만 얻는다 — 이미 1차 캐시에 올라와 있으면
-    // 아래 잠금 조회가 락은 잡되 낡은 값을 돌려줘서 상한 판정이 무의미해진다.
+    @Query("select p.id from PointType p where p.issuer.id = :issuerId")
+    fun idsIssuedBy(issuerId: Long): Set<Long>
+
+    /**
+     * 공개 은행과 내 관계가 있는 은행. 전부 읽어 메모리에서 거르면 은행이 늘수록 무거워진다.
+     * 빈 목록은 넘기지 않는다 — `in ()` 은 문법이 아니라 드라이버가 거절한다.
+     */
+    fun publicOrRelated(relatedIds: Collection<Long>): List<PointType> =
+        publicOrIn(relatedIds.ifEmpty { listOf(-1L) })
+
+    @Query("select p from PointType p where p.visibility = io.github.miinhho.point.pointtype.PointVisibility.PUBLIC or p.id in :ids")
+    fun publicOrIn(ids: Collection<Long>): List<PointType>
+
     @Query("select p.id from PointType p where p.publicId = :publicId")
     fun findIdByPublicId(publicId: UUID): Long?
 
-    // 발행 상한 판정 중 행을 잠근다 — 여유를 각자 읽고 각자 발행하면 상한을 넘고,
-    // 넘긴 포인트는 이미 남의 지갑에 있어 되돌릴 수 없다.
-    @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query("select p from PointType p where p.id = :id")
-    fun findForUpdate(id: Long): PointType?
+    /**
+     * 상한을 **현재 값으로** 읽는다. 일반 읽기는 REPEATABLE READ 스냅샷을 보므로, 공급을
+     * 잠그기 전에 커밋된 상한 변경이 안 보인다 — 낡은 상한으로 발행이 통과한다.
+     * 잠금 읽기만 현재를 본다. 공유 락이라 이체가 FK 로 잡는 같은 락과 부딪히지 않는다.
+     */
+    @Query(value = "select issue_cap from point_types where id = :id for share", nativeQuery = true)
+    fun lockIssueCap(id: Long): Long?
 }
