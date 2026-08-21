@@ -80,6 +80,28 @@ describe('응답이 유실된 뒤 다시 누르는 사람', () => {
     expect(screen.queryByText('이미 그 은행의 회원이에요')).toBeNull()
   })
 
+  /*
+   * **위 단언의 전제를 못 박는다.** 위는 「그 말이 없다」로 유실을 재므로, 그 말이
+   * 화면에서 사라지는 날 조용히 아무것도 재지 않게 된다 — 그리고 유실을 재는 자리가
+   * 거기 하나뿐이라 그때 아무도 모른다.
+   *
+   * 성공 뒤 재조회가 도는 동안 버튼과 그 말이 함께 있는 구간이 실제로 관측된다
+   * (`useJoinBank` 가 `invalidateQueries` 로 한 번 더 왕복한다).
+   */
+  it('유실이 없으면 같은 자리에 들어왔다는 말이 뜬다', async () => {
+    await invitesApi.createInvite('pt_cl', 'u_jisu', newIdempotencyKey())
+
+    const user = await open('/points/pt_cl', '@jisu')
+    await screen.findByRole('heading', { name: '동아리회비' })
+    await settle()
+
+    setSim({ latencyMs: LOSS_MS })
+    await user.click(screen.getByRole('button', { name: '들어가기' }))
+
+    expect(await screen.findByText('들어왔어요')).toBeTruthy()
+    expect(screen.getByRole('button', { name: '들어가기' })).toBeTruthy()
+  })
+
   it('나가기를 다시 눌러도 홈으로 간다', async () => {
     setTokens(await authApi.login({ handle: '@jisoo', password: 'point' }))
 

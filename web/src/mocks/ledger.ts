@@ -749,7 +749,8 @@ export function membersOf(pointTypeId: PointTypeId, meId: UserId): User[] {
  */
 export function removeMember(meId: UserId, pointTypeId: PointTypeId, targetId: UserId): void {
   const pointType = state.pointTypes.get(pointTypeId)
-  // 닿지 않는 은행은 없는 은행이다.
+  // 계약은 나가기의 답을 「지금 회원인가」 하나로 모았다(docs/API.md) — 닿지 못해도 204 다.
+  // 도달성으로 여는 것은 **중간 지점**이고, 잔액 0 으로 나간 사람을 아직 막는다
   if (!pointType || !reachable(pointType, meId)) throw new LedgerError('POINT_TYPE_NOT_FOUND')
   if (pointType.visibility === 'public') throw new LedgerError('NOT_A_PRIVATE_BANK')
   // 남을 내보내는 것은 은행장만 한다. 나가는 것은 누구나 자기에 대해 한다.
