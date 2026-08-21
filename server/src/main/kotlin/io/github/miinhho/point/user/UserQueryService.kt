@@ -24,14 +24,13 @@ class UserQueryService(
     @Transactional(readOnly = true)
     fun search(query: String?, pointTypePublicId: String?, meId: Long): List<UserResponse> {
         val shared = userRepository.sharedNames()
-        val candidates = reachableUsers(pointTypePublicId, meId) ?: return emptyList()
-        val others = candidates.filterNot { it.id == meId }
+        val members = membersOf(pointTypePublicId, meId)
         val needle = query?.trim()?.lowercase()
-        if (needle.isNullOrEmpty()) return others.map { it.toResponse(shared) }
-
-        val matched = others.filter { it.name.contains(needle) || it.handle.lowercase().contains(needle) }
-        val names = matched.map { it.name }.toSet()
-        return others.filter { it.name in names }.map { it.toResponse(shared) }
+        // 검색어가 있으면 DB 가 거른다 — 전부 읽어 메모리에서 거르면 사람이 늘수록 무거워진다.
+        val candidates = if (needle.isNullOrEmpty()) all(members) else userRepository.matching(needle)
+        return candidates
+            .filter { it.id != meId && (members == null || it.id in members) }
+            .map { it.toResponse(shared) }
     }
 
     // 근거: docs/API.md — 최근 대상은 포인트별로 다르다. 최신순, 대상 중복 제거.
@@ -53,18 +52,31 @@ class UserQueryService(
         return seen.mapNotNull { userRepository.findById(it).orElse(null) }.map { it.toResponse(shared) }
     }
 
-    /** 비공개 은행이면 회원으로 좁힌다. 닿을 수 없거나 내가 회원이 아니면 null — 명부가 새지 않는다. */
-    private fun reachableUsers(pointTypePublicId: String?, meId: Long): List<User>? {
-        if (pointTypePublicId.isNullOrBlank()) return userRepository.findAll()
-        val pointType = findPointType(pointTypePublicId)?.takeIf { bankAccess.canReach(it, meId) } ?: return null
-        val members = membersOf(pointType) ?: return userRepository.findAll()
-        if (meId !in members) return null
-        return userRepository.findAllById(members)
+    private fun all(members: Set<Long>?): List<User> =
+        if (members == null) userRepository.findAll() else userRepository.findAllById(members)
+
+    /**
+     * 좁힐 회원 집합. 공개 은행이거나 좁히지 않으면 `null`(좁히지 않는다)이고, 명부를 볼 수
+     * 없으면 [NOTHING] 이라 아무도 안 남는다 — 회원이 아닌 것도 없는 것도 같은 `[]` 다.
+     *
+     * 둘을 같은 `null` 로 두면 공개 은행이 「볼 수 없다」와 같아진다.
+     */
+    private fun membersOf(pointTypePublicId: String?, meId: Long): Set<Long>? {
+        if (pointTypePublicId.isNullOrBlank()) return null
+        val pointType = findPointType(pointTypePublicId)?.takeIf { bankAccess.canReach(it, meId) }
+            ?: return NOTHING
+        val members = membersOf(pointType) ?: return null
+        return if (meId in members) members else NOTHING
     }
 
     /** 회원 집합. 공개 은행에는 회원이 없으므로 null 이고, 그것은 「좁히지 않는다」는 뜻이다. */
     private fun membersOf(pointType: PointType): Set<Long>? =
         if (pointType.visibility == PointVisibility.PRIVATE) membershipRepository.userIdsOf(pointType.id!!) else null
+
+    private companion object {
+        /** 볼 수 없다는 답. 빈 집합으로 좁히면 결과가 비어 「없다」와 같아진다. */
+        val NOTHING: Set<Long> = emptySet()
+    }
 
     private fun findPointType(publicId: String) =
         runCatching { UUID.fromString(publicId) }.getOrNull()?.let(pointTypeRepository::findByPublicId)

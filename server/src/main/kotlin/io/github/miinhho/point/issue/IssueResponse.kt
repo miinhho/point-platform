@@ -21,7 +21,7 @@ data class IssueResponse(
 
 fun Issue.toResponse(sharedPointNames: Set<String>) = IssueResponse(
     id = publicId.toString(),
-    idempotencyKey = idempotencyKey,
+    idempotencyKey = journalEntry.idempotencyKey,
     pointTypeId = pointType.publicId.toString(),
     point = pointType.toMark(sharedPointNames),
     issuerId = issuer.publicId.toString(),

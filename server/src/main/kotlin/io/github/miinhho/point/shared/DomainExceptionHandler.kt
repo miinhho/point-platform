@@ -5,6 +5,8 @@ import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpStatus
 import org.springframework.http.HttpStatusCode
 import org.springframework.http.ResponseEntity
+import org.springframework.dao.PessimisticLockingFailureException
+import org.springframework.jdbc.CannotGetJdbcConnectionException
 import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.RestControllerAdvice
 import org.springframework.web.context.request.WebRequest
@@ -24,6 +26,21 @@ class DomainExceptionHandler : ResponseEntityExceptionHandler() {
     fun onDomainFailure(e: DomainFailureException): ResponseEntity<FailureResponse> =
         // 여기 오는 것은 전부 트랜잭션이 롤백된 뒤다 — 아무것도 남지 않았다고 단정할 수 있다.
         ResponseEntity.status(e.status).body(FailureResponse.none(e.code, e.message))
+
+    /**
+     * 교착에서 죽은 쪽 · 락 대기에서 진 쪽 · 커넥션을 못 얻은 것. 셋 다 **트랜잭션이 통째로
+     * 롤백됐거나 시작도 못 한 것**이라 서버는 아무것도 안 했다는 것을 안다 — `unknown` 으로
+     * 답하면 화면이 「확인하기」로 가고 사용자는 돈의 위치를 의심한다.
+     *
+     * 실측한 예외는 `DeadlockLoserDataAccessException` 이 아니라 `CannotAcquireLockException`
+     * 이었다. 부모로 잡는다 — 자식 하나를 고르면 실제로 오는 것이 안 걸린다.
+     */
+    @ExceptionHandler(PessimisticLockingFailureException::class, CannotGetJdbcConnectionException::class)
+    fun onLockLost(e: Exception): ResponseEntity<FailureResponse> {
+        log.warn("락 패배 또는 커넥션 없음 — 아무것도 남지 않았다", e)
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+            .body(FailureResponse.none(FailureCode.SERVER, "잠시 뒤 다시"))
+    }
 
     /**
      * 예상하지 못한 것. 던진 자리가 커밋 앞인지 뒤인지 서버도 모르므로 `unknown` 이다.

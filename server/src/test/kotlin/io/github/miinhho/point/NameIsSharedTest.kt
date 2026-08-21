@@ -40,6 +40,7 @@ import kotlin.test.assertTrue
 class NameIsSharedTest {
     @Autowired lateinit var ledgerReset: LedgerReset
     @Autowired lateinit var bankFixture: BankFixture
+    @Autowired lateinit var ledgerFixture: LedgerFixture
     @Autowired lateinit var restTemplate: TestRestTemplate
     @Autowired lateinit var userRepository: UserRepository
     @Autowired lateinit var pointTypeRepository: PointTypeRepository
@@ -63,7 +64,7 @@ class NameIsSharedTest {
         bankFixture.open(point("온포인트", "🌸", solcafe, PointAccent.TEAL))
         bankFixture.open(point("솔포인트", "☀️", solcafe, PointAccent.GREEN))
 
-        accountRepository.save(Account(pointType = onFromOnmart, user = jisoo, kind = AccountKind.HOLDER, balance = 812_000))
+        ledgerFixture.give(onFromOnmart, jisoo, 812_000)
     }
 
     @Test
@@ -115,5 +116,5 @@ class NameIsSharedTest {
 
     private fun point(name: String, emoji: String, issuer: User, accent: PointAccent) =
         PointType(name = name, emoji = emoji, issuer = issuer, accent = accent,
-            visibility = PointVisibility.PUBLIC, issueCap = 1_000_000, totalIssued = 0)
+            visibility = PointVisibility.PUBLIC, issueCap = 1_000_000)
 }

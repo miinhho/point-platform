@@ -30,7 +30,7 @@ data class TransferResponse(
 
 fun Transfer.toResponse(viewerId: Long, sharedNames: Set<String>, sharedPointNames: Set<String>) = TransferResponse(
     id = publicId.toString(),
-    idempotencyKey = idempotencyKey,
+    idempotencyKey = journalEntry.idempotencyKey,
     pointTypeId = pointType.publicId.toString(),
     point = pointType.toMark(sharedPointNames),
     fromId = from.publicId.toString(),

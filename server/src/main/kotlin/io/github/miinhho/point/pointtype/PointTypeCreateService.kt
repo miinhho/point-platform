@@ -62,7 +62,6 @@ class PointTypeCreateService(
                 accent = PointAccent.valueOf(accent!!),
                 visibility = visibility!!,
                 issueCap = issueCap!!,
-                totalIssued = 0,
                 idempotencyKey = idempotencyKey,
             ),
         )

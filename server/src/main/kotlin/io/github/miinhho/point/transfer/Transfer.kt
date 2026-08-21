@@ -1,5 +1,6 @@
 package io.github.miinhho.point.transfer
 
+import io.github.miinhho.point.ledger.JournalEntry
 import io.github.miinhho.point.pointtype.PointType
 import io.github.miinhho.point.user.User
 import jakarta.persistence.Column
@@ -13,7 +14,6 @@ import jakarta.persistence.JoinColumn
 import jakarta.persistence.ManyToOne
 import jakarta.persistence.Table
 import java.time.Instant
-import java.time.temporal.ChronoUnit
 import java.util.UUID
 
 // 근거: docs/JOURNEY.md 「버린 것」
@@ -28,8 +28,10 @@ import java.util.UUID
     ],
 )
 class Transfer(
-    @Column(name = "idempotency_key", nullable = false, length = 36)
-    val idempotencyKey: String,
+    /** 이체는 이 사건의 부속 기록이다. 멱등성 키도 시각도 사건이 갖는다. */
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "journal_entry_id", nullable = false, updatable = false)
+    val journalEntry: JournalEntry,
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "point_type_id", nullable = false)
@@ -46,10 +48,8 @@ class Transfer(
     @Column(nullable = false)
     val amount: Long,
 
-    // datetime(6) 은 마이크로초다. 나노초를 그대로 두면 만든 직후의 응답과 다시 읽은
-    // 응답이 달라져 「같은 키면 그때 것을 그대로 준다」가 문자열에서 깨진다.
     @Column(name = "confirmed_at", nullable = false)
-    val confirmedAt: Instant = Instant.now().truncatedTo(ChronoUnit.MICROS),
+    val confirmedAt: Instant = journalEntry.occurredAt,
 ) {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
