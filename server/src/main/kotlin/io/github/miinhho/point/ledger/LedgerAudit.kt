@@ -23,7 +23,7 @@ class LedgerAudit(
         postingRepository.pointTypesOutOfBalance().forEach { add("포인트 ${it[0]} 의 전기 합이 ${it[1]} 이다") }
         addAll(driftedAccounts().map { (account, sum) -> "계정 ${account.id} 의 잔액 ${account.balance} ≠ 전기 합 $sum" })
 
-        val withIssuance = accountRepository.findAll().filter { it.kind == AccountKind.ISSUANCE }.mapNotNull { it.pointType.id }.toSet()
+        val withIssuance = accountRepository.findAll().filter { it.kind == AccountKind.ISSUANCE }.map { it.pointTypeId }.toSet()
         pointTypeRepository.findAll().mapNotNull { it.id }.filterNot { it in withIssuance }
             .forEach { add("포인트 $it 에 발행 계정이 없다") }
     }

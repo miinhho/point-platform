@@ -31,7 +31,7 @@ class WalletService(
     @Transactional(readOnly = true)
     fun wallet(userId: Long): WalletResponse {
         val user = requireUser(userId)
-        val amountByType = accountRepository.findByUserId(userId).associate { it.pointType.id to it.balance }
+        val amountByType = accountRepository.findByUserId(userId).associate { it.pointTypeId to it.balance }
         val relations = bankAccess.relationsOf(userId)
         val myMemberships = bankAccess.memberOf(userId)
         // 관계가 있는 것만 읽는다 — 전부 읽어 메모리에서 거르면 은행이 늘수록 무거워진다.

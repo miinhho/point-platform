@@ -47,7 +47,7 @@ class Invariants : AfterEachCallback {
         // 지연 프록시의 식별자는 초기화 없이 읽힌다.
         val withIssuance = accounts.findAll()
             .filter { it.kind == AccountKind.ISSUANCE }
-            .mapNotNull { it.pointType.id }
+            .map { it.pointTypeId }
             .toSet()
         val missing = pointTypes.findAll().mapNotNull { it.id }.filterNot { it in withIssuance }
         assertEquals(emptyList(), missing, "발행 계정 없는 포인트가 있다")

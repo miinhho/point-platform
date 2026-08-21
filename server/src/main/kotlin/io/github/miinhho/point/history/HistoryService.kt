@@ -9,10 +9,12 @@ import io.github.miinhho.point.ledger.JournalKind
 import io.github.miinhho.point.pointtype.CapChange
 import io.github.miinhho.point.pointtype.CapChangeRepository
 import io.github.miinhho.point.membership.MembershipRepository
+import io.github.miinhho.point.pointtype.PointType
 import io.github.miinhho.point.pointtype.PointTypeRepository
 import io.github.miinhho.point.pointtype.toMark
 import io.github.miinhho.point.transfer.TransferRepository
 import io.github.miinhho.point.transfer.toResponse
+import io.github.miinhho.point.user.User
 import io.github.miinhho.point.user.UserRepository
 import org.springframework.data.domain.Limit
 import org.springframework.stereotype.Service
@@ -48,21 +50,25 @@ class HistoryService(
         val issues = issueRepository.byJournalEntryIds(ids).associateBy { it.journalEntry.id }
         val capChanges = capChangeRepository.byJournalEntryIds(ids).associateBy { it.journalEntry.id }
 
-        // 겹침은 원장 전체에서 한 번만 집계한다 — 줄마다 세면 N+1 이다.
+        // 겹침도 사람도 포인트도 원장 전체에서 한 번씩만 모은다 — 줄마다 열면 N+1 이다.
         val sharedNames = userRepository.sharedNames()
         val sharedPointNames = pointTypeRepository.sharedNames()
+        val people = userRepository.findAllById(entries.map { it.requesterId }).associateBy { it.id }
+        val points = pointTypeRepository.findAllById(entries.map { it.pointTypeId }).associateBy { it.id }
 
         return entries.mapNotNull { entry ->
-            val point = entry.pointType.toMark(sharedPointNames)
+            val pointType = points[entry.pointTypeId] ?: return@mapNotNull null
+            val requester = people[entry.requesterId] ?: return@mapNotNull null
+            val mark = pointType.toMark(sharedPointNames)
             when (entry.kind) {
                 JournalKind.TRANSFER -> transfers[entry.id]?.let {
-                    HistoryEntryResponse("transfer", point, transfer = it.toResponse(userId, sharedNames, sharedPointNames))
+                    HistoryEntryResponse("transfer", mark, transfer = it.toResponse(userId, requester, pointType, sharedNames, sharedPointNames))
                 }
                 JournalKind.ISSUE -> issues[entry.id]?.let {
-                    HistoryEntryResponse("issue", point, issue = it.toResponse(sharedPointNames))
+                    HistoryEntryResponse("issue", mark, issue = it.toResponse(requester, pointType, sharedPointNames))
                 }
                 JournalKind.CAP_CHANGE -> capChanges[entry.id]?.let {
-                    HistoryEntryResponse("capChange", point, capChange = it.toResponse())
+                    HistoryEntryResponse("capChange", mark, capChange = it.toResponse(requester, pointType))
                 }
             }
         }
@@ -78,11 +84,11 @@ class HistoryService(
             membershipRepository.pointTypeIdsOf(userId)
 }
 
-private fun CapChange.toResponse() = CapChangeResponse(
+private fun CapChange.toResponse(by: User, point: PointType) = CapChangeResponse(
     id = publicId.toString(),
     idempotencyKey = journalEntry.idempotencyKey,
-    pointTypeId = journalEntry.pointType.publicId.toString(),
-    byId = journalEntry.requester.publicId.toString(),
+    pointTypeId = point.publicId.toString(),
+    byId = by.publicId.toString(),
     previousCap = previousCap,
     issueCap = issueCap,
     changedAt = journalEntry.occurredAt,

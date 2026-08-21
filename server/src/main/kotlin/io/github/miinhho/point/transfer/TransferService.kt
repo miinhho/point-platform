@@ -25,7 +25,7 @@ class TransferService(
     // open-in-view=false 라 지연 연관관계(pointType·from·to)는 트랜잭션 안에서 매핑까지 끝내야 한다.
     @Transactional(readOnly = true)
     fun findByIdempotencyKey(key: String, requesterId: Long): TransferResponse? =
-        transferRepository.findByRequesterAndKey(requesterId, key)?.toResponse(requesterId, userRepository.sharedNames(), pointTypeRepository.sharedNames())
+        transferRepository.findByRequesterAndKey(requesterId, key)?.render(requesterId)
 
     @Transactional
     fun commitTransfer(meId: Long, idempotencyKey: String, pointTypeId: String, toId: String, amount: Long): TransferResponse {
@@ -56,7 +56,7 @@ class TransferService(
                 to = recipient,
                 amount = amount,
             ),
-        ).toResponse(meId, userRepository.sharedNames(), pointTypeRepository.sharedNames())
+        ).render(meId)
     }
 
     /** 관여한 사람만 읽는다 — 남의 것도 없는 것과 같은 404 다 (IDOR 방지). */
@@ -64,9 +64,9 @@ class TransferService(
     fun findById(publicId: String, viewerId: Long): TransferResponse {
         val transfer = runCatching { UUID.fromString(publicId) }.getOrNull()
             ?.let(transferRepository::findByPublicId)
-            ?.takeIf { it.journalEntry.requester.id == viewerId || it.to.id == viewerId }
+            ?.takeIf { it.journalEntry.requesterId == viewerId || it.to.id == viewerId }
             ?: throw DomainFailureException(FailureCode.TRANSFER_NOT_FOUND, "없음")
-        return transfer.toResponse(viewerId, userRepository.sharedNames(), pointTypeRepository.sharedNames())
+        return transfer.render(viewerId)
     }
 
     @Transactional(readOnly = true)
@@ -75,11 +75,28 @@ class TransferService(
             runCatching { UUID.fromString(raw) }.getOrNull()?.let(pointTypeRepository::findIdByPublicId)
                 ?: return emptyList()
         }
+        val transfers = transferRepository.history(viewerId, filterId, Limit.of(limit))
+        if (transfers.isEmpty()) return emptyList()
+
+        // 줄마다 열지 않는다 — 사건이 id 로만 아는 것을 한 번에 모은다.
         val sharedNames = userRepository.sharedNames()
         val sharedPointNames = pointTypeRepository.sharedNames()
-        return transferRepository.history(viewerId, filterId, Limit.of(limit))
-            .map { it.toResponse(viewerId, sharedNames, sharedPointNames) }
+        val people = userRepository.findAllById(transfers.map { it.journalEntry.requesterId }).associateBy { it.id }
+        val points = pointTypeRepository.findAllById(transfers.map { it.journalEntry.pointTypeId }).associateBy { it.id }
+        return transfers.mapNotNull { transfer ->
+            val from = people[transfer.journalEntry.requesterId] ?: return@mapNotNull null
+            val point = points[transfer.journalEntry.pointTypeId] ?: return@mapNotNull null
+            transfer.toResponse(viewerId, from, point, sharedNames, sharedPointNames)
+        }
     }
+
+    private fun Transfer.render(viewerId: Long): TransferResponse = toResponse(
+        viewerId = viewerId,
+        from = userRepository.findById(journalEntry.requesterId).orElseThrow(),
+        point = pointTypeRepository.findById(journalEntry.pointTypeId).orElseThrow(),
+        sharedNames = userRepository.sharedNames(),
+        sharedPointNames = pointTypeRepository.sharedNames(),
+    )
 
     // 닿을 수 없는 은행은 없는 포인트와 같은 404 다 — 갈리는 순간 존재가 샌다.
     private fun requirePointType(pointTypeId: String, viewerId: Long): PointType {

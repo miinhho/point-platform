@@ -15,11 +15,11 @@ interface AccountRepository : JpaRepository<Account, Long> {
     fun findByUserId(userId: Long): List<Account>
 
     /** 받은 적 있는 포인트. 행은 사건에서만 나므로 행의 존재가 곧 「받은 적 있다」다. */
-    @Query("select a.pointType.id from Account a where a.user.id = :userId")
+    @Query("select a.pointTypeId from Account a where a.userId = :userId")
     fun pointTypeIdsHeldBy(userId: Long): Set<Long>
 
     /** 포인트별 발행량. 발행 계정 잔액의 부호를 뒤집은 것이다. */
-    @Query("select a.pointType.id, -a.balance from Account a where a.kind = io.github.miinhho.point.ledger.AccountKind.ISSUANCE and a.pointType.id in :pointTypeIds")
+    @Query("select a.pointTypeId, -a.balance from Account a where a.kind = io.github.miinhho.point.ledger.AccountKind.ISSUANCE and a.pointTypeId in :pointTypeIds")
     fun issuedOf(pointTypeIds: Collection<Long>): List<Array<Any>>
 
     /**

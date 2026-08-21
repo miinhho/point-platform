@@ -85,7 +85,7 @@ class PointTypeCreateService(
      * 계정을 열 수 없으므로, 계정 없는 포인트를 만드는 코드가 아예 컴파일되지 않는다.
      */
     private fun openIssuance(pointType: PointType) {
-        accountRepository.saveAndFlush(Account(pointType = pointType, user = null, kind = AccountKind.ISSUANCE))
+        accountRepository.saveAndFlush(Account(pointTypeId = pointType.id!!, userId = null, kind = AccountKind.ISSUANCE))
     }
 
     /** 소개는 이력에 남지 않는다 — 약속이 아니라 소개이므로 마지막에 쓴 것이 지금 값이다. */

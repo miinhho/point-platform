@@ -3,7 +3,6 @@ package io.github.miinhho.point.ledger
 import io.github.miinhho.point.pointtype.PointTypeRepository
 import io.github.miinhho.point.shared.DomainFailureException
 import io.github.miinhho.point.shared.FailureCode
-import io.github.miinhho.point.user.UserRepository
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Propagation
 import org.springframework.transaction.annotation.Transactional
@@ -21,7 +20,6 @@ class Ledger(
     private val postingRepository: PostingRepository,
     private val accountRepository: AccountRepository,
     private val pointTypeRepository: PointTypeRepository,
-    private val userRepository: UserRepository,
 ) {
     class Issued(val entry: JournalEntry, val totalIssuedAfter: Long, val issueCapAt: Long)
 
@@ -79,7 +77,7 @@ class Ledger(
      * 차감이 실패하면 예외가 트랜잭션을 되돌리므로 먼저 더한 것도 함께 사라진다.
      */
     private fun apply(entry: JournalEntry, draft: Draft) {
-        val pointTypeId = entry.pointType.id!!
+        val pointTypeId = entry.pointTypeId
         draft.ordered.forEach { line -> settle(pointTypeId, line) }
         draft.lines.forEach { line -> post(entry, line) }
     }
@@ -101,20 +99,20 @@ class Ledger(
         journalEntryRepository.saveAndFlush(
             JournalEntry(
                 kind = kind,
-                requester = userRepository.getReferenceById(requesterId),
+                requesterId = requesterId,
                 idempotencyKey = idempotencyKey,
-                pointType = pointTypeRepository.getReferenceById(pointTypeId),
+                pointTypeId = pointTypeId,
             ),
         )
 
     private fun post(entry: JournalEntry, line: Draft.Line) {
-        val accountId = accountRepository.idOf(entry.pointType.id!!, line.holderKey)
+        val accountId = accountRepository.idOf(entry.pointTypeId, line.holderKey)
             ?: error("전기할 계정이 없다: ${line.holderKey}")
         postingRepository.saveAndFlush(
             Posting(
                 journalEntry = entry,
                 account = accountRepository.getReferenceById(accountId),
-                pointType = entry.pointType,
+                pointTypeId = entry.pointTypeId,
                 amount = line.amount,
             ),
         )

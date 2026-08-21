@@ -15,10 +15,10 @@ interface JournalEntryRepository : JpaRepository<JournalEntry, Long> {
      * 같은 마이크로초의 순서는 id 가 가른다.
      */
     @Query(
-        "select e from JournalEntry e where e.pointType.id in :pointTypeIds " +
-            "and (:pointTypeId is null or e.pointType.id = :pointTypeId) " +
+        "select e from JournalEntry e where e.pointTypeId in :pointTypeIds " +
+            "and (:pointTypeId is null or e.pointTypeId = :pointTypeId) " +
             "and (e.kind = io.github.miinhho.point.ledger.JournalKind.CAP_CHANGE " +
-            "or exists (select p.id from Posting p where p.journalEntry = e and p.account.user.id = :userId)) " +
+            "or exists (select p.id from Posting p where p.journalEntry = e and p.account.userId = :userId)) " +
             "order by e.occurredAt desc, e.id desc",
     )
     fun visibleTo(userId: Long, pointTypeIds: Collection<Long>, pointTypeId: Long?, limit: Limit): List<JournalEntry>

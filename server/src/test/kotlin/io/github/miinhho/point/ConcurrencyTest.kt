@@ -490,12 +490,12 @@ class ConcurrencyTest {
 
     // 유통량의 정본은 발행 계정 잔액이다.
     private fun issuedOf() = -accountRepository.findAll()
-        .single { it.pointType.id == pointType.id && it.kind == AccountKind.ISSUANCE }.balance
+        .single { it.pointTypeId == pointType.id && it.kind == AccountKind.ISSUANCE }.balance
 
     private fun capOf() = pointTypeRepository.findById(pointType.id!!).orElseThrow().issueCap
 
     private fun balanceOf(user: User) =
-        accountRepository.findByUserId(user.id!!).firstOrNull { it.pointType.id == pointType.id }?.balance ?: 0
+        accountRepository.findByUserId(user.id!!).firstOrNull { it.pointTypeId == pointType.id }?.balance ?: 0
 
     private fun publicId(user: User) = user.publicId.toString()
     private fun publicPointTypeId() = pointType.publicId.toString()

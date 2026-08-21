@@ -22,7 +22,8 @@ class CapChangeService(
     @Transactional(readOnly = true)
     fun findByIdempotencyKey(key: String, viewerId: Long): PointTypeResponse? =
         capChangeRepository.findByRequesterAndKey(viewerId, key)
-            ?.let { pointTypeResponses.of(it.journalEntry.pointType, viewerId) }
+            ?.let { pointTypeRepository.findById(it.journalEntry.pointTypeId).orElse(null) }
+            ?.let { pointTypeResponses.of(it, viewerId) }
 
     /**
      * 상한을 바꾼다. 되돌릴 수 없고 이력에 남는다.
