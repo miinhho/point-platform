@@ -42,6 +42,7 @@ import kotlin.test.assertTrue
 class InviteTest {
     @Autowired lateinit var ledgerReset: LedgerReset
     @Autowired lateinit var bankFixture: BankFixture
+    @Autowired lateinit var ledgerFixture: LedgerFixture
     @Autowired lateinit var restTemplate: TestRestTemplate
     @Autowired lateinit var userRepository: UserRepository
     @Autowired lateinit var pointTypeRepository: PointTypeRepository
@@ -185,7 +186,7 @@ class InviteTest {
         // 아무 관계도 없으면 페이지 자체가 404 라, outsider 가 보이는 자리는
         // 잔액이 남은 채 나온 사람이다. 잔액이 닿을 자격을 준다.
         assertEquals(HttpStatus.NOT_FOUND, get(outsider, "/api/point-types/${closed.publicId}").statusCode)
-        accountRepository.save(Account(pointType = closed, user = outsider, kind = AccountKind.HOLDER, balance = 3_000))
+        ledgerFixture.giveThenLeave(closed, outsider, 3_000)
         assertTrue(bankOf(outsider, closed).contains("\"membership\":\"outsider\""), bankOf(outsider, closed))
 
         val inviteId = idOf(assertNotNull(invite(issuer, closed, outsider).body))
@@ -205,7 +206,7 @@ class InviteTest {
     @Test
     fun `내보내면 초대함이 비고 스스로 걸어 들어올 수 없다`() {
         // 잔액이 은행에 닿을 자격을 준다 — 그래야 「보이는데 못 들어온다」가 시험된다.
-        accountRepository.save(Account(pointType = closed, user = outsider, kind = AccountKind.HOLDER, balance = 3_000))
+        ledgerFixture.giveThenLeave(closed, outsider, 3_000)
         invite(issuer, closed, outsider)
         assertEquals(HttpStatus.OK, accept(outsider).statusCode)
 
@@ -264,7 +265,7 @@ class InviteTest {
     @Test
     fun `이미 나간 사람이 다시 나가도 204 다`() {
         // 잔액이 은행에 닿을 자격을 주므로 비회원도 이 길을 부를 수 있다.
-        accountRepository.save(Account(pointType = closed, user = outsider, kind = AccountKind.HOLDER, balance = 3_000))
+        ledgerFixture.giveThenLeave(closed, outsider, 3_000)
 
         // 그가 원한 것은 회원이 아니게 되는 것이고 그는 이미 회원이 아니다.
         val leaving = delete(outsider, "/api/point-types/${closed.publicId}/members/me")
@@ -292,7 +293,7 @@ class InviteTest {
 
     @Test
     fun `나가도 잔액은 남고 은행장은 나갈 수 없다`() {
-        accountRepository.save(Account(pointType = closed, user = member, kind = AccountKind.HOLDER, balance = 5_000))
+        ledgerFixture.give(closed, member, 5_000)
 
         assertEquals(HttpStatus.NO_CONTENT, delete(member, "/api/point-types/${closed.publicId}/members/me").statusCode)
         val wallet = assertNotNull(get(member, "/api/wallet").body)
@@ -369,6 +370,5 @@ class InviteTest {
         accent = PointAccent.BLUE,
         visibility = visibility,
         issueCap = 1_000_000,
-        totalIssued = 0,
     )
 }

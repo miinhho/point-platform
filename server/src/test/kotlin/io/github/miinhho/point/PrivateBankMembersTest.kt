@@ -46,6 +46,7 @@ import kotlin.test.assertTrue
 class PrivateBankMembersTest {
     @Autowired lateinit var ledgerReset: LedgerReset
     @Autowired lateinit var bankFixture: BankFixture
+    @Autowired lateinit var ledgerFixture: LedgerFixture
     @Autowired lateinit var restTemplate: TestRestTemplate
     @Autowired lateinit var userRepository: UserRepository
     @Autowired lateinit var pointTypeRepository: PointTypeRepository
@@ -72,11 +73,12 @@ class PrivateBankMembersTest {
         open = bankFixture.open(point("온포인트", "🏪", PointVisibility.PUBLIC))
         closed = bankFixture.open(point("동아리비", "🎪", PointVisibility.PRIVATE))
 
-        listOf(issuer, member).forEach { membershipRepository.save(Membership(pointType = closed, user = it)) }
-        listOf(issuer, member, leftBehind).forEach {
-            accountRepository.save(Account(pointType = closed, user = it, kind = AccountKind.HOLDER, balance = 100_000))
-        }
-        accountRepository.save(Account(pointType = open, user = issuer, kind = AccountKind.HOLDER, balance = 100_000))
+        membershipRepository.save(Membership(pointType = closed, user = member))
+        // 은행장은 발행으로, 회원은 받아서, 나간 사람은 받고 나가서 잔액을 갖는다.
+        ledgerFixture.issue(closed, 100_000)
+        ledgerFixture.give(closed, member, 100_000)
+        ledgerFixture.giveThenLeave(closed, leftBehind, 100_000)
+        ledgerFixture.issue(open, 100_000)
     }
 
     @Test
@@ -235,15 +237,13 @@ class PrivateBankMembersTest {
     }
 
     @Test
-    fun `잔액 0 행은 비공개 은행의 상한 변경을 보여주지 않는다`() {
-        // 거절당한 이체가 남기는 것과 같은 행이다.
-        accountRepository.save(Account(pointType = closed, user = outsider, kind = AccountKind.HOLDER, balance = 0))
+    fun `받은 적 없는 사람에게는 비공개 은행의 상한 변경이 안 보인다`() {
         val cap = patch(issuer, "/api/point-types/${closed.publicId}/cap", ChangeCapRequest(BigDecimal(9_000_000)))
         assertEquals(HttpStatus.OK, cap.statusCode, cap.body)
 
         assertEquals("[]", get(outsider, "/api/history").body, "무관한 사람에게 상한 변경이 새면 은행의 존재가 샌다")
 
-        // 잔액이 있는 사람에게는 보인다 — 지갑에 카드가 있으면 그 은행의 사건도 본다.
+        // 받은 적 있는 사람에게는 보인다 — 지갑에 카드가 있으면 그 은행의 사건도 본다.
         assertTrue(assertNotNull(get(leftBehind, "/api/history").body).contains("capChange"))
     }
 
@@ -287,6 +287,5 @@ class PrivateBankMembersTest {
         accent = PointAccent.BLUE,
         visibility = visibility,
         issueCap = 1_000_000,
-        totalIssued = 0,
     )
 }

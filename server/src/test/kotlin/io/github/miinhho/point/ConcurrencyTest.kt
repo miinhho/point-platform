@@ -56,6 +56,7 @@ import kotlin.test.assertTrue
 class ConcurrencyTest {
     @Autowired lateinit var ledgerReset: LedgerReset
     @Autowired lateinit var bankFixture: BankFixture
+    @Autowired lateinit var ledgerFixture: LedgerFixture
     @Autowired lateinit var restTemplate: TestRestTemplate
     @Autowired lateinit var userRepository: UserRepository
     @Autowired lateinit var pointTypeRepository: PointTypeRepository
@@ -84,7 +85,6 @@ class ConcurrencyTest {
                 accent = PointAccent.PURPLE,
                 visibility = PointVisibility.PUBLIC,
                 issueCap = 1_000_000,
-                totalIssued = 0,
             ),
         )
     }
@@ -104,6 +104,43 @@ class ConcurrencyTest {
         val ids = responses.mapNotNull { transferIdOf(it.body) }.toSet()
         assertEquals(1, ids.size, "모두 같은 이체를 돌려받아야 한다")
         assertEquals(1_000_000 - 30_000, balanceOf(issuer), "잔액은 한 번만 빠져야 한다")
+    }
+
+    /**
+     * 사건 행이 첫 쓰기라는 것의 실제 내용. 잔액이 꼭 한 번치면, 멱등성 판정이 마지막
+     * 문장이던 때는 진 쪽이 이긴 쪽이 뺀 잔액에 다시 차감을 시도해 `422 · none` 을 받았다 —
+     * **서버가 답을 쥔 채 안 나갔다고 말한다.** 근거: docs/LEDGER.md 「잡히지 않는 것」 1.
+     */
+    @Test
+    fun `잔액이 꼭 한 번치일 때 같은 키로 동시에 보내도 전부 같은 답이다`() {
+        giveBalance(issuer, 30_000)
+        val token = login("@minho").accessToken
+        val key = UUID.randomUUID().toString()
+
+        val responses = inParallel(8) {
+            postTransfer(token, key, TransferRequest(pointTypeId = publicPointTypeId(), toId = publicId(recipient), amount = BigDecimal(30_000)))
+        }
+
+        assertEquals(1, responses.count { it.statusCode == HttpStatus.CREATED }, "만든 것은 하나다: ${responses.map { it.statusCode }}")
+        assertTrue(responses.all { it.statusCode.is2xxSuccessful }, "진 쪽도 그때의 결과를 본다: ${responses.map { it.statusCode }}")
+        assertEquals(1, responses.map { idOf(it) }.distinct().size, "전부 같은 이체다")
+        assertEquals(0, balanceOf(issuer))
+        assertEquals(30_000, balanceOf(recipient))
+    }
+
+    @Test
+    fun `여유가 꼭 한 번치일 때 같은 키로 동시에 발행해도 전부 같은 답이다`() {
+        ledgerFixture.issue(pointType, 970_000)
+        val token = login("@minho").accessToken
+        val key = UUID.randomUUID().toString()
+
+        val responses = inParallel(8) {
+            postIssue(token, key, TransferRequest(pointTypeId = publicPointTypeId(), amount = BigDecimal(30_000)))
+        }
+
+        assertTrue(responses.all { it.statusCode.is2xxSuccessful }, "진 쪽도 그때의 결과를 본다: ${responses.map { it.statusCode }}")
+        assertEquals(1, responses.map { idOf(it) }.distinct().size, "전부 같은 발행이다")
+        assertEquals(1_000_000, issuedOf())
     }
 
     @Test
@@ -146,8 +183,7 @@ class ConcurrencyTest {
 
     @Test
     fun `동시에 발행해도 상한을 넘지 않는다`() {
-        pointType.totalIssued = 995_000
-        pointTypeRepository.save(pointType)
+        ledgerFixture.issue(pointType, 995_000)
         val token = login("@minho").accessToken
 
         val responses = inParallel(6) {
@@ -155,9 +191,8 @@ class ConcurrencyTest {
         }
 
         assertEquals(1, responses.count { it.statusCode == HttpStatus.CREATED }, "여유가 5000 뿐이라 3000 발행은 한 번만 성공해야 한다")
-        val after = pointTypeRepository.findById(pointType.id!!).orElseThrow()
-        assertTrue(after.totalIssued <= after.issueCap, "총 유통량이 상한을 넘었다: ${after.totalIssued} > ${after.issueCap}")
-        assertEquals(998_000, after.totalIssued)
+        assertTrue(issuedOf() <= capOf(), "총 유통량이 상한을 넘었다: ${issuedOf()} > ${capOf()}")
+        assertEquals(998_000, issuedOf())
     }
 
     // 계약: docs/API.md — 키는 「내가 같은 요청을 두 번 보냈나」에 답한다.
@@ -166,7 +201,7 @@ class ConcurrencyTest {
     fun `다른 사용자가 같은 키로 보내면 둘 다 각각 성공한다`() {
         giveBalance(issuer, 100_000)
         val third = userRepository.save(user("@taeyun", "박태윤"))
-        accountRepository.save(Account(pointType = pointType, user = third, kind = AccountKind.HOLDER, balance = 100_000))
+        ledgerFixture.give(pointType, third, 100_000)
         val key = UUID.randomUUID().toString()
 
         val mine = postTransfer(
@@ -182,7 +217,8 @@ class ConcurrencyTest {
 
         assertEquals(HttpStatus.CREATED, mine.statusCode)
         assertEquals(HttpStatus.CREATED, theirs.statusCode, "남의 키에 걸려 500 이 나가면 안 된다")
-        assertEquals(2, transferRepository.count(), "각자 하나씩 생긴다")
+        // 픽스처가 third 의 지갑을 채우느라 이체 하나를 이미 썼다.
+        assertEquals(3, transferRepository.count(), "각자 하나씩 생긴다")
         assertEquals(3_000, balanceOf(recipient))
     }
 
@@ -286,8 +322,7 @@ class ConcurrencyTest {
     // 확인하는 동안 발행이 끼어들면 확인은 통과하고 결과는 유통량이 상한을 넘은 상태가 된다.
     @Test
     fun `상한을 낮추는 것과 발행이 겹쳐도 유통량이 상한을 넘지 않는다`() {
-        pointType.totalIssued = 500_000
-        pointTypeRepository.save(pointType)
+        ledgerFixture.issue(pointType, 500_000)
         val token = login("@minho").accessToken
 
         // 상한을 발행량까지 낮추는 요청과, 여유를 쓰는 발행을 같은 순간에 보낸다.
@@ -308,11 +343,7 @@ class ConcurrencyTest {
         issue.get(30, TimeUnit.SECONDS)
         pool.shutdown()
 
-        val after = pointTypeRepository.findById(pointType.id!!).orElseThrow()
-        assertTrue(
-            after.totalIssued <= after.issueCap,
-            "유통량이 상한을 넘었다: ${after.totalIssued} > ${after.issueCap}",
-        )
+        assertTrue(issuedOf() <= capOf(), "유통량이 상한을 넘었다: ${issuedOf()} > ${capOf()}")
     }
 
     @Test
@@ -451,11 +482,17 @@ class ConcurrencyTest {
     private fun user(handle: String, name: String) =
         User(name = name, handle = handle, passwordHash = passwordEncoder.encode("point")!!)
 
+    // 발행자 지갑은 발행으로 찬다 — 계정에 숫자를 바로 넣으면 사건 없는 잔액이 남는다.
     private fun giveBalance(user: User, amount: Long) {
-        accountRepository.save(
-            Account(pointType = pointType, user = user, kind = AccountKind.HOLDER, balance = amount),
-        )
+        require(user.id == issuer.id) { "발행자만 발행으로 채운다" }
+        ledgerFixture.issue(pointType, amount)
     }
+
+    // 유통량의 정본은 발행 계정 잔액이다.
+    private fun issuedOf() = -accountRepository.findAll()
+        .single { it.pointType.id == pointType.id && it.kind == AccountKind.ISSUANCE }.balance
+
+    private fun capOf() = pointTypeRepository.findById(pointType.id!!).orElseThrow().issueCap
 
     private fun balanceOf(user: User) =
         accountRepository.findByUserId(user.id!!).firstOrNull { it.pointType.id == pointType.id }?.balance ?: 0
@@ -515,7 +552,6 @@ class ConcurrencyTest {
                 accent = PointAccent.BLUE,
                 visibility = PointVisibility.PRIVATE,
                 issueCap = 1_000_000,
-                totalIssued = 0,
             ),
         )
         membershipRepository.save(Membership(pointType = bank, user = issuer))
