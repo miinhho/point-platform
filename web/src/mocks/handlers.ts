@@ -372,6 +372,7 @@ export const handlers = [
     const target = String(params.userId) === 'me' ? auth.userId : String(params.userId)
     try {
       ledger.removeMember(auth.userId, String(params.id), target)
+      if (drawResponseLoss()) return HttpResponse.error()
       return new HttpResponse(null, { status: 204 })
     } catch (error) {
       if (error instanceof ledger.LedgerError) return fail(error.code)
@@ -410,7 +411,9 @@ export const handlers = [
     if (auth instanceof Response) return auth
 
     try {
-      return HttpResponse.json(ledger.acceptInvite(auth.userId, String(params.id)))
+      const joined = ledger.acceptInvite(auth.userId, String(params.id))
+      if (drawResponseLoss()) return HttpResponse.error()
+      return HttpResponse.json(joined)
     } catch (error) {
       if (error instanceof ledger.LedgerError) return fail(error.code)
       throw error
