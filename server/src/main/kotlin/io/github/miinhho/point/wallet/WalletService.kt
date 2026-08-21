@@ -34,7 +34,8 @@ class WalletService(
         val amountByType = accountRepository.findByUserId(userId).associate { it.pointType.id to it.balance }
         val relations = bankAccess.relationsOf(userId)
         val myMemberships = bankAccess.memberOf(userId)
-        val held = pointTypeRepository.findAll().filter { relations.any(it, CARRIES) }
+        // 관계가 있는 것만 읽는다 — 전부 읽어 메모리에서 거르면 은행이 늘수록 무거워진다.
+        val held = pointTypeRepository.findAllById(relations.ids(CARRIES)).filter { relations.any(it, CARRIES) }
         // id 로 맞춘다 — 순서로 맞추면 응답 조립이 하나를 거르는 날 잔액 카드가 조용히 사라진다.
         val responses = pointTypeResponses.of(held, userId).associateBy { it.id }
         val spent = transferRepository.spentPointTypeIdsOf(userId)
