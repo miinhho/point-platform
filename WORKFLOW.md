@@ -15,9 +15,32 @@ All engineering tasks follow this workflow.
 
 * **Frontend** — implements frontend changes.
 
-* **QA** — independently verifies behavior using browser, accessibility, usability, performance, and regression testing as relevant. Follows `docs/QA.md`.
+**세션은 셋이다 — 조율 · 프론트 · 백엔드.** QA 와 리뷰는 세션이 아니라 **서브에이전트**이고
+`.claude/agents/qa.md` · `.claude/agents/review.md` 에 정의가 있다. 프론트와 백엔드가 필요할 때
+부른다.
 
-* **Review** — continuously checks **risk first, then logic**: what could go irreversibly wrong, whether the model matches the concept, and whether the code matches the contract. Code quality is in scope but reported last, except where a structure is a defect generator. Follows `docs/REVIEW.md`. Reports; does not fix.
+```
+Agent(subagent_type: "review", prompt: "...")   # 계약과 코드가 어긋나는지
+Agent(subagent_type: "qa",     prompt: "...")   # 화면이 거짓말하는지
+```
+
+* **review** — 위험을 먼저, 그 다음 로직. 되돌릴 수 없는 것이 잘못될 자리와 계약·코드의
+  어긋남을 본다. `docs/REVIEW.md` 를 따른다. **찾아서 돌려주고 고치지 않는다**
+
+* **qa** — 화면이 사용자에게 거짓말하는지 브라우저로 직접 만져 본다. `docs/QA.md` 를 따른다.
+  **관찰만 하고 고치지 않는다**
+
+**언제 부르나 — 안 부르면 안 되는 자리가 있다.**
+
+| 무엇을 건드렸나 | 부른다 |
+|---|---|
+| 돈이 움직이는 경로 · 잠금 · 멱등성 · 계약이 방금 바뀐 자리 | `review` |
+| 화면 · 실패와 재시도 경로 · 여정이 통째로 도는지 | `qa` |
+| 둘 다 | 둘 다. 순서는 상관없다 |
+| 문서만 · 주석만 · 테스트 이름만 | 안 부른다 |
+
+**PR 을 열기 전에 부른다.** 열고 나서 부르면 고친 것이 리뷰 코멘트가 아니라 새 커밋으로
+쌓여 무엇 때문에 무엇이 바뀌었는지 갈리지 않는다.
 
 **Self-review does not count as review.** Filling an empty field looks reasonable while
 writing it and only reads wrong later — the author is the one person who cannot see it.
@@ -25,10 +48,18 @@ Every model-level defect so far (`Transfer.kind`, a fallback naming an unknown r
 "me", a past event reading today's supply, the client counting name collisions inside its
 own list) survived self-review and was found by the user.
 
-**Review does not write code.** Five sessions share one worktree, so two writers in the
-same directory overwrite each other — and a reviewer who fixes loses the independence that
-is the entire point. Review sends findings **straight to the owning session**, not through
-the Orchestrator; only contract changes come to the Orchestrator.
+**서브에이전트가 그 독립성을 지키는 것은 문맥이 갈려서다.** 그것은 네 대화도 `CLAUDE.md` 도
+못 보고 **코드와 계약만 본다** — 네가 왜 그렇게 썼는지를 모르므로 네 설명에 설득되지 않는다.
+그래서 **부를 때 변명을 적지 마라.** 무엇을 건드렸고 어디를 보라고만 말한다.
+
+**대신 잃는 것이 있다.** 계속 도는 세션이 아니므로 **「아무 일도 없을 때 계약 절을 하나 골라
+본다」가 없어진다** — 오늘 값이 큰 것 여럿이 배정 밖에서 나왔다(`--author @me` 가 세션을 안
+가르는 것, `notMember` 가 도달 불가능한 것, 안 팔린 품목을 지우면 다시 못 내리는 것). 그 자리는
+**조율이 계약이 바뀔 때마다 `review` 를 한 번 부르는 것**으로 메운다.
+
+**돌려받은 것은 네가 처리한다.** 고치는 것도 너고, 계약이 틀렸다고 나온 것은 `contract` 라벨
+이슈로 올리는 것도 너다. **QA 가 돌려준 관찰은 `docs/FIELD.md` 「현장 기록」에 고치지 말고
+그대로 옮긴다** — 옮기면서 다듬으면 관찰이 아니라 해석이 된다.
 
 ---
 
