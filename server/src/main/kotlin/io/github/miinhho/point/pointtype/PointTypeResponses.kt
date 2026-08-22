@@ -4,8 +4,8 @@ import io.github.miinhho.point.ledger.AccountRepository
 import io.github.miinhho.point.ledger.Supply
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
-import io.github.miinhho.point.membership.BankAccess
-import io.github.miinhho.point.membership.MembershipRepository
+import io.github.miinhho.point.pointtype.membership.BankAccess
+import io.github.miinhho.point.pointtype.membership.MembershipRepository
 
 // 내보내는 경로마다 각자 조립하면 새 경로가 생길 때 필드가 조용히 빠진다.
 // 지연 연관관계(issuer)를 건드리므로 트랜잭션 안이어야 한다 — open-in-view=false 다.

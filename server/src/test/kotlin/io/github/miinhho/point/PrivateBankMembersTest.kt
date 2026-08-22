@@ -3,8 +3,8 @@ package io.github.miinhho.point
 import io.github.miinhho.point.auth.LoginRequest
 import io.github.miinhho.point.auth.LoginResponse
 import io.github.miinhho.point.pointtype.ChangeCapRequest
-import io.github.miinhho.point.membership.Membership
-import io.github.miinhho.point.membership.MembershipRepository
+import io.github.miinhho.point.pointtype.membership.Membership
+import io.github.miinhho.point.pointtype.membership.MembershipRepository
 import io.github.miinhho.point.pointtype.PointAccent
 import io.github.miinhho.point.pointtype.PointType
 import io.github.miinhho.point.pointtype.PointTypeRepository

@@ -8,8 +8,8 @@ import io.github.miinhho.point.user.toResponse
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.util.UUID
-import io.github.miinhho.point.membership.BankAccess
-import io.github.miinhho.point.membership.MembershipRepository
+import io.github.miinhho.point.pointtype.membership.BankAccess
+import io.github.miinhho.point.pointtype.membership.MembershipRepository
 
 @Service
 class PointTypeQueryService(
