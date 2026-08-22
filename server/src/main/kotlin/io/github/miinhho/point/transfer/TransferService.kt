@@ -79,10 +79,10 @@ class TransferService(
         if (transfers.isEmpty()) return emptyList()
 
         // 줄마다 열지 않는다 — 사건이 id 로만 아는 것을 한 번에 모은다.
-        val sharedNames = userRepository.sharedNames()
-        val sharedPointNames = pointTypeRepository.sharedNames()
         val people = userRepository.findAllById(transfers.map { it.journalEntry.requesterId }).associateBy { it.id }
         val points = pointTypeRepository.findAllById(transfers.map { it.journalEntry.pointTypeId }).associateBy { it.id }
+        val sharedNames = userRepository.sharedNames(people.values.map { it.name } + transfers.map { it.to.name })
+        val sharedPointNames = pointTypeRepository.sharedNames(points.values.map { it.name })
         return transfers.mapNotNull { transfer ->
             val from = people[transfer.journalEntry.requesterId] ?: return@mapNotNull null
             val point = points[transfer.journalEntry.pointTypeId] ?: return@mapNotNull null
@@ -90,13 +90,17 @@ class TransferService(
         }
     }
 
-    private fun Transfer.render(viewerId: Long): TransferResponse = toResponse(
-        viewerId = viewerId,
-        from = userRepository.findById(journalEntry.requesterId).orElseThrow(),
-        point = pointTypeRepository.findById(journalEntry.pointTypeId).orElseThrow(),
-        sharedNames = userRepository.sharedNames(),
-        sharedPointNames = pointTypeRepository.sharedNames(),
-    )
+    private fun Transfer.render(viewerId: Long): TransferResponse {
+        val from = userRepository.findById(journalEntry.requesterId).orElseThrow()
+        val point = pointTypeRepository.findById(journalEntry.pointTypeId).orElseThrow()
+        return toResponse(
+            viewerId = viewerId,
+            from = from,
+            point = point,
+            sharedNames = userRepository.sharedNames(listOf(from.name, to.name)),
+            sharedPointNames = pointTypeRepository.sharedNames(listOf(point.name)),
+        )
+    }
 
     // 닿을 수 없는 은행은 없는 포인트와 같은 404 다 — 갈리는 순간 존재가 샌다.
     private fun requirePointType(pointTypeId: String, viewerId: Long): PointType {

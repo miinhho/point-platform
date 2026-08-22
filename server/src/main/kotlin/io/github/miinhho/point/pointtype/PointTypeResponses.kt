@@ -20,7 +20,7 @@ class PointTypeResponses(
     fun of(pointType: PointType, viewerId: Long): PointTypeResponse = of(listOf(pointType), viewerId).first()
 
     fun of(pointTypes: List<PointType>, viewerId: Long): List<PointTypeResponse> {
-        val sharedNames = pointTypeRepository.sharedNames()
+        val sharedNames = pointTypeRepository.sharedNames(pointTypes.map { it.name })
         val memberCounts = memberCounts(pointTypes)
         // 은행마다 물으면 N+1 이다 — 보는 사람 기준으로 한 번씩만 모은다.
         val memberOf = bankAccess.memberOf(viewerId)

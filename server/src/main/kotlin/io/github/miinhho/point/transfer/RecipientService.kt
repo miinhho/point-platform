@@ -26,14 +26,13 @@ class RecipientService(
     // 동명이인 방어가 꺼진다. 매치된 이름 전원을 함께 담는다.
     @Transactional(readOnly = true)
     fun search(query: String?, pointTypePublicId: String?, meId: Long): List<UserResponse> {
-        val shared = userRepository.sharedNames()
         val members = membersOf(pointTypePublicId, meId)
         val needle = query?.trim()?.lowercase()
         // 검색어가 있으면 DB 가 거른다 — 전부 읽어 메모리에서 거르면 사람이 늘수록 무거워진다.
         val candidates = if (needle.isNullOrEmpty()) all(members) else userRepository.matching(needle)
-        return candidates
-            .filter { it.id != meId && (members == null || it.id in members) }
-            .map { it.toResponse(shared) }
+        val found = candidates.filter { it.id != meId && (members == null || it.id in members) }
+        val shared = userRepository.sharedNames(found.map { it.name })
+        return found.map { it.toResponse(shared) }
     }
 
     // 근거: docs/API.md — 최근 대상은 포인트별로 다르다. 최신순, 대상 중복 제거.
@@ -51,8 +50,9 @@ class RecipientService(
             seen.add(transfer.to.id!!)
             if (seen.size >= limit) break
         }
-        val shared = userRepository.sharedNames()
-        return seen.mapNotNull { userRepository.findById(it).orElse(null) }.map { it.toResponse(shared) }
+        val recent = seen.mapNotNull { userRepository.findById(it).orElse(null) }
+        val shared = userRepository.sharedNames(recent.map { it.name })
+        return recent.map { it.toResponse(shared) }
     }
 
     private fun all(members: Set<Long>?): List<User> =

@@ -11,10 +11,12 @@ interface PointTypeRepository : JpaRepository<PointType, Long> {
     fun findByPublicId(publicId: UUID): PointType?
     fun findByIssuerIdAndIdempotencyKey(issuerId: Long, idempotencyKey: String): PointType?
 
-    // 겹치는 이름을 한 번에 모은다 — 지갑에 든 포인트마다 세면 N+1 이 된다.
-    // 모수는 원장 전체다 (docs/API.md).
-    @Query("select p.name from PointType p group by p.name having count(p) > 1")
-    fun sharedNames(): Set<String>
+    /** 이 이름들 중 겹치는 것. 모수는 원장 전체이고 묻는 이름만 좁힌다 (docs/API.md). */
+    fun sharedNames(names: Collection<String>): Set<String> =
+        if (names.isEmpty()) emptySet() else sharedAmong(names.toSet())
+
+    @Query("select p.name from PointType p where p.name in :names group by p.name having count(p.id) > 1")
+    fun sharedAmong(names: Collection<String>): Set<String>
 
     @Query("select p.id from PointType p where p.issuer.id = :issuerId")
     fun idsIssuedBy(issuerId: Long): Set<Long>

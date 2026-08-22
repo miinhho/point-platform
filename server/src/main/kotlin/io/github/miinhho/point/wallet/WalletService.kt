@@ -22,7 +22,7 @@ class WalletService(
     private val transferRepository: TransferRepository,
 ) {
     @Transactional(readOnly = true)
-    fun me(userId: Long) = requireUser(userId).toResponse(userRepository.sharedNames())
+    fun me(userId: Long) = requireUser(userId).let { it.toResponse(userRepository.sharedNames(listOf(it.name))) }
 
     // 담는 기준은 잔액이 아니라 관계다 — 초대를 수락한 사람은 아직 아무것도 못 받았어도
     // 그 은행의 회원이다. 안 담으면 가입은 됐는데 그 은행이 어느 화면에도 없다
@@ -50,7 +50,7 @@ class WalletService(
                 sendable = if (locked) 0 else amount,
             )
         }
-        return WalletResponse(user.toResponse(userRepository.sharedNames()), balances)
+        return WalletResponse(user.toResponse(userRepository.sharedNames(listOf(user.name))), balances)
     }
 
     companion object {

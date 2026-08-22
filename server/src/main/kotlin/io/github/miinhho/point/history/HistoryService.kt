@@ -51,10 +51,11 @@ class HistoryService(
         val capChanges = capChangeRepository.byJournalEntryIds(ids).associateBy { it.journalEntry.id }
 
         // 겹침도 사람도 포인트도 원장 전체에서 한 번씩만 모은다 — 줄마다 열면 N+1 이다.
-        val sharedNames = userRepository.sharedNames()
-        val sharedPointNames = pointTypeRepository.sharedNames()
         val people = userRepository.findAllById(entries.map { it.requesterId }).associateBy { it.id }
         val points = pointTypeRepository.findAllById(entries.map { it.pointTypeId }).associateBy { it.id }
+        val counterparties = transfers.values.map { it.to }
+        val sharedNames = userRepository.sharedNames(people.values.map { it.name } + counterparties.map { it.name })
+        val sharedPointNames = pointTypeRepository.sharedNames(points.values.map { it.name })
 
         return entries.mapNotNull { entry ->
             val pointType = points[entry.pointTypeId] ?: return@mapNotNull null

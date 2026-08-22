@@ -56,9 +56,12 @@ class IssueService(
     }
 
     // 사건이 id 로만 아는 것을 여기서 연다. 단건이라 한 번씩이면 된다.
-    private fun Issue.render(): IssueResponse = toResponse(
-        issuer = userRepository.findById(journalEntry.requesterId).orElseThrow(),
-        point = pointTypeRepository.findById(journalEntry.pointTypeId).orElseThrow(),
-        sharedPointNames = pointTypeRepository.sharedNames(),
-    )
+    private fun Issue.render(): IssueResponse {
+        val point = pointTypeRepository.findById(journalEntry.pointTypeId).orElseThrow()
+        return toResponse(
+            issuer = userRepository.findById(journalEntry.requesterId).orElseThrow(),
+            point = point,
+            sharedPointNames = pointTypeRepository.sharedNames(listOf(point.name)),
+        )
+    }
 }
