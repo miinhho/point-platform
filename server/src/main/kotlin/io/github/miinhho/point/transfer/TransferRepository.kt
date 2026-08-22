@@ -10,7 +10,9 @@ interface TransferRepository : JpaRepository<Transfer, Long> {
     // 키만으로 찾는 길을 두면 남의 것을 물을 수 있다.
     @Query("select t from Transfer t where t.journalEntry.requesterId = :requesterId and t.journalEntry.idempotencyKey = :key")
     fun findByRequesterAndKey(requesterId: Long, key: String): Transfer?
-    fun findByPublicId(publicId: UUID): Transfer?
+    /** 사건의 id 로 찾는다 — 부속 기록이 자기 id 를 갖지 않는다. */
+    @Query("select t from Transfer t where t.journalEntry.publicId = :publicId")
+    fun findByEventId(publicId: UUID): Transfer?
 
     @Query("select t from Transfer t where t.journalEntry.id in :ids")
     fun byJournalEntryIds(ids: Collection<Long>): List<Transfer>

@@ -122,6 +122,7 @@ create table postings (
 ) engine = InnoDB;
 
 -- status 컬럼이 없다. 저장된 이체는 언제나 확정된 것이다 (docs/JOURNEY.md 「버린 것」).
+-- 바깥 id 도 없다. 사건과 1:1 이라 사건의 public_id 가 곧 이 이체의 id 다.
 create table transfers (
     id               bigint     not null auto_increment,
     -- 사건이 아는 것을 다시 갖지 않는다 — 포인트도 보낸 사람도 시각도 키도 사건의 것이다.
@@ -129,9 +130,7 @@ create table transfers (
     -- 받는 사람만 사건이 모른다. 사건의 요청자가 보낸 사람이다.
     to_id            bigint     not null,
     amount           bigint     not null,
-    public_id        binary(16) not null,
     primary key (id),
-    constraint uk_transfers_public_id unique (public_id),
     constraint uk_transfers_journal_entry unique (journal_entry_id),
     constraint fk_transfers_journal_entry foreign key (journal_entry_id) references journal_entries (id),
     key ix_transfers_to (to_id),
@@ -146,9 +145,7 @@ create table issues (
     -- 일어난 때의 값이다. 지금 값에서 거꾸로 계산할 수 없다.
     total_issued_after bigint     not null,
     issue_cap_at       bigint     not null,
-    public_id          binary(16) not null,
     primary key (id),
-    constraint uk_issues_public_id unique (public_id),
     constraint uk_issues_journal_entry unique (journal_entry_id),
     constraint fk_issues_journal_entry foreign key (journal_entry_id) references journal_entries (id)
 ) engine = InnoDB;
@@ -159,9 +156,7 @@ create table cap_changes (
     journal_entry_id bigint     not null,
     previous_cap     bigint     not null,
     issue_cap        bigint     not null,
-    public_id        binary(16) not null,
     primary key (id),
-    constraint uk_cap_changes_public_id unique (public_id),
     constraint uk_cap_changes_journal_entry unique (journal_entry_id),
     constraint fk_cap_changes_journal_entry foreign key (journal_entry_id) references journal_entries (id)
 ) engine = InnoDB;

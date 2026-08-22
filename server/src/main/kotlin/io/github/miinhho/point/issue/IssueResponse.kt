@@ -18,12 +18,12 @@ data class IssueResponse(
     val totalIssuedAfter: Long,
     /** 그때의 상한. 나중에 바뀌어도 이 값은 안 바뀐다. */
     val issueCapAt: Long,
-    val confirmedAt: Instant,
+    val occurredAt: Instant,
 )
 
 /** 발행자와 포인트는 사건이 id 로만 아는 것이라 호출부가 모아서 넘긴다. */
 fun Issue.toResponse(issuer: User, point: PointType, sharedPointNames: Set<String>) = IssueResponse(
-    id = publicId.toString(),
+    id = journalEntry.publicId.toString(),
     idempotencyKey = journalEntry.idempotencyKey,
     pointTypeId = point.publicId.toString(),
     point = point.toMark(sharedPointNames),
@@ -31,5 +31,5 @@ fun Issue.toResponse(issuer: User, point: PointType, sharedPointNames: Set<Strin
     amount = amount,
     totalIssuedAfter = totalIssuedAfter,
     issueCapAt = issueCapAt,
-    confirmedAt = journalEntry.occurredAt,
+    occurredAt = journalEntry.occurredAt,
 )
