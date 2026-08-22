@@ -37,6 +37,9 @@ class PurchaseService(
      * 앞 여섯은 [Stall] 이 한 순서로 답하고 잔액만 원장이 답한다 — 계정을 잠근 쪽만이
      * 지금 잔액을 안다. 셋을 사려는데 둘만 남았으면 둘을 팔지 않는다.
      *
+     * **멱등성이 첫째인 것은 순서가 아니라 자리로 지킨다** — 사건 행 삽입이 첫 쓰기라
+     * 같은 키의 경쟁에서 진 쪽은 재고에 닿기 전에 unique 에 문다 (docs/LEDGER.md 2 단계 1).
+     *
      * READ COMMITTED 인 이유는 [Shelf] 에 있다 — 판 수를 세는 자리 때문이다.
      */
     @Transactional(isolation = Isolation.READ_COMMITTED)
@@ -49,9 +52,8 @@ class PurchaseService(
             ?: throw DomainFailureException(FailureCode.MALFORMED_REQUEST, "quantity 이(가) 계약과 다름")
 
         val stall = shelf.lockFor(listing, buyerId)
-        stall.blocks(quantity, member = bankAccess.isMember(pointType, buyerId), issuer = pointType.issuer.id == buyerId)
-            ?.let { throw refuse(it, stall) }
-
+        // 판정은 사건을 적은 뒤다. 앞에 두면 같은 키의 경쟁에서 진 쪽이 이긴 쪽이 쓴 마지막
+        // 하나에 걸려, 돈이 나갔는데 「아무것도 나가지 않았어요」를 받는다.
         val entry = ledger.purchase(
             requesterId = buyerId,
             idempotencyKey = idempotencyKey,
@@ -59,7 +61,10 @@ class PurchaseService(
             buyerId = buyerId,
             issuerId = pointType.issuer.id!!,
             amount = amount,
-        )
+        ) {
+            stall.blocks(quantity, member = bankAccess.isMember(pointType, buyerId), issuer = pointType.issuer.id == buyerId)
+                ?.let { throw refuse(it, stall) }
+        }
         val purchase = purchaseRepository.saveAndFlush(
             Purchase(
                 journalEntry = entry,

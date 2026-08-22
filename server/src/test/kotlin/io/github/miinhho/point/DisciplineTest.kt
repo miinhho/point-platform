@@ -48,13 +48,15 @@ class DisciplineTest {
      * **락 순서는 품목 행 → 원장 적용부다.** 적용부가 품목을 알면 반대 방향이 생기고, 두
      * 방향이 있으면 교착은 부하가 그만큼 오른 날에 처음 난다 — 그날은 되돌릴 곳이 없다.
      *
-     * 이름으로 본다. 적용부가 상점을 부르려면 어느 이름이든 여기 나타나야 한다.
+     * **패키지로 묻는다.** 클래스 이름 목록으로 물었더니 목록에 없는 이름(`PurchaseRepository`)
+     * 이 그대로 통과했다 — 이름은 늘어나고 목록은 안 늘어난다. import 한 줄이면 이름이 몇 개
+     * 생기든 걸리고, 원장의 낱말인 `JournalKind.PURCHASE` 는 import 가 아니라 안 걸린다.
      */
     @Test
-    fun `적용부는 품목을 모른다`() {
+    fun `적용부는 상점을 모른다`() {
         val leaked = sources().filter { (path, _) -> path.contains("ledger$SEP") }
-            .filter { (_, text) -> SHOP_NAMES.any { it in text } }
-        assertEquals(emptyList(), leaked.map { it.first }, "적용부가 품목을 참조한다 — 락 순서가 두 방향이 됐다")
+            .filter { (_, text) -> SHOP_PACKAGE in text }
+        assertEquals(emptyList(), leaked.map { it.first }, "적용부가 상점을 참조한다 — 락 순서가 두 방향이 됐다")
     }
 
     /**
@@ -165,8 +167,7 @@ class DisciplineTest {
          * 방향이 된다(위 「적용부는 품목을 모른다」).
          */
         val SHOP_TABLES = listOf("listings", "vouchers")
-        // 사건 종류(PURCHASE)는 원장의 낱말이다 — 그것까지 막으면 검사가 이름만 남는다.
-        val SHOP_NAMES = listOf("Listing", "listing", "Voucher", "voucher", "Stall", "Shelf")
+        const val SHOP_PACKAGE: String = "import io.github.miinhho.point.shop."
 
         // DB 도 스프링도 모르는 자리. 늘어나면 여기 적는다 — 적지 않으면 검사를 안 받는다.
         val PURE = listOf(

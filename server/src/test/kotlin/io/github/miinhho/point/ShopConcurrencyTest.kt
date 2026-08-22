@@ -101,6 +101,47 @@ class ShopConcurrencyTest {
         assertEquals(97_000, balanceOf(buyer), "잔액은 한 번만 빠진다")
     }
 
+    /**
+     * **멱등성이 재고보다 먼저다.** 두 축이 교차하는 자리 — 같은 키가 겹치면서 이긴 쪽이
+     * 마지막 하나를 쓰면, 진 쪽은 멱등성 unique 에 닿기도 전에 재고에 걸린다. 그러면 돈이
+     * 나갔는데 응답이 「재고가 부족해요 · 아무것도 나가지 않았어요」다.
+     *
+     * 발행이 같은 사고를 먼저 겪었다 — `Ledger.issue` 의 「사건이 첫 쓰기다」 주석이 그것이다.
+     */
+    @Test
+    fun `마지막 하나를 같은 키로 동시에 두 번 사도 전부 같은 답이다`() {
+        ledgerFixture.give(bank, buyer, 100_000)
+        val listing = shopFixture.list(bank, price = 3_000, stock = 1)
+        val token = token("@jisoo")
+        val key = UUID.randomUUID().toString()
+
+        val responses = inParallel(2) { buy(listing.id, token, 1, key) }
+
+        assertTrue(
+            responses.all { it.statusCode.is2xxSuccessful },
+            "진 쪽도 그때의 결과를 본다 — 다시 누른 것뿐이다: ${responses.map { it.statusCode to it.body }}",
+        )
+        assertEquals(1, responses.map { idOf(it) }.distinct().size, "둘이 같은 구매를 본다")
+        assertEquals(1, voucherRepository.count())
+        assertEquals(97_000, balanceOf(buyer))
+    }
+
+    @Test
+    fun `한도 하나를 같은 키로 동시에 두 번 사도 전부 같은 답이다`() {
+        ledgerFixture.give(bank, buyer, 100_000)
+        val listing = shopFixture.list(bank, price = 3_000, perPersonLimit = 1)
+        val token = token("@jisoo")
+        val key = UUID.randomUUID().toString()
+
+        val responses = inParallel(2) { buy(listing.id, token, 1, key) }
+
+        assertTrue(
+            responses.all { it.statusCode.is2xxSuccessful },
+            "1인 한도도 같다 — 같은 키는 같은 요청이다: ${responses.map { it.statusCode to it.body }}",
+        )
+        assertEquals(1, voucherRepository.count())
+    }
+
     // 계약: 한도 3 에 이미 2 를 산 사람이 2 를 동시에 → 둘 다 거절이고 부분 판매가 없다.
     @Test
     fun `한도 경계에서 동시에 사면 부분 판매가 없다`() {
