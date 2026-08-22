@@ -15,7 +15,7 @@ import org.springframework.stereotype.Component
  */
 @Component
 @Order(Ordered.LOWEST_PRECEDENCE)
-class LedgerGuard(private val audit: LedgerAudit, private val metrics: LedgerMetrics) : ApplicationRunner {
+class LedgerGuard(private val audit: LedgerAudit) : ApplicationRunner {
     private val log = LoggerFactory.getLogger(javaClass)
 
     override fun run(args: ApplicationArguments) {
@@ -23,8 +23,9 @@ class LedgerGuard(private val audit: LedgerAudit, private val metrics: LedgerMet
         if (args.containsOption(RECOMPUTE)) {
             log.warn("잔액을 전기에서 다시 접는다 — 고친 계정 {}", audit.recompute())
         }
+        // 지표로 내보내지 않는다 — 여기서 터지면 프로세스가 없고, 안 터지면 값이 늘 0 이다.
+        // 값이 하나뿐인 게이지는 긁을 수 있는 상태가 「0 과 안 옴」뿐이고 그 둘은 `up` 이 이미 말한다.
         val broken = audit.check()
-        metrics.bootChecked(broken.size)
         check(broken.isEmpty()) { "원장이 스스로와 맞지 않는다: $broken" }
     }
 
