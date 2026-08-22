@@ -8,8 +8,6 @@ import io.github.miinhho.point.user.toResponse
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.util.UUID
-import io.github.miinhho.point.pointtype.membership.BankAccess
-import io.github.miinhho.point.pointtype.membership.MembershipRepository
 
 @Service
 class PointTypeQueryService(
@@ -22,7 +20,7 @@ class PointTypeQueryService(
     @Transactional(readOnly = true)
     fun all(viewerId: Long): List<PointTypeResponse> {
         val relations = bankAccess.relationsOf(viewerId)
-        val visible = pointTypeRepository.publicOrRelated(relations.ids(BankAccess.REACHES)).filter { bankAccess.canReach(it, relations) }
+        val visible = pointTypeRepository.findAll().filter { bankAccess.canReach(it, relations) }
         return pointTypeResponses.of(visible, viewerId)
     }
 
@@ -52,10 +50,10 @@ class PointTypeQueryService(
         if (pointType.visibility == PointVisibility.PUBLIC) {
             throw DomainFailureException(FailureCode.NOT_A_PRIVATE_BANK, "공개 은행에는 회원이 없음")
         }
-        val memberIds = membershipRepository.userIdsOf(pointType.id!!)
-        if (viewerId !in memberIds) throw DomainFailureException(FailureCode.NOT_MEMBER, "회원이 아님")
+        val members = membershipRepository.userIdsOf(pointType.id!!)
+        if (viewerId !in members) throw DomainFailureException(FailureCode.NOT_MEMBER, "회원이 아님")
 
-        val members = userRepository.findAllById(memberIds)
-        return members.map { it.toResponse(userRepository.sharedNames(members.map { m -> m.name })) }
+        val shared = userRepository.sharedNames()
+        return userRepository.findAllById(members).map { it.toResponse(shared) }
     }
 }

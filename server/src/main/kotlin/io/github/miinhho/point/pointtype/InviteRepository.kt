@@ -1,4 +1,4 @@
-package io.github.miinhho.point.pointtype.membership
+package io.github.miinhho.point.pointtype
 
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Query

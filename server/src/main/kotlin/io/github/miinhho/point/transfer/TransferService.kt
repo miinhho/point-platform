@@ -1,15 +1,18 @@
 package io.github.miinhho.point.transfer
 
-import io.github.miinhho.point.ledger.Ledger
+import io.github.miinhho.point.ledger.AccountInitializer
 import io.github.miinhho.point.shared.DomainFailureException
 import io.github.miinhho.point.shared.FailureCode
-import io.github.miinhho.point.pointtype.membership.BankAccess
+import io.github.miinhho.point.ledger.AccountRepository
+import io.github.miinhho.point.pointtype.BankAccess
 import io.github.miinhho.point.pointtype.PointType
 import io.github.miinhho.point.pointtype.PointTypeRepository
 import io.github.miinhho.point.user.User
 import io.github.miinhho.point.user.UserRepository
-import org.springframework.data.domain.Limit
+import org.springframework.dao.DataIntegrityViolationException
+import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service
+import org.springframework.transaction.UnexpectedRollbackException
 import org.springframework.transaction.annotation.Transactional
 import java.util.UUID
 
@@ -17,15 +20,16 @@ import java.util.UUID
 class TransferService(
     private val pointTypeRepository: PointTypeRepository,
     private val userRepository: UserRepository,
+    private val accountRepository: AccountRepository,
     private val transferRepository: TransferRepository,
-    private val ledger: Ledger,
+    private val accountInitializer: AccountInitializer,
     private val bankAccess: BankAccess,
 ) {
     // 관여한 사람만 읽는다 — 남의 것은 없는 것과 같다 (docs/API.md).
     // open-in-view=false 라 지연 연관관계(pointType·from·to)는 트랜잭션 안에서 매핑까지 끝내야 한다.
     @Transactional(readOnly = true)
     fun findByIdempotencyKey(key: String, requesterId: Long): TransferResponse? =
-        transferRepository.findByRequesterAndKey(requesterId, key)?.render(requesterId)
+        transferRepository.findByFromIdAndIdempotencyKey(requesterId, key)?.toResponse(requesterId, userRepository.sharedNames(), pointTypeRepository.sharedNames())
 
     @Transactional
     fun commitTransfer(meId: Long, idempotencyKey: String, pointTypeId: String, toId: String, amount: Long): TransferResponse {
@@ -41,65 +45,22 @@ class TransferService(
             throw DomainFailureException(FailureCode.RECIPIENT_NOT_FOUND, "대상 없음")
         }
 
-        val entry = ledger.transfer(
-            requesterId = meId,
-            idempotencyKey = idempotencyKey,
-            pointTypeId = pointType.id!!,
-            fromId = meId,
-            toId = recipient.id!!,
-            amount = amount,
-        )
-        // saveAndFlush — 부속 기록이 커밋까지 미뤄지면 어느 문장이 깨졌는지 알 수 없다.
-        return transferRepository.saveAndFlush(
-            Transfer(
-                journalEntry = entry,
-                to = recipient,
-                amount = amount,
-            ),
-        ).render(meId)
-    }
+        val sender = userRepository.getReferenceById(meId)
+        val recipientId = recipient.id!!
+        val pointTypeId = pointType.id!!
+        listOf(meId, recipientId).sorted().forEach { ensureAccount(it, pointTypeId) }
 
-    /** 관여한 사람만 읽는다 — 남의 것도 없는 것과 같은 404 다 (IDOR 방지). */
-    @Transactional(readOnly = true)
-    fun findById(publicId: String, viewerId: Long): TransferResponse {
-        val transfer = runCatching { UUID.fromString(publicId) }.getOrNull()
-            ?.let(transferRepository::findByPublicId)
-            ?.takeIf { it.journalEntry.requesterId == viewerId || it.to.id == viewerId }
-            ?: throw DomainFailureException(FailureCode.TRANSFER_NOT_FOUND, "없음")
-        return transfer.render(viewerId)
-    }
-
-    @Transactional(readOnly = true)
-    fun history(pointTypePublicId: String?, limit: Int, viewerId: Long): List<TransferResponse> {
-        val filterId = pointTypePublicId?.let { raw ->
-            runCatching { UUID.fromString(raw) }.getOrNull()?.let(pointTypeRepository::findIdByPublicId)
-                ?: return emptyList()
+        // 오름차순으로 건드린다 — 반대 방향 이체(A→B, B→A)가 겹칠 때 순서가 어긋나면 교착이다.
+        // 차감이 실패하면 예외가 트랜잭션을 되돌리므로 먼저 더한 것도 함께 사라진다.
+        if (meId < recipientId) {
+            debitOrFail(meId, pointTypeId, amount)
+            accountRepository.credit(recipientId, pointTypeId, amount)
+        } else {
+            accountRepository.credit(recipientId, pointTypeId, amount)
+            debitOrFail(meId, pointTypeId, amount)
         }
-        val transfers = transferRepository.history(viewerId, filterId, Limit.of(limit))
-        if (transfers.isEmpty()) return emptyList()
 
-        // 줄마다 열지 않는다 — 사건이 id 로만 아는 것을 한 번에 모은다.
-        val people = userRepository.findAllById(transfers.map { it.journalEntry.requesterId }).associateBy { it.id }
-        val points = pointTypeRepository.findAllById(transfers.map { it.journalEntry.pointTypeId }).associateBy { it.id }
-        val sharedNames = userRepository.sharedNames(people.values.map { it.name } + transfers.map { it.to.name })
-        val sharedPointNames = pointTypeRepository.sharedNames(points.values.map { it.name })
-        return transfers.mapNotNull { transfer ->
-            val from = people[transfer.journalEntry.requesterId] ?: return@mapNotNull null
-            val point = points[transfer.journalEntry.pointTypeId] ?: return@mapNotNull null
-            transfer.toResponse(viewerId, from, point, sharedNames, sharedPointNames)
-        }
-    }
-
-    private fun Transfer.render(viewerId: Long): TransferResponse {
-        val from = userRepository.findById(journalEntry.requesterId).orElseThrow()
-        val point = pointTypeRepository.findById(journalEntry.pointTypeId).orElseThrow()
-        return toResponse(
-            viewerId = viewerId,
-            from = from,
-            point = point,
-            sharedNames = userRepository.sharedNames(listOf(from.name, to.name)),
-            sharedPointNames = pointTypeRepository.sharedNames(listOf(point.name)),
-        )
+        return record(idempotencyKey, pointType, from = sender, to = recipient, amount = amount).toResponse(meId, userRepository.sharedNames(), pointTypeRepository.sharedNames())
     }
 
     // 닿을 수 없는 은행은 없는 포인트와 같은 404 다 — 갈리는 순간 존재가 샌다.
@@ -116,4 +77,33 @@ class TransferService(
     }
 
     private fun malformed(message: String) = DomainFailureException(FailureCode.MALFORMED_REQUEST, message)
+
+    // 영향 행 0 은 조건(balance >= amount)이 거짓이었다는 뜻이다.
+    private fun debitOrFail(userId: Long, pointTypeId: Long, amount: Long) {
+        if (accountRepository.debit(userId, pointTypeId, amount) == 0) {
+            throw DomainFailureException(FailureCode.INSUFFICIENT_BALANCE, "잔액 부족")
+        }
+    }
+
+    // 중복키는 오류가 아니라 "다른 요청이 먼저 만들었다"는 뜻이다. 별도 트랜잭션이라
+    // 그 롤백이 진행 중인 이체에 닿지 않는다.
+    private fun ensureAccount(userId: Long, pointTypeId: Long) {
+        if (accountInitializer.exists(userId, pointTypeId)) return
+        try {
+            accountInitializer.create(userId, pointTypeId)
+        } catch (_: DataIntegrityViolationException) {
+        } catch (_: UnexpectedRollbackException) {
+        }
+    }
+
+    // saveAndFlush 로 unique 위반을 여기서 터뜨린다 — 커밋 시점까지 미루면 어느 문장이 깨졌는지 알 수 없다.
+    private fun record(
+        idempotencyKey: String,
+        pointType: PointType,
+        from: User,
+        to: User,
+        amount: Long,
+    ): Transfer = transferRepository.saveAndFlush(
+        Transfer(idempotencyKey = idempotencyKey, pointType = pointType, from = from, to = to, amount = amount),
+    )
 }

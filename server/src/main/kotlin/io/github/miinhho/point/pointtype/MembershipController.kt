@@ -1,4 +1,4 @@
-package io.github.miinhho.point.pointtype.membership
+package io.github.miinhho.point.pointtype
 
 import io.github.miinhho.point.shared.DomainFailureException
 import io.github.miinhho.point.shared.FailureCode
@@ -14,7 +14,6 @@ import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestHeader
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
-import io.github.miinhho.point.pointtype.PointTypeResponse
 
 @RestController
 @RequestMapping("/api")

@@ -2,10 +2,9 @@ package io.github.miinhho.point
 
 import io.github.miinhho.point.pointtype.ChangeCapRequest
 import io.github.miinhho.point.pointtype.CreatePointTypeRequest
-import io.github.miinhho.point.pointtype.membership.InviteRequest
-import io.github.miinhho.point.pointtype.membership.Membership
-import io.github.miinhho.point.pointtype.membership.MembershipId
-import io.github.miinhho.point.pointtype.membership.MembershipRepository
+import io.github.miinhho.point.pointtype.InviteRequest
+import io.github.miinhho.point.pointtype.Membership
+import io.github.miinhho.point.pointtype.MembershipRepository
 import io.github.miinhho.point.auth.LoginRequest
 import io.github.miinhho.point.auth.LoginResponse
 import io.github.miinhho.point.auth.RefreshRequest
@@ -42,7 +41,6 @@ import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import kotlin.test.assertEquals
-import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
@@ -56,7 +54,6 @@ import kotlin.test.assertTrue
 class ConcurrencyTest {
     @Autowired lateinit var ledgerReset: LedgerReset
     @Autowired lateinit var bankFixture: BankFixture
-    @Autowired lateinit var ledgerFixture: LedgerFixture
     @Autowired lateinit var restTemplate: TestRestTemplate
     @Autowired lateinit var userRepository: UserRepository
     @Autowired lateinit var pointTypeRepository: PointTypeRepository
@@ -84,6 +81,8 @@ class ConcurrencyTest {
                 issuer = issuer,
                 accent = PointAccent.PURPLE,
                 visibility = PointVisibility.PUBLIC,
+                issueCap = 1_000_000,
+                totalIssued = 0,
             ),
         )
     }
@@ -103,43 +102,6 @@ class ConcurrencyTest {
         val ids = responses.mapNotNull { transferIdOf(it.body) }.toSet()
         assertEquals(1, ids.size, "모두 같은 이체를 돌려받아야 한다")
         assertEquals(1_000_000 - 30_000, balanceOf(issuer), "잔액은 한 번만 빠져야 한다")
-    }
-
-    /**
-     * 사건 행이 첫 쓰기라는 것의 실제 내용. 잔액이 꼭 한 번치면, 멱등성 판정이 마지막
-     * 문장이던 때는 진 쪽이 이긴 쪽이 뺀 잔액에 다시 차감을 시도해 `422 · none` 을 받았다 —
-     * **서버가 답을 쥔 채 안 나갔다고 말한다.** 근거: docs/LEDGER.md 「잡히지 않는 것」 1.
-     */
-    @Test
-    fun `잔액이 꼭 한 번치일 때 같은 키로 동시에 보내도 전부 같은 답이다`() {
-        giveBalance(issuer, 30_000)
-        val token = login("@minho").accessToken
-        val key = UUID.randomUUID().toString()
-
-        val responses = inParallel(8) {
-            postTransfer(token, key, TransferRequest(pointTypeId = publicPointTypeId(), toId = publicId(recipient), amount = BigDecimal(30_000)))
-        }
-
-        assertEquals(1, responses.count { it.statusCode == HttpStatus.CREATED }, "만든 것은 하나다: ${responses.map { it.statusCode }}")
-        assertTrue(responses.all { it.statusCode.is2xxSuccessful }, "진 쪽도 그때의 결과를 본다: ${responses.map { it.statusCode }}")
-        assertEquals(1, responses.map { idOf(it) }.distinct().size, "전부 같은 이체다")
-        assertEquals(0, balanceOf(issuer))
-        assertEquals(30_000, balanceOf(recipient))
-    }
-
-    @Test
-    fun `여유가 꼭 한 번치일 때 같은 키로 동시에 발행해도 전부 같은 답이다`() {
-        ledgerFixture.issue(pointType, 970_000)
-        val token = login("@minho").accessToken
-        val key = UUID.randomUUID().toString()
-
-        val responses = inParallel(8) {
-            postIssue(token, key, TransferRequest(pointTypeId = publicPointTypeId(), amount = BigDecimal(30_000)))
-        }
-
-        assertTrue(responses.all { it.statusCode.is2xxSuccessful }, "진 쪽도 그때의 결과를 본다: ${responses.map { it.statusCode }}")
-        assertEquals(1, responses.map { idOf(it) }.distinct().size, "전부 같은 발행이다")
-        assertEquals(1_000_000, issuedOf())
     }
 
     @Test
@@ -182,7 +144,8 @@ class ConcurrencyTest {
 
     @Test
     fun `동시에 발행해도 상한을 넘지 않는다`() {
-        ledgerFixture.issue(pointType, 995_000)
+        pointType.totalIssued = 995_000
+        pointTypeRepository.save(pointType)
         val token = login("@minho").accessToken
 
         val responses = inParallel(6) {
@@ -190,8 +153,9 @@ class ConcurrencyTest {
         }
 
         assertEquals(1, responses.count { it.statusCode == HttpStatus.CREATED }, "여유가 5000 뿐이라 3000 발행은 한 번만 성공해야 한다")
-        assertTrue(issuedOf() <= capOf(), "총 유통량이 상한을 넘었다: ${issuedOf()} > ${capOf()}")
-        assertEquals(998_000, issuedOf())
+        val after = pointTypeRepository.findById(pointType.id!!).orElseThrow()
+        assertTrue(after.totalIssued <= after.issueCap, "총 유통량이 상한을 넘었다: ${after.totalIssued} > ${after.issueCap}")
+        assertEquals(998_000, after.totalIssued)
     }
 
     // 계약: docs/API.md — 키는 「내가 같은 요청을 두 번 보냈나」에 답한다.
@@ -200,7 +164,7 @@ class ConcurrencyTest {
     fun `다른 사용자가 같은 키로 보내면 둘 다 각각 성공한다`() {
         giveBalance(issuer, 100_000)
         val third = userRepository.save(user("@taeyun", "박태윤"))
-        ledgerFixture.give(pointType, third, 100_000)
+        accountRepository.save(Account(pointType = pointType, user = third, kind = AccountKind.HOLDER, balance = 100_000))
         val key = UUID.randomUUID().toString()
 
         val mine = postTransfer(
@@ -216,8 +180,7 @@ class ConcurrencyTest {
 
         assertEquals(HttpStatus.CREATED, mine.statusCode)
         assertEquals(HttpStatus.CREATED, theirs.statusCode, "남의 키에 걸려 500 이 나가면 안 된다")
-        // 픽스처가 third 의 지갑을 채우느라 이체 하나를 이미 썼다.
-        assertEquals(3, transferRepository.count(), "각자 하나씩 생긴다")
+        assertEquals(2, transferRepository.count(), "각자 하나씩 생긴다")
         assertEquals(3_000, balanceOf(recipient))
     }
 
@@ -321,7 +284,8 @@ class ConcurrencyTest {
     // 확인하는 동안 발행이 끼어들면 확인은 통과하고 결과는 유통량이 상한을 넘은 상태가 된다.
     @Test
     fun `상한을 낮추는 것과 발행이 겹쳐도 유통량이 상한을 넘지 않는다`() {
-        ledgerFixture.issue(pointType, 500_000)
+        pointType.totalIssued = 500_000
+        pointTypeRepository.save(pointType)
         val token = login("@minho").accessToken
 
         // 상한을 발행량까지 낮추는 요청과, 여유를 쓰는 발행을 같은 순간에 보낸다.
@@ -342,7 +306,11 @@ class ConcurrencyTest {
         issue.get(30, TimeUnit.SECONDS)
         pool.shutdown()
 
-        assertTrue(issuedOf() <= capOf(), "유통량이 상한을 넘었다: ${issuedOf()} > ${capOf()}")
+        val after = pointTypeRepository.findById(pointType.id!!).orElseThrow()
+        assertTrue(
+            after.totalIssued <= after.issueCap,
+            "유통량이 상한을 넘었다: ${after.totalIssued} > ${after.issueCap}",
+        )
     }
 
     @Test
@@ -354,7 +322,7 @@ class ConcurrencyTest {
 
         assertTrue(responses.all { it.statusCode.is2xxSuccessful }, "전부 성공 응답이어야 한다: ${responses.map { it.statusCode }}")
         assertEquals(1, capChangeRepository.count(), "이력은 한 줄만 남아야 한다")
-        assertEquals(2_000_000, accountRepository.findAll().single { it.pointTypeId == pointType.id && it.kind == AccountKind.ISSUANCE }.issueCap!!)
+        assertEquals(2_000_000, pointTypeRepository.findById(pointType.id!!).orElseThrow().issueCap)
     }
 
     // 계약: docs/API.md — 쓰기는 멱등성 키를 상태 검사보다 먼저 본다.
@@ -427,32 +395,6 @@ class ConcurrencyTest {
         responses.forEach { assertEquals(HttpStatus.OK, it.statusCode, it.body) }
     }
 
-    // 계약: docs/API.md — 나가기의 답은 「지금 회원이 아닌가」 하나다. 빨리 두 번 누르거나
-    // 두 기기면 순차가 아니라 동시이고, 확실히 끝난 일에 500 을 주면 화면이 「확인하기」로 간다.
-    @Test
-    fun `잔액 없는 회원이 동시에 나가도 전부 204 다`() {
-        val bank = privateBank()
-        membershipRepository.save(Membership(pointType = bank, user = recipient))
-        val token = login(recipient.handle).accessToken
-
-        val responses = inParallel(8) { delete("/api/point-types/${bank.publicId}/members/me", token) }
-
-        responses.forEach { assertEquals(HttpStatus.NO_CONTENT, it.statusCode, it.body) }
-        assertFalse(membershipRepository.existsById(MembershipId(bank.id!!, recipient.id!!)))
-    }
-
-    @Test
-    fun `같은 사람을 동시에 내보내도 전부 204 다`() {
-        val bank = privateBank()
-        membershipRepository.save(Membership(pointType = bank, user = recipient))
-        val token = login("@minho").accessToken
-
-        val responses = inParallel(8) { delete("/api/point-types/${bank.publicId}/members/${publicId(recipient)}", token) }
-
-        responses.forEach { assertEquals(HttpStatus.NO_CONTENT, it.statusCode, it.body) }
-        assertFalse(membershipRepository.existsById(MembershipId(bank.id!!, recipient.id!!)))
-    }
-
     @Test
     fun `같은 사람을 동시에 두 번 초대해도 초대는 하나다`() {
         val bank = privateBank()
@@ -481,20 +423,14 @@ class ConcurrencyTest {
     private fun user(handle: String, name: String) =
         User(name = name, handle = handle, passwordHash = passwordEncoder.encode("point")!!)
 
-    // 발행자 지갑은 발행으로 찬다 — 계정에 숫자를 바로 넣으면 사건 없는 잔액이 남는다.
     private fun giveBalance(user: User, amount: Long) {
-        require(user.id == issuer.id) { "발행자만 발행으로 채운다" }
-        ledgerFixture.issue(pointType, amount)
+        accountRepository.save(
+            Account(pointType = pointType, user = user, kind = AccountKind.HOLDER, balance = amount),
+        )
     }
 
-    // 유통량의 정본은 발행 계정 잔액이다.
-    private fun issuedOf() = -accountRepository.findAll()
-        .single { it.pointTypeId == pointType.id && it.kind == AccountKind.ISSUANCE }.balance
-
-    private fun capOf() = accountRepository.findAll().single { it.pointTypeId == pointType.id && it.kind == AccountKind.ISSUANCE }.issueCap!!
-
     private fun balanceOf(user: User) =
-        accountRepository.findByUserId(user.id!!).firstOrNull { it.pointTypeId == pointType.id }?.balance ?: 0
+        accountRepository.findByUserId(user.id!!).firstOrNull { it.pointType.id == pointType.id }?.balance ?: 0
 
     private fun publicId(user: User) = user.publicId.toString()
     private fun publicPointTypeId() = pointType.publicId.toString()
@@ -550,6 +486,8 @@ class ConcurrencyTest {
                 issuer = issuer,
                 accent = PointAccent.BLUE,
                 visibility = PointVisibility.PRIVATE,
+                issueCap = 1_000_000,
+                totalIssued = 0,
             ),
         )
         membershipRepository.save(Membership(pointType = bank, user = issuer))
@@ -578,9 +516,6 @@ class ConcurrencyTest {
         }
         return restTemplate.exchange(path, HttpMethod.POST, HttpEntity(body, headers), String::class.java)
     }
-
-    private fun delete(path: String, token: String): ResponseEntity<String> =
-        restTemplate.exchange(path, HttpMethod.DELETE, HttpEntity<Void>(HttpHeaders().apply { setBearerAuth(token) }), String::class.java)
 
     private fun idOf(response: ResponseEntity<String>) =
         assertNotNull(Regex("\"id\":\"([^\"]+)\"").find(assertNotNull(response.body))).groupValues[1]

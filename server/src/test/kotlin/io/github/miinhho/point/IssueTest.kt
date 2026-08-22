@@ -63,6 +63,8 @@ class IssueTest {
                 issuer = issuer,
                 accent = PointAccent.BLUE,
                 visibility = PointVisibility.PUBLIC,
+                issueCap = 1_000_000,
+                totalIssued = 0,
             ),
         )
     }
@@ -127,7 +129,6 @@ class IssueTest {
 
         val peek = get(other, "/api/issues/$mine")
         assertEquals(HttpStatus.NOT_FOUND, peek.statusCode, "남의 것은 없는 것과 같다: ${peek.body}")
-        assertTrue(assertNotNull(peek.body).contains("ISSUE_NOT_FOUND"), "발행은 이체가 아니다: ${peek.body}")
     }
 
     @Test

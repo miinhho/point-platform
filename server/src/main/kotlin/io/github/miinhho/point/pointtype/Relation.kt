@@ -1,4 +1,4 @@
-package io.github.miinhho.point.pointtype.membership
+package io.github.miinhho.point.pointtype
 
 /**
  * 사람과 은행 사이에 있을 수 있는 관계. **무엇이 무엇을 열어 주는지는 이 값들의 집합이

@@ -45,9 +45,5 @@ enum class FailureCode(val status: HttpStatus) {
     MALFORMED_REQUEST(HttpStatus.BAD_REQUEST),
     TRANSFER_NOT_FOUND(HttpStatus.NOT_FOUND),
 
-    // 이체와 나눈다 — 화면이 코드로 분기하므로 하나를 빌려 쓰면 발행 상세에서
-    // 「이체를 찾을 수 없어요」가 뜬다.
-    ISSUE_NOT_FOUND(HttpStatus.NOT_FOUND),
-
     SERVER(HttpStatus.INTERNAL_SERVER_ERROR),
 }

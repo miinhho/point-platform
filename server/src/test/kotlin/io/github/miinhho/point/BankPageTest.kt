@@ -5,8 +5,8 @@ import io.github.miinhho.point.auth.LoginResponse
 import io.github.miinhho.point.pointtype.ChangeCapRequest
 import io.github.miinhho.point.pointtype.ChangeDescriptionRequest
 import io.github.miinhho.point.pointtype.CreatePointTypeRequest
-import io.github.miinhho.point.pointtype.membership.Membership
-import io.github.miinhho.point.pointtype.membership.MembershipRepository
+import io.github.miinhho.point.pointtype.Membership
+import io.github.miinhho.point.pointtype.MembershipRepository
 import io.github.miinhho.point.pointtype.PointAccent
 import io.github.miinhho.point.pointtype.PointType
 import io.github.miinhho.point.pointtype.PointTypeRepository
@@ -48,7 +48,6 @@ import kotlin.test.assertTrue
 class BankPageTest {
     @Autowired lateinit var ledgerReset: LedgerReset
     @Autowired lateinit var bankFixture: BankFixture
-    @Autowired lateinit var ledgerFixture: LedgerFixture
     @Autowired lateinit var restTemplate: TestRestTemplate
     @Autowired lateinit var userRepository: UserRepository
     @Autowired lateinit var pointTypeRepository: PointTypeRepository
@@ -78,7 +77,7 @@ class BankPageTest {
         // 은행장은 언제나 회원이다. 나간 사람은 회원이 아닌 채로 잔액만 남는다.
         membershipRepository.save(Membership(pointType = closed, user = issuer))
         membershipRepository.save(Membership(pointType = closed, user = member))
-        ledgerFixture.giveThenLeave(closed, leftBehind, 3_000)
+        accountRepository.save(Account(pointType = closed, user = leftBehind, kind = AccountKind.HOLDER, balance = 3_000))
     }
 
     @Test
@@ -125,60 +124,14 @@ class BankPageTest {
         }
     }
 
-    // 계약: docs/API.md 「한 번 받은 사람은 영원히 닿는다」. 행은 사건에서만 나므로
-    // 행의 존재가 곧 「받은 적 있다」다 — 거절당한 이체는 아무 행도 남기지 않는다.
     @Test
-    fun `거절당한 이체는 계정 행을 남기지 않는다`() {
-        val before = accountRepository.count()
-        val blocked = post(
-            stranger,
-            "/api/transfers",
-            TransferRequest(pointTypeId = closed.publicId.toString(), toId = publicId(member), amount = BigDecimal(1_000)),
-        )
-        assertEquals(HttpStatus.NOT_FOUND, blocked.statusCode, blocked.body)
+    fun `거절당한 이체가 남긴 잔액 0 행은 문을 열어 주지 않는다`() {
+        // 잔액 0 행이 있는 상태 — 이체가 차감에 실패해도 이 행은 남는다.
+        accountRepository.save(Account(pointType = closed, user = stranger, kind = AccountKind.HOLDER, balance = 0))
 
-        assertEquals(before, accountRepository.count(), "거절이 행을 남기면 그 행이 문을 열어 준다")
         assertEquals(HttpStatus.NOT_FOUND, get(stranger, "/api/point-types/${closed.publicId}").statusCode)
         val list = assertNotNull(get(stranger, "/api/point-types").body)
         assertFalse(list.contains("동아리비"), "가진 적 없는 사람에게 열리면 안 된다: $list")
-    }
-
-    /**
-     * 계약: docs/API.md 「한 번 받은 사람은 영원히 닿는다」. 이름의 뜻이 「잔액이 있다」에서
-     * 「받은 적 있다」로 넓어진 것은 집합 비교로는 안 보인다 — 행동으로 못 박는다.
-     */
-    @Test
-    fun `다 쓰고 나간 사람도 비공개 은행에 닿고 카드가 남는다`() {
-        // 받은 적 있고, 잔액 0 이고, 회원이 아니다.
-        ledgerFixture.join(closed, stranger)
-        ledgerFixture.give(closed, stranger, 1_000)
-        val spend = post(
-            stranger,
-            "/api/transfers",
-            TransferRequest(pointTypeId = closed.publicId.toString(), toId = publicId(member), amount = BigDecimal(1_000)),
-        )
-        assertEquals(HttpStatus.CREATED, spend.statusCode, spend.body)
-        assertEquals(HttpStatus.NO_CONTENT, delete(stranger, "/api/point-types/${closed.publicId}/members/me").statusCode)
-
-        assertEquals(HttpStatus.OK, get(stranger, "/api/point-types/${closed.publicId}").statusCode, "이미 본 은행을 다시 감출 수는 없다")
-        val wallet = assertNotNull(get(stranger, "/api/wallet").body)
-        assertTrue(wallet.contains("동아리비"), "가졌던 것도 지갑에 남는다: $wallet")
-        assertTrue(wallet.contains("\"amount\":0,\"neverSpent\":false,\"sendable\":0"), wallet)
-    }
-
-    @Test
-    fun `다 쓴 사람도 은행에 닿고 카드가 남는다`() {
-        ledgerFixture.give(open, stranger, 1_000)
-        val spend = post(
-            stranger,
-            "/api/transfers",
-            TransferRequest(pointTypeId = open.publicId.toString(), toId = publicId(member), amount = BigDecimal(1_000)),
-        )
-        assertEquals(HttpStatus.CREATED, spend.statusCode, spend.body)
-
-        // 가진 것과 가졌던 것은 다르다 — 0 이 된 카드가 사라지면 둘이 같아진다.
-        assertEquals(HttpStatus.OK, get(stranger, "/api/point-types/${open.publicId}").statusCode)
-        assertTrue(assertNotNull(get(stranger, "/api/wallet").body).contains("\"amount\":0"), "다 쓴 카드가 남는다")
     }
 
     @Test
@@ -261,9 +214,7 @@ class BankPageTest {
     fun `상한과 유통량은 보유자에게도 온다`() {
         val body = assertNotNull(get(leftBehind, "/api/point-types/${closed.publicId}").body)
         assertTrue(body.contains("\"issueCap\":1000000"), "상한은 보유자에게 하는 약속이다: $body")
-        // 픽스처가 나간 사람 몫으로 3000 을 찍었다 — 유통량의 정본은 발행 계정 잔액이다.
-        assertTrue(body.contains("\"totalIssued\":3000"), body)
-        assertTrue(body.contains("\"issuableHeadroom\":997000"), body)
+        assertTrue(body.contains("\"totalIssued\":0"), body)
         assertTrue(body.contains("\"canIssue\":false"), "바꾸는 힘만 발행자 것이다: $body")
     }
 
@@ -272,9 +223,6 @@ class BankPageTest {
         val wallet = assertNotNull(get(leftBehind, "/api/wallet").body)
         assertTrue(wallet.contains("동아리비"), "쓸 수 없는 채로 남는 것이 설계다: $wallet")
     }
-
-    private fun delete(who: User, path: String): ResponseEntity<String> =
-        restTemplate.exchange(path, HttpMethod.DELETE, HttpEntity<Void>(authOf(who)), String::class.java)
 
     private fun get(who: User, path: String): ResponseEntity<String> =
         restTemplate.exchange(path, HttpMethod.GET, HttpEntity<Void>(authOf(who)), String::class.java)
@@ -307,5 +255,7 @@ class BankPageTest {
         issuer = issuer,
         accent = PointAccent.BLUE,
         visibility = visibility,
+        issueCap = 1_000_000,
+        totalIssued = 0,
     )
 }

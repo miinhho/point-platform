@@ -1,6 +1,6 @@
 package io.github.miinhho.point
 
-import io.github.miinhho.point.pointtype.membership.BankAccess
+import io.github.miinhho.point.pointtype.BankAccess
 import io.github.miinhho.point.wallet.WalletService
 import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals

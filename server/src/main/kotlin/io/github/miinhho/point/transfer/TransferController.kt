@@ -2,13 +2,17 @@ package io.github.miinhho.point.transfer
 
 import io.github.miinhho.point.shared.DomainFailureException
 import io.github.miinhho.point.shared.FailureCode
+import io.github.miinhho.point.pointtype.PointTypeRepository
+import io.github.miinhho.point.user.UserRepository
 import org.springframework.dao.DataIntegrityViolationException
 import tools.jackson.databind.JsonNode
 import tools.jackson.databind.ObjectMapper
 import tools.jackson.databind.node.NullNode
+import org.springframework.data.domain.Limit
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.security.core.annotation.AuthenticationPrincipal
+import org.springframework.transaction.annotation.Transactional
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
@@ -17,6 +21,7 @@ import org.springframework.web.bind.annotation.RequestHeader
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
+import java.util.UUID
 
 // JS Number.MAX_SAFE_INTEGER — 프론트가 안전하게 다룰 수 있는 정수 상한. 근거: docs/API.md
 private const val MAX_SAFE_INTEGER = 9_007_199_254_740_991L
@@ -25,6 +30,9 @@ private const val MAX_SAFE_INTEGER = 9_007_199_254_740_991L
 @RequestMapping("/api")
 class TransferController(
     private val transferService: TransferService,
+    private val transferRepository: TransferRepository,
+    private val pointTypeRepository: PointTypeRepository,
+    private val userRepository: UserRepository,
     private val objectMapper: ObjectMapper,
 ) {
     @PostMapping("/transfers")
@@ -35,6 +43,7 @@ class TransferController(
     ): ResponseEntity<TransferResponse> = commit(idempotencyKey, body, userId)
 
     @GetMapping("/transfers/by-key")
+    @Transactional(readOnly = true)
     fun byKey(
         @RequestParam idempotencyKey: String?,
         @AuthenticationPrincipal userId: Long,
@@ -49,17 +58,32 @@ class TransferController(
         return ResponseEntity.ok(body)
     }
 
-    // 근거: docs/API.md — 404 는 "안 일어났다"는 뜻. 내 것이 아닌 이체도 같은 404 로 감춘다.
+    // 근거: docs/API.md — 404 는 "안 일어났다"는 뜻. 내 것이 아닌 이체도 같은 404 로 감춘다(IDOR 방지).
     @GetMapping("/transfers/{id}")
-    fun byId(@PathVariable id: String, @AuthenticationPrincipal userId: Long): TransferResponse =
-        transferService.findById(id, userId)
+    @Transactional(readOnly = true)
+    fun byId(@PathVariable id: String, @AuthenticationPrincipal userId: Long): TransferResponse {
+        val publicId = runCatching { UUID.fromString(id) }.getOrNull()
+        val transfer = publicId?.let(transferRepository::findByPublicId)
+            ?.takeIf { it.from?.id == userId || it.to.id == userId }
+            ?: throw DomainFailureException(FailureCode.TRANSFER_NOT_FOUND, "없음")
+        return transfer.toResponse(userId, userRepository.sharedNames(), pointTypeRepository.sharedNames())
+    }
 
     @GetMapping("/transfers")
+    @Transactional(readOnly = true)
     fun history(
         @RequestParam(required = false) pointTypeId: String?,
         @RequestParam(defaultValue = "30") limit: Int,
         @AuthenticationPrincipal userId: Long,
-    ): List<TransferResponse> = transferService.history(pointTypeId, limit, userId)
+    ): List<TransferResponse> {
+        val resolvedPointTypeId = pointTypeId?.let { raw ->
+            val id = runCatching { UUID.fromString(raw) }.getOrNull()?.let(pointTypeRepository::findByPublicId)
+                ?: return emptyList()
+            id.id
+        }
+        return transferRepository.history(userId, resolvedPointTypeId, Limit.of(limit))
+            .map { it.toResponse(userId, userRepository.sharedNames(), pointTypeRepository.sharedNames()) }
+    }
 
     private fun commit(
         idempotencyKey: String?,

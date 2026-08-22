@@ -1,4 +1,4 @@
-package io.github.miinhho.point.dev
+package io.github.miinhho.point.pointtype
 
 import io.github.miinhho.point.user.UserRepository
 import org.springframework.boot.ApplicationArguments
@@ -9,11 +9,6 @@ import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Propagation
 import org.springframework.transaction.annotation.Transactional
 import java.math.BigDecimal
-import io.github.miinhho.point.pointtype.CreatePointTypeRequest
-import io.github.miinhho.point.pointtype.PointAccent
-import io.github.miinhho.point.pointtype.PointType
-import io.github.miinhho.point.pointtype.PointTypeCreateService
-import io.github.miinhho.point.pointtype.PointTypeRepository
 
 /**
  * 같은 이름의 포인트 둘이 들어 있는 이유가 이 시드의 전부다. `PointType.nameIsShared` 를

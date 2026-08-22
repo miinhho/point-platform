@@ -1,16 +1,17 @@
 package io.github.miinhho.point.pointtype
 
+import org.springframework.data.domain.Limit
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Query
 
-/**
- * 상한 변경 이력. **읽는 화면이 없다** — 내역에 오르지 않고 지금 상한은 은행 페이지가 준다.
- *
- * 그래도 남긴다. 되돌릴 수 없는 결정이라 이슈가 났을 때 「누가 언제 무엇을 무엇으로 바꿨나」에
- * 답할 데가 있어야 하고, 그 답은 사람이 직접 본다. 멱등 재요청만 여기서 조회한다.
- */
 interface CapChangeRepository : JpaRepository<CapChange, Long> {
-    // 키는 요청자와 함께 찾는다 — 키만으로 찾는 길을 두면 남의 것을 물을 수 있다.
-    @Query("select c from CapChange c where c.journalEntry.requesterId = :requesterId and c.journalEntry.idempotencyKey = :key")
-    fun findByRequesterAndKey(requesterId: Long, key: String): CapChange?
+    fun findByByIdAndIdempotencyKey(byId: Long, idempotencyKey: String): CapChange?
+
+    // 그 포인트가 자기 지갑에 있는 사람과 발행자가 본다 — 발행자만 아는 변경은 약속이 아니다.
+    // 지갑 판정은 호출부가 pointTypeIds 로 넘긴다.
+    @Query(
+        "select c from CapChange c where c.pointType.id in :pointTypeIds " +
+            "and (:pointTypeId is null or c.pointType.id = :pointTypeId) order by c.changedAt desc",
+    )
+    fun visible(pointTypeIds: Collection<Long>, pointTypeId: Long?, limit: Limit): List<CapChange>
 }

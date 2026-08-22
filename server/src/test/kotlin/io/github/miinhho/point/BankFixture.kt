@@ -23,7 +23,7 @@ class BankFixture(
     private val pointTypeRepository: PointTypeRepository,
     private val pointTypeCreateService: PointTypeCreateService,
 ) {
-    fun open(spec: PointType, issueCap: Long = 1_000_000): PointType {
+    fun open(spec: PointType): PointType {
         val created = pointTypeCreateService.create(
             requireNotNull(spec.issuer.id),
             UUID.randomUUID().toString(),
@@ -32,7 +32,7 @@ class BankFixture(
                 emoji = spec.emoji,
                 description = spec.description,
                 accent = spec.accent.name.lowercase(),
-                issueCap = BigDecimal(issueCap),
+                issueCap = BigDecimal(spec.issueCap),
                 visibility = spec.visibility.name.lowercase(),
             ),
         )

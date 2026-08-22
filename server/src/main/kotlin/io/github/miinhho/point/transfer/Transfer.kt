@@ -1,6 +1,6 @@
 package io.github.miinhho.point.transfer
 
-import io.github.miinhho.point.ledger.JournalEntry
+import io.github.miinhho.point.pointtype.PointType
 import io.github.miinhho.point.user.User
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
@@ -12,21 +12,32 @@ import jakarta.persistence.Index
 import jakarta.persistence.JoinColumn
 import jakarta.persistence.ManyToOne
 import jakarta.persistence.Table
+import java.time.Instant
+import java.time.temporal.ChronoUnit
 import java.util.UUID
 
-/**
- * 이체는 사건의 부속 기록이다 — **사건이 아는 것을 다시 갖지 않는다.** 포인트도 보낸 사람도
- * 시각도 멱등성 키도 [JournalEntry] 의 것이고, 여기 남는 것은 사건이 모르는 것뿐이다.
- *
- * 받는 사람은 사건이 모른다. 사건의 요청자는 보낸 사람이라 대상은 여기 있어야 한다.
- * 근거: docs/JOURNEY.md 「버린 것」 — status 컬럼이 없다. 저장된 이체는 언제나 확정이다.
- */
+// 근거: docs/JOURNEY.md 「버린 것」
 @Entity
-@Table(name = "transfers", indexes = [Index(name = "ix_transfers_to", columnList = "to_id")])
+@Table(
+    name = "transfers",
+    // pointTypeId 는 GET /api/transfers 에서 선택 조건이라 인덱스 중간에 두면
+    // 조건 없는 조회의 정렬(created_at)이 filesort 로 떨어진다.
+    indexes = [
+        Index(name = "ix_transfers_from", columnList = "from_id,created_at"),
+        Index(name = "ix_transfers_to", columnList = "to_id,created_at"),
+    ],
+)
 class Transfer(
+    @Column(name = "idempotency_key", nullable = false, length = 36)
+    val idempotencyKey: String,
+
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "journal_entry_id", nullable = false, updatable = false)
-    val journalEntry: JournalEntry,
+    @JoinColumn(name = "point_type_id", nullable = false)
+    val pointType: PointType,
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "from_id", nullable = false)
+    val from: User,
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "to_id", nullable = false)
@@ -34,6 +45,11 @@ class Transfer(
 
     @Column(nullable = false)
     val amount: Long,
+
+    // datetime(6) 은 마이크로초다. 나노초를 그대로 두면 만든 직후의 응답과 다시 읽은
+    // 응답이 달라져 「같은 키면 그때 것을 그대로 준다」가 문자열에서 깨진다.
+    @Column(name = "confirmed_at", nullable = false)
+    val confirmedAt: Instant = Instant.now().truncatedTo(ChronoUnit.MICROS),
 ) {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -43,6 +59,9 @@ class Transfer(
     @Column(name = "public_id", nullable = false, unique = true, updatable = false)
     var publicId: UUID = UUID.randomUUID()
         protected set
+
+    @Column(name = "created_at", nullable = false, updatable = false)
+    val createdAt: Instant = confirmedAt
 
     override fun equals(other: Any?) = other is Transfer && publicId == other.publicId
     override fun hashCode() = publicId.hashCode()

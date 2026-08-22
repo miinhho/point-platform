@@ -95,7 +95,7 @@ access 15분, refresh 14일. **refresh 는 회전한다** — 갱신하면 옛 �
 | `PATCH` | `/api/point-types/:id/cap` | `PointType` | 상한 변경. 발행자만. `Idempotency-Key` 필수 |
 | `GET` | `/api/transfers/:id` | `Transfer` | 단건. **404 는 일어나지 않았다는 뜻** |
 | `GET` | `/api/transfers/by-key?idempotencyKey=` | `Transfer \| null` | 결과를 모를 때의 확인 |
-| `GET` | `/api/history?pointTypeId=&limit=` | `HistoryEntry[]` | 내역, 최신순. 이체와 상한 변경이 섞인다 |
+| `GET` | `/api/history?pointTypeId=&limit=` | `HistoryEntry[]` | 내역, 최신순. 이체와 발행 |
 
 이체 본문:
 
@@ -217,15 +217,14 @@ access 15분, refresh 14일. **refresh 는 회전한다** — 갱신하면 옛 �
 
 ### 내역은 이체만이 아니다
 
-`GET /api/history` 는 두 종류를 시간순으로 섞어서 준다.
+`GET /api/history` 는 두 종류를 시간순으로 섞어서 준다 — **내 포인트가 움직인 것**만이다.
 
 ```ts
 type HistoryEntry =
   | { type: 'transfer'; transfer: Transfer }
   | { type: 'issue'; issue: Issue }
-  | { type: 'capChange'; capChange: CapChange }
 
-/** 그 줄이 어느 포인트인가. 세 갈래 모두 싣고, 단건 조회도 싣는다 */
+/** 그 줄이 어느 포인트인가. 두 갈래 모두 싣고, 단건 조회도 싣는다 */
 interface PointMark {
   name: string
   emoji: string
@@ -234,7 +233,7 @@ interface PointMark {
   issuerHandle: string
 }
 
-**세 갈래 모두 `point` 를 싣는다. 단건 조회(`GET /api/transfers/:id` ·
+**두 갈래 모두 `point` 를 싣는다. 단건 조회(`GET /api/transfers/:id` ·
 `GET /api/issues/:id`)도 싣는다.**
 
 클라이언트가 `pointTypeId` 로 지갑을 뒤져 이름을 맞추면 안 된다. **지갑과 내역은 모수가
@@ -255,17 +254,6 @@ interface Issue {
   /** 그때의 상한. 나중에 바뀌어도 이 값은 안 바뀐다 */
   issueCapAt: Points
   confirmedAt: string
-}
-
-interface CapChange {
-  id: string
-  idempotencyKey: string
-  pointTypeId: PointTypeId
-  /** 바꾼 사람. 그 포인트의 발행자다 */
-  byId: UserId
-  previousCap: Points
-  issueCap: Points
-  changedAt: string
 }
 ```
 
@@ -289,13 +277,12 @@ interface CapChange {
 **서버가 섞어서 준다.** 두 목록을 클라이언트가 받아 시간순으로 합치면 페이지네이션에서
 깨진다 — 각 목록의 `limit` 안에 든 것만 합쳐지므로 경계에서 항목이 사라진다.
 
-**누가 보는가.** 이체는 관여한 사람만(아래). 상한 변경은 **그 포인트가 자기 지갑에 있는
-사람**과 발행자다 — `GET /api/wallet` 에 나오는 포인트면 그 포인트의 상한 변경이 내역에
-보인다. 발행자만 아는 변경은 약속이 아니다 (`docs/JOURNEY.md` 여정 8).
+**누가 보는가.** 이체는 관여한 사람만(아래), 발행은 발행자만.
 
-**이 집합은 지갑 정의를 따라 움직인다.** 지갑이 관계로 담게 된 뒤로 잔액 0 인 회원도
-상한 변경을 받는다 — 상한은 은행 페이지에 보이는 공개 사실이고, 회원이 그 변화를 아는
-것이 일관된다. 지갑을 다시 손대면 여기가 함께 움직인다는 것을 알고 손댄다.
+**상한 변경은 내역에 오르지 않는다.** 유통량·상한은 발행자 화면의 것이고, 바뀐 것을 줄로
+남기면 보유자의 내역이 발행자의 관리 기록으로 채워진다(`docs/JOURNEY.md` 여정 8). 지금
+상한은 `PointType.issueCap` 으로 늘 온다. 변경 이력은 서버가 남기되 읽는 엔드포인트는 없다 —
+문제가 생겼을 때 사람이 DB 를 본다.
 
 ### 회원 자격 (여정 10)
 
@@ -526,8 +513,8 @@ ALREADY_MEMBER` 다. **이것이 불변식이고 서버가 검사한다.** 깨�
 **상한은 발행자의 설정이 아니라 보유자에게 하는 약속이다.** 그래서 `issueCap` 은
 발행자 여부와 무관하게 온다. 상한과 유통량을 함께 봐야 「앞으로 얼마나 더 풀릴 수
 있는가」를 알 수 있고, 그것이 낯선 은행의 포인트를 받을지 판단하는 근거다
-(`docs/JOURNEY.md` 여정 10). 상한 변경은 이미 보유자의 내역에 줄로 남는다 — 변경은
-보이는데 지금 값은 안 보이면, 사용자는 자기가 본 그 사건의 결과를 확인할 수 없다.
+(`docs/JOURNEY.md` 여정 10). 변경은 내역에 남지 않으므로 **지금 값이 보이는 것**이 보유자가
+상한을 아는 유일한 길이다.
 
 **발행자만 갖는 것은 값이 아니라 바꾸는 힘이다.** `PATCH .../cap` 은 발행자만이고
 (`403 NOT_ISSUER`), `canIssue` 와 `issuableHeadroom` 은 발행자에게만 뜻이 있다.
