@@ -41,7 +41,8 @@ export const ko = {
 
   history: {
     title: '내역',
-    empty: '아직 보낸 것이 없어요',
+    /** 받은 것도 내역이다. 보낸 것만 말하면 받기만 한 사람에게 「없다」가 거짓이 된다 */
+    empty: '아직 오간 것이 없어요',
     loadFailed: '내역을 불러오지 못했어요',
     detailFailed: '이 내역을 불러오지 못했어요',
     detailAbsent: '이 기록은 볼 수 없어요',
@@ -49,7 +50,15 @@ export const ko = {
     issuedTo: '{{name}} 발행',
     detailTitleTransfer: '이체 내역',
     detailTitleIssue: '발행 내역',
-    at: '보낸 시각',
+    /*
+     * 방향은 글자가 말한다. 색으로 가르면 색맹·저조도에서 사라지고, 화살표를 쓰려면
+     * 아이콘 세트가 필요한데 이 앱의 이모지는 은행 표식이라 뜻이 겹친다.
+     * 조사가 상대 이름에 붙어 「누구에게 → 얼마」 순서를 그대로 둔 채 방향까지 싣는다.
+     */
+    toName: '{{name}}에게',
+    fromName: '{{name}}에게서',
+    sentAt: '보낸 시각',
+    receivedAt: '받은 시각',
     issuedAt: '발행한 시각',
     /** 그때의 값이다. 지금 값이 아니다 — 계약: docs/API.md */
     supplyAfter: '발행 뒤 총 유통량',

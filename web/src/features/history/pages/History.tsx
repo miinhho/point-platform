@@ -7,6 +7,7 @@ import { goAtom } from '@/app/atoms'
 import { Loadable, RowSkeleton } from '@/shared/ui/Loadable'
 import { Body, Header, Note, RowButton, Screen, Title } from '@/shared/ui/Screen'
 import type { PointMark, Issue, Transfer } from '@/shared/contract'
+import { counterpartyLine } from '../model/direction'
 import { formatTime } from '../model/time'
 import { useHistoryPage } from '../model/useHistory'
 
@@ -70,18 +71,21 @@ interface TransferRowProps {
 }
 
 function TransferRow({ transfer, point, onOpen }: TransferRowProps) {
+  const { t } = useTranslation()
+
   return (
     <RowButton type="button" onClick={onOpen}>
       <Box flex={1} minW={0}>
         {/*
-          사용자가 보는 순서는 누구에게 → 무엇을 → 얼마다.
+          사용자가 보는 순서는 누구에게 → 무엇을 → 얼마다. 방향은 그 첫 자리에 조사로
+          붙는다 — 「30,000」 한 줄만 보면 보낸 것과 받은 것이 같아 보인다.
           `layout="position"` 이 아니면 크기가 다른 두 요소를 이을 때 글자가 늘어난다.
         */}
         <motion.div layoutId={`t-${transfer.id}-to`} layout="position">
-          <Text textStyle="name">{transfer.counterparty.name}</Text>
+          <Text textStyle="name">{counterpartyLine(t, transfer)}</Text>
         </motion.div>
         <Text textStyle="caption">
-          {point.name} · {formatTime(transfer.confirmedAt)}
+          {point.name} · {formatTime(transfer.occurredAt)}
         </Text>
       </Box>
       <motion.div layoutId={`t-${transfer.id}-amount`} layout="position">
@@ -109,7 +113,7 @@ function IssueRow({
         <motion.div layoutId={`i-${issue.id}-name`} layout="position">
           <Text textStyle="label">{t('history.issuedTo', { name: point.name })}</Text>
         </motion.div>
-        <Text textStyle="caption">{formatTime(issue.confirmedAt)}</Text>
+        <Text textStyle="caption">{formatTime(issue.occurredAt)}</Text>
       </Box>
       <motion.div layoutId={`i-${issue.id}-amount`} layout="position">
         <Text textStyle="line">{toGrouped(issue.amount)}</Text>

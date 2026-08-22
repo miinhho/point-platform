@@ -166,7 +166,7 @@ describe('바뀐 사실은 내역에 오르지 않는다', () => {
 
     // 은행 페이지는 플로우가 아니라 탭 바가 보인다.
     await user.click(await screen.findByRole('button', { name: '내역' }))
-    expect(await screen.findByText('아직 보낸 것이 없어요', {}, { timeout: 5000 })).toBeTruthy()
+    expect(await screen.findByText('아직 오간 것이 없어요', {}, { timeout: 5000 })).toBeTruthy()
   })
 
   // 보유자의 내역이 발행자의 관리 기록으로 채워지지 않는다 — docs/JOURNEY.md 여정 8
@@ -187,6 +187,6 @@ describe('바뀐 사실은 내역에 오르지 않는다', () => {
     expect(await jisu.findByText('20,000,000', {}, { timeout: 5000 })).toBeTruthy()
 
     await user.click(await jisu.findByRole('button', { name: '내역' }))
-    expect(await jisu.findByText('아직 보낸 것이 없어요', {}, { timeout: 5000 })).toBeTruthy()
+    expect(await jisu.findByText('아직 오간 것이 없어요', {}, { timeout: 5000 })).toBeTruthy()
   })
 })

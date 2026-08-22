@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { beforeEach, describe, expect, it } from 'vitest'
-import { screen, waitFor } from '@testing-library/react'
+import { screen, waitFor, within } from '@testing-library/react'
 import { userEvent } from '@testing-library/user-event'
 import { issuesApi, newIdempotencyKey, transfersApi, walletApi } from '@/shared/api'
 import { balanceOf, SEED_ISSUER } from '@/mocks/ledger'
@@ -49,7 +49,7 @@ describe('탭', () => {
 describe('내역', () => {
   it('비어 있으면 그렇게 말한다', async () => {
     await openHistory()
-    expect(await screen.findByText('아직 보낸 것이 없어요')).toBeTruthy()
+    expect(await screen.findByText('아직 오간 것이 없어요')).toBeTruthy()
   })
 
   it('보낸 것이 보이고 상세로 들어간다', async () => {
@@ -63,13 +63,50 @@ describe('내역', () => {
     await user.click(row)
     expect(await screen.findByText('이체 내역')).toBeTruthy()
     // 받는 사람은 서버가 실어 준다 — 목록에서 맞추면 목록에 없는 순간 조용히 틀린다.
-    expect(screen.getAllByText('김지수').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('김지수에게').length).toBeGreaterThan(0)
     /*
      * 요청 키를 내보내지 않는다. 요청자별로만 뜻이 있어서 남에게 말해도 아무도
      * 못 찾고, 두 번 보내지지 않았다는 것은 줄이 하나인 것으로 보여야 한다.
      */
     expect(screen.queryByText('요청 키')).toBeNull()
     expect(document.body.textContent).not.toContain('k_')
+  })
+
+  /*
+   * 같은 30,000 이 오갔을 때 두 사람의 화면에 남는 것은 상대 이름과 금액인데, 그 둘이
+   * 서로 같다. **방향을 말하지 않으면 두 줄이 글자 그대로 같아진다.**
+   *
+   * 방향은 색이 아니라 글자다 — 색만으로 가르면 색맹·저조도에서 사라지고, 화살표를
+   * 쓰려면 아이콘이 필요한데 이 앱의 이모지는 은행 표식이라 뜻이 겹친다.
+   */
+  it('보낸 쪽과 받은 쪽의 목록 줄이 다르다', async () => {
+    await transfersApi.createTransfer(
+      { pointTypeId: 'pt_on', toId: 'u_jisoo', amount: 30_000 },
+      newIdempotencyKey(),
+    )
+    await openHistory()
+    expect(await screen.findByText('김지수에게')).toBeTruthy()
+
+    // 앞 화면이 함께 떠 있어 이름이 겹친다. 새로 그린 쪽만 본다.
+    await signInAs('@jisoo')
+    const received = within(renderApp(<App />).container)
+    expect(await received.findByText('장민호에게서', {}, { timeout: 5000 })).toBeTruthy()
+    expect(received.queryByText('김지수에게')).toBeNull()
+  })
+
+  // 받은 이체에 「보낸 시각」이 붙으면 내가 보낸 것으로 읽힌다.
+  it('상세의 시각 라벨도 방향을 따른다', async () => {
+    const user = await openHistory()
+    await transfersApi.createTransfer(
+      { pointTypeId: 'pt_on', toId: 'u_jisoo', amount: 7_000 },
+      newIdempotencyKey(),
+    )
+
+    await signInAs('@jisoo')
+    const received = within(renderApp(<App />).container)
+    await user.click(await received.findByRole('button', { name: /7,000/ }, { timeout: 5000 }))
+    expect(await received.findByText('받은 시각')).toBeTruthy()
+    expect(received.queryByText('보낸 시각')).toBeNull()
   })
 
   // 되돌리는 버튼이 있으면 앱 전체가 "사실 되돌릴 수 있다" 는 전제 위에 선다.

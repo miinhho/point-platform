@@ -7,6 +7,7 @@ import { Line } from '@/shared/ui/Line'
 import { AmountSkeleton, LineSkeleton, Loadable, NameSkeleton } from '@/shared/ui/Loadable'
 import { Body, Gutter, Header, Screen, Title } from '@/shared/ui/Screen'
 import type { PointMark, Transfer } from '@/shared/contract'
+import { counterpartyLine, timeLabelKey } from '../model/direction'
 import { formatTime } from '../model/time'
 import { useTransferDetail } from '../model/useHistory'
 
@@ -76,7 +77,7 @@ export function HistoryDetail({ transferId, onBack }: Props) {
 
       <Body>
         <Gutter paddingTop="inset">
-          <Sent transfer={detail.transfer} point={detail.point} />
+          <Moved transfer={detail.transfer} point={detail.point} />
         </Gutter>
       </Body>
     </Screen>
@@ -89,13 +90,13 @@ interface PartProps {
 }
 
 /**
- * 목적: 내가 그때 누구에게 얼마를 보냈는지 확인한다.
+ * 목적: 그때 누구와 얼마가 오갔는지 확인한다.
  *
  * 주의는 목록에서 이어져 온 「누구에게 · 얼마」에 이미 있다 — `layoutId` 가 눌린 줄을
  * 펼친 것으로 읽히게 한다. 상세가 할 일은 그 주위에 언제·무엇을 붙이는 것뿐이다.
  * 되돌리는 버튼도, 다시 보내기도 두지 않는다 — 확인하러 온 화면이 행동으로 미끄러진다.
  */
-function Sent({ transfer, point }: PartProps) {
+function Moved({ transfer, point }: PartProps) {
   const { t } = useTranslation()
   const other = transfer.counterparty
 
@@ -103,7 +104,7 @@ function Sent({ transfer, point }: PartProps) {
     <>
       {/* 누구에게 → 무엇을 → 얼마. 목록과 같은 순서라야 눌린 줄이 펼쳐진 것으로 읽힌다 */}
       <motion.div layoutId={`t-${transfer.id}-to`} layout="position">
-        <Text textStyle="name">{other.name}</Text>
+        <Text textStyle="name">{counterpartyLine(t, transfer)}</Text>
       </motion.div>
       <Text
         textStyle={other.nameIsShared ? 'handleVerify' : 'handle'}
@@ -122,7 +123,11 @@ function Sent({ transfer, point }: PartProps) {
       </Box>
 
       <Box marginTop="block" display="flex" flexDirection="column">
-        <Line divided label={t('history.at')} value={formatTime(transfer.confirmedAt)} />
+        <Line
+          divided
+          label={t(timeLabelKey(transfer))}
+          value={formatTime(transfer.occurredAt)}
+        />
       </Box>
     </>
   )

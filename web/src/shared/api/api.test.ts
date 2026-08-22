@@ -124,7 +124,7 @@ describe('이체', () => {
       { pointTypeId: 'pt_on', toId: 'u_jisoo', amount: 30_000 },
       key(),
     )
-    expect(transfer.confirmedAt).toBeTruthy()
+    expect(transfer.occurredAt).toBeTruthy()
     expect(transfer.pointTypeId).toBe('pt_on')
     expect(balanceOf('pt_on', ME)).toBe(3_210_000)
     expect(balanceOf('pt_on', 'u_jisoo')).toBe(842_000)
@@ -573,15 +573,22 @@ describe('이체는 관여한 사람만 읽는다', () => {
     await expect(endpoints.transferByKey(idempotencyKey)).resolves.toMatchObject({ id: created.id })
   })
 
-  // 받은 쪽에게도 "돈이 어디 있는가" 를 답해야 한다 — docs/JOURNEY.md 여정 6
-  it('받은 쪽도 읽는다', async () => {
+  /*
+   * 받은 쪽에게도 "돈이 어디 있는가" 를 답해야 한다 — docs/JOURNEY.md 여정 6.
+   *
+   * **상대와 방향은 보는 사람마다 다르다.** 기록할 때 하나로 정해 두면 받은 사람의
+   * 내역에 자기 이름이 상대로 뜬다 — 화면은 그것을 「내가 나에게 보냈다」로 그린다.
+   */
+  it('받은 쪽도 읽는다. 상대는 보낸 사람이고 방향은 뒤집혀 있다', async () => {
     const created = await endpoints.createTransfer(
       { pointTypeId: 'pt_on', toId: 'u_jisoo', amount: 1_000 },
       key(),
     )
+    expect(created).toMatchObject({ outgoing: true, counterparty: { handle: '@jisoo' } })
+
     await switchTo(OUTSIDER)
     await expect(endpoints.transfer(created.id)).resolves.toMatchObject({
-      transfer: { id: created.id },
+      transfer: { id: created.id, outgoing: false, counterparty: { handle: '@minho' } },
     })
   })
 
@@ -595,7 +602,8 @@ describe('이체는 관여한 사람만 읽는다', () => {
       idempotencyKey,
     )
     expect(own.id).not.toBe(created.id)
-    expect(own.fromId).toBe('u_jisoo')
+    // 내 이체다 — 보낸 쪽이 나이고 상대는 내가 고른 사람이다.
+    expect(own).toMatchObject({ outgoing: true, counterparty: { handle: '@taeyun' } })
   })
 })
 

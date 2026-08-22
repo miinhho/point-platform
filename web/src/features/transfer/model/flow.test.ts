@@ -163,12 +163,10 @@ describe('뒤로 가기는 지나온 길을 따른다', () => {
       id: 't_1',
       idempotencyKey: 'k_1',
       pointTypeId: 'pt_on',
-      fromId: ME.id,
-      toId: JISOO.id,
       amount: 30_000,
       counterparty: { name: JISOO.name, handle: JISOO.handle, nameIsShared: true },
-      createdAt: '2026-08-20T00:00:00Z',
-      confirmedAt: '2026-08-20T00:00:00Z',
+      outgoing: true,
+      occurredAt: '2026-08-20T00:00:00Z',
     })
     expect(stepBack(done)).toBeNull()
     expect(stepBack(fail(atConfirm(), NETWORK))).toBeNull()

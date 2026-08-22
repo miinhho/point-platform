@@ -83,7 +83,7 @@ export function IssueDetail({ issueId, onBack }: Props) {
                   <Line
                     divided
                     label={t('history.issuedAt')}
-                    value={formatTime(detail.issue.confirmedAt)}
+                    value={formatTime(detail.issue.occurredAt)}
                   />
                 </Box>
               </>

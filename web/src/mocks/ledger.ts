@@ -225,7 +225,7 @@ interface State {
   balances: Map<BalanceKey, Points>
   /** 「처음이에요」 표시가 꺼진 (포인트, 사용자). 발행은 쓰는 것이 아니라 넣지 않는다 */
   spent: Set<BalanceKey>
-  transfers: Map<TransferId, Transfer>
+  transfers: Map<TransferId, StoredTransfer>
   /** `${요청자}:${멱등성 키}` → 이체 id. 남의 키로 남의 이체를 꺼낼 수 없다 */
   byKey: Map<string, TransferId>
   /** 멱등성 키 → 창설된 포인트 id. 창설도 되돌릴 수 없으므로 두 번 만들지 않는다 */
@@ -457,23 +457,56 @@ export function recentFor(pointTypeId: PointTypeId, meId: UserId, limit: number)
     .slice(0, limit)
 }
 
+/**
+ * 원장이 쥐고 있는 이체. **보내는 쪽과 받는 쪽이 여기 있고 응답에는 없다** — 상대와
+ * 방향은 보는 사람마다 다르므로 `transferViewOf` 가 그때 만든다. 계약: docs/API.md
+ */
+interface StoredTransfer {
+  id: TransferId
+  idempotencyKey: string
+  pointTypeId: PointTypeId
+  fromId: UserId
+  toId: UserId
+  amount: Points
+  occurredAt: string
+}
+
 /** 이체는 관여한 사람만 읽는다 — 계약: docs/API.md */
-const involves = (transfer: Transfer, meId: UserId): boolean =>
+const involves = (transfer: StoredTransfer, meId: UserId): boolean =>
   transfer.fromId === meId || transfer.toId === meId
+
+/**
+ * 보는 사람 기준으로 세운다. 보낸 쪽에는 받은 사람이, 받은 쪽에는 보낸 사람이 실린다 —
+ * 상대를 기록할 때 하나로 정해 두면 **받은 사람의 내역에 자기 이름이 상대로 뜬다.**
+ */
+function transferViewOf(stored: StoredTransfer, meId: UserId): Transfer {
+  const outgoing = stored.fromId === meId
+  const other = userById(outgoing ? stored.toId : stored.fromId)!
+  return {
+    id: stored.id,
+    idempotencyKey: stored.idempotencyKey,
+    pointTypeId: stored.pointTypeId,
+    amount: stored.amount,
+    counterparty: { name: other.name, handle: other.handle, nameIsShared: other.nameIsShared },
+    outgoing,
+    occurredAt: stored.occurredAt,
+  }
+}
 
 const idempotencyScope = (meId: UserId, key: string): string => `${meId}:${key}`
 
 export function findByIdempotencyKey(key: string, meId: UserId): Transfer | undefined {
   const id = state.byKey.get(idempotencyScope(meId, key))
-  return id ? state.transfers.get(id) : undefined
+  const stored = id ? state.transfers.get(id) : undefined
+  return stored && transferViewOf(stored, meId)
 }
 
 /** 남의 것은 없는 것과 같다. 있다고 알려 주면 그 id 가 존재한다는 답이 된다. */
 export function findTransfer(id: TransferId, meId: UserId): TransferDetail | undefined {
-  const transfer = state.transfers.get(id)
-  if (!transfer || !involves(transfer, meId)) return undefined
+  const stored = state.transfers.get(id)
+  if (!stored || !involves(stored, meId)) return undefined
   // 상세도 일어난 일이지 지금 가진 것이 아니다 — 지갑을 뒤지는 길을 남기지 않는다.
-  return { transfer, point: pointOf(transfer.pointTypeId) }
+  return { transfer: transferViewOf(stored, meId), point: pointOf(stored.pointTypeId) }
 }
 
 /**
@@ -483,8 +516,12 @@ export function findTransfer(id: TransferId, meId: UserId): TransferDetail | und
 export function history(meId: UserId, pointTypeId: PointTypeId | null, limit: number): HistoryEntry[] {
   const transfers: HistoryEntry[] = state.order
     .map((id) => state.transfers.get(id)!)
-    .filter((transfer) => involves(transfer, meId))
-    .map((transfer) => ({ type: 'transfer', transfer, point: pointOf(transfer.pointTypeId) }))
+    .filter((stored) => involves(stored, meId))
+    .map((stored) => ({
+      type: 'transfer',
+      transfer: transferViewOf(stored, meId),
+      point: pointOf(stored.pointTypeId),
+    }))
 
   const issues: HistoryEntry[] = state.issueOrder
     .map((id) => state.issues.get(id)!)
@@ -524,9 +561,9 @@ function pointTypeIdOf(entry: HistoryEntry): PointTypeId {
 function timeOf(entry: HistoryEntry): string {
   switch (entry.type) {
     case 'transfer':
-      return entry.transfer.confirmedAt
+      return entry.transfer.occurredAt
     case 'issue':
-      return entry.issue.confirmedAt
+      return entry.issue.occurredAt
   }
 }
 
@@ -858,7 +895,7 @@ export function commitIssue(meId: UserId, input: IssueInput): Issue {
     amount: input.amount,
     totalIssuedAfter,
     issueCapAt: pointType.issueCap,
-    confirmedAt: new Date().toISOString(),
+    occurredAt: new Date().toISOString(),
   }
   state.issues.set(issue.id, issue)
   state.issueOrder.unshift(issue.id)
@@ -888,19 +925,14 @@ function record(
   recipient: SeedUser,
   input: CommitInput,
 ): Transfer {
-  const now = new Date().toISOString()
-  const other = userById(recipient.id)!
-  const transfer: Transfer = {
+  const transfer: StoredTransfer = {
     id: `t_${state.order.length + 1}_${input.idempotencyKey.slice(0, 8)}`,
     idempotencyKey: input.idempotencyKey,
     pointTypeId,
     fromId: meId,
     toId: recipient.id,
     amount: input.amount,
-    // 누구인지는 원장의 성질이다. 화면이 목록을 뒤지면 목록에 없는 순간 틀린다.
-    counterparty: { name: other.name, handle: other.handle, nameIsShared: other.nameIsShared },
-    createdAt: now,
-    confirmedAt: now,
+    occurredAt: new Date().toISOString(),
   }
 
   state.transfers.set(transfer.id, transfer)
@@ -911,5 +943,5 @@ function record(
   const previous = state.recent.get(key) ?? []
   state.recent.set(key, [recipient.id, ...previous.filter((id) => id !== recipient.id)])
 
-  return transfer
+  return transferViewOf(transfer, meId)
 }
