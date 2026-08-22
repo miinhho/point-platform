@@ -25,8 +25,13 @@ export function PointCard({ balance, isMine, onOpen, onBank }: Props) {
    * 세 번째 0 — 들어왔지만 아직 없다. 「가진 적 없는 0」과 같은 값인데 뜻이 다르다.
    * 방금 가입한 은행이 「보낼 잔액이 없어요」로 흐려지면 다음 할 일이 가장 확실한
    * 카드가 흐려진다. 근거: docs/JOURNEY.md 여정 1
+   *
+   * **회원 자격만으로는 못 가른다.** 받아서 다 쓴 회원도 회원이라, 그 카드가
+   * 「아직 받은 것이 없어요」라고 말하면 여정 1 이 가르려던 둘이 뒤바뀐다.
+   * `neverSpent` 가 그 물음의 답이다 — 지갑에 담긴 0 은 받아서 쓴 것이거나 못 받은
+   * 것 둘 중 하나이고(받았는데 안 썼으면 0 이 아니다), 그 둘을 이 값이 가른다.
    */
-  const justJoined = empty && !isMine && pointType.membership === 'member'
+  const justJoined = empty && !isMine && pointType.membership === 'member' && neverSpent
   // 나간 은행의 잔액은 그대로 남지만 쓸 수 없다. 조용히 두면 보낼 수 있다고 믿는다.
   const locked = !empty && sendable === 0
   const openable = !empty && !locked && onOpen
