@@ -11,6 +11,8 @@ create table users (
     -- 정규화된 형태에 건다. 조회만 정규화하면 @Minho 와 @minho 가 공존하고
     -- 어느 쪽이 로그인되는지가 행 순서에 달린다.
     constraint uk_users_handle unique (handle),
+    -- 겹치는 이름을 그 이름으로 묻는다. 없으면 응답마다 표를 통째로 훑는다.
+    key ix_users_name (name),
     constraint uk_users_public_id unique (public_id)
 ) engine = InnoDB;
 
@@ -29,6 +31,7 @@ create table point_types (
     issuer_id       bigint      not null,
     primary key (id),
     constraint uk_point_types_public_id unique (public_id),
+    key ix_point_types_name (name),
     constraint uk_point_types_issuer_key unique (issuer_id, idempotency_key),
     constraint fk_point_types_issuer foreign key (issuer_id) references users (id)
 ) engine = InnoDB;
@@ -62,7 +65,8 @@ create table accounts (
     constraint ck_accounts_issuance_not_positive check (kind = 'HOLDER' or balance <= 0),
     key ix_accounts_user (user_id),
     -- postings 의 복합 FK 가 참조한다. id 가 PK 라 이미 유일하지만, MySQL 은 FK 의 부모
-    -- 쪽에 unique 를 요구한다 — 인덱스만으로는 제약 생성이 거절된다.
+    -- 쪽에 unique 를 요구한다 — 인덱스만으로는 제약 생성이 거절된다. PK 를 한 벌 더
+    -- 저장하는 값을 내고 전기가 사건의 포인트를 넘지 못하는 것을 산다.
     constraint uk_accounts_id_point_type unique (id, point_type_id),
     constraint fk_accounts_point_type foreign key (point_type_id) references point_types (id),
     constraint fk_accounts_user foreign key (user_id) references users (id)
@@ -131,7 +135,6 @@ create table transfers (
 ) engine = InnoDB;
 
 -- 발행은 이체가 아니다. 대상이 없고, 잔액이 아니라 상한을 본다 (docs/API.md).
--- 발행은 이체가 아니다. 대상이 없고, 잔액이 아니라 상한을 본다 (docs/API.md).
 create table issues (
     id                 bigint     not null auto_increment,
     journal_entry_id   bigint     not null,
@@ -146,7 +149,6 @@ create table issues (
     constraint fk_issues_journal_entry foreign key (journal_entry_id) references journal_entries (id)
 ) engine = InnoDB;
 
--- 상한 변경은 그 포인트를 가진 사람이 본다 — 발행자만 아는 값이 아니라 별도 테이블이다.
 -- 상한 변경은 그 포인트를 가진 사람이 본다 — 발행자만 아는 값이 아니라 별도 테이블이다.
 create table cap_changes (
     id               bigint     not null auto_increment,
@@ -165,7 +167,6 @@ create table cap_changes (
 create table memberships (
     point_type_id bigint      not null,
     user_id       bigint      not null,
-    joined_at     datetime(6) not null,
     primary key (point_type_id, user_id),
     key ix_memberships_user (user_id),
     constraint fk_memberships_point_type foreign key (point_type_id) references point_types (id),

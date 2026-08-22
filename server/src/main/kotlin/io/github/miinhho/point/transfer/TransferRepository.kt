@@ -15,8 +15,15 @@ interface TransferRepository : JpaRepository<Transfer, Long> {
     @Query("select t from Transfer t where t.journalEntry.id in :ids")
     fun byJournalEntryIds(ids: Collection<Long>): List<Transfer>
 
+    /**
+     * 내 이체. **내 전기가 있는 사건이 내 이체다** — 보낸 것도 받은 것도 전기가 하나씩 있다.
+     *
+     * `from = :me or to = :me` 로 물으면 두 표에 걸린 `or` 라 어느 인덱스도 못 고르고 전체를
+     * 훑는다. 전기로 물으면 내 계정에서 출발해 좁혀진다.
+     */
     @Query(
-        "select t from Transfer t where (t.journalEntry.requesterId = :userId or t.to.id = :userId) " +
+        "select t from Transfer t where exists " +
+            "(select p.id from Posting p where p.journalEntry = t.journalEntry and p.account.userId = :userId) " +
             "and (:pointTypeId is null or t.journalEntry.pointTypeId = :pointTypeId) " +
             "order by t.journalEntry.occurredAt desc, t.journalEntry.id desc",
     )
