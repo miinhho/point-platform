@@ -25,20 +25,7 @@ class LedgerAudit(
         postingRepository.entriesOutOfBalance().forEach { add("사건 ${it[0]} 의 전기 합이 ${it[1]} 이다") }
         postingRepository.pointTypesOutOfBalance().forEach { add("포인트 ${it[0]} 의 전기 합이 ${it[1]} 이다") }
         addAll(drifted().map { (account, sum) -> "계정 ${account.id} 의 잔액 ${account.balance} ≠ 전기 합 $sum" })
-
-        accountRepository.pointTypeIdsWithoutIssuance().forEach { add("포인트 $it 에 발행 계정이 없다") }
     }
-
-    /** 전기 합이 0 이 아닌 사건 수. 지표가 스크레이프마다 부른다. */
-    @Transactional(readOnly = true)
-    fun entriesOutOfBalance(): Int = postingRepository.entriesOutOfBalance().size
-
-    @Transactional(readOnly = true)
-    fun pointTypesOutOfBalance(): Int = postingRepository.pointTypesOutOfBalance().size
-
-    /** 잔액이 전기의 합과 다른 계정 수. */
-    @Transactional(readOnly = true)
-    fun driftedAccounts(): Int = drifted().size
 
     /** 잔액을 전기에서 다시 접는다. 고친 계정 수를 준다. */
     @Transactional

@@ -18,6 +18,7 @@ class Ledger(
     private val journalEntryRepository: JournalEntryRepository,
     private val postingRepository: PostingRepository,
     private val accountRepository: AccountRepository,
+    private val metrics: LedgerMetrics,
 ) {
     class Issued(val entry: JournalEntry, val totalIssuedAfter: Long, val issueCapAt: Long)
 
@@ -82,6 +83,7 @@ class Ledger(
         val pointTypeId = entry.pointTypeId
         draft.ordered.forEach { line -> settle(pointTypeId, line) }
         draft.lines.forEach { line -> post(entry, line) }
+        metrics.applied(entry.kind, draft.lines.size)
     }
 
     private fun settle(pointTypeId: Long, line: Draft.Line) {
@@ -92,7 +94,11 @@ class Ledger(
             line.amount < 0 -> if (accountRepository.debitHolder(pointTypeId, line.holderKey, -line.amount) == 0) {
                 throw DomainFailureException(FailureCode.INSUFFICIENT_BALANCE, "잔액 부족")
             }
-            else -> accountRepository.creditHolder(pointTypeId, line.holderKey, line.amount)
+            // upsert 는 새로 넣으면 1, 더하면 2 다. 0 이면 아무 행도 안 바뀐 것이고 그러면
+            // 전기만 남아 잔액과 갈린다 — 여기서 터뜨리지 않으면 그 사실을 아무도 모른다.
+            else -> check(accountRepository.creditHolder(pointTypeId, line.holderKey, line.amount) > 0) {
+                "입금이 아무 행도 바꾸지 않았다: $pointTypeId/${line.holderKey}"
+            }
         }
     }
 

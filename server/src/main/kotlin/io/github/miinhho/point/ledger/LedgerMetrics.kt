@@ -1,23 +1,46 @@
 package io.github.miinhho.point.ledger
 
+import io.micrometer.core.instrument.Counter
 import io.micrometer.core.instrument.MeterRegistry
 import org.springframework.stereotype.Component
+import org.springframework.transaction.support.TransactionSynchronization
+import org.springframework.transaction.support.TransactionSynchronizationManager
 
 /**
- * 원장이 스스로와 맞는지를 **지표로 낸다.** 앱은 사실만 내고 「그래서 무엇을 할 것인가」는
- * 밖에서 정한다 — 주기 검사를 앱에 두면 「틀어졌을 때 무엇을 하는가」를 앱이 정해야 하고,
- * 로그로 남기면 아무도 안 본다.
+ * 원장이 낸 사실을 **사건이 일어난 자리에서** 센다. 스크레이프마다 표를 훑지 않는다 —
+ * 아무 일도 없는 15 초마다 전기 표를 세 번 훑게 되고, 긁는 주기를 줄일수록 비싸진다.
  *
- * 셋 다 0 이어야 한다. 0 이 아닌 순간이 알림이다 (docs/LEDGER.md 5 단계).
+ * **대사는 여기서 하지 않는다.** 잔액과 전기는 같은 트랜잭션에서 같은 값으로 쓰이므로
+ * 적용부가 도는 한 갈릴 수 없다. 대사는 부팅([LedgerGuard])과 사람이 시키는 재계산의 일이다.
  *
- * 부팅 검사([LedgerGuard])는 그대로 둔다 — 틀어진 채로 뜨는 것은 알리는 것이 아니라 막는다.
+ * Counter 는 프로세스가 죽으면 아무것도 안 나간다 — 알림에 `absent()` 를 함께 건다
+ * (docs/REBUILD.md).
  */
 @Component
-class LedgerMetrics(registry: MeterRegistry, private val audit: LedgerAudit) {
-    init {
-        // 스크레이프마다 센다. 표 셋을 훑으므로 스크레이프 주기를 초 단위로 두지 않는다.
-        registry.gauge("ledger.entries.out_of_balance", this) { it.audit.entriesOutOfBalance().toDouble() }
-        registry.gauge("ledger.point_types.out_of_balance", this) { it.audit.pointTypesOutOfBalance().toDouble() }
-        registry.gauge("ledger.accounts.drifted", this) { it.audit.driftedAccounts().toDouble() }
+class LedgerMetrics(registry: MeterRegistry) {
+    private val events = JournalKind.entries.associateWith { kind ->
+        Counter.builder("ledger.events").tag("kind", kind.name).description("적용한 사건 수").register(registry)
+    }
+
+    private val postings = Counter.builder("ledger.postings")
+        .description("남긴 전기 수").register(registry)
+
+    /**
+     * **커밋된 것만 센다.** 적용부 안에서 바로 올리면 롤백한 것도 남아, 같은 키 경합과
+     * 교착이 나는 만큼 이 수가 `journal_entries` 의 행 수를 웃돈다 — 그 둘을 나란히 놓고
+     * 대사하려는 사람이 나오는 순간 없는 어긋남을 보게 된다. 실측 교착률이 5% 였다.
+     */
+    fun applied(kind: JournalKind, lines: Int) {
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) return count(kind, lines)
+        TransactionSynchronizationManager.registerSynchronization(
+            object : TransactionSynchronization {
+                override fun afterCommit() = count(kind, lines)
+            },
+        )
+    }
+
+    private fun count(kind: JournalKind, lines: Int) {
+        events.getValue(kind).increment()
+        postings.increment(lines.toDouble())
     }
 }
