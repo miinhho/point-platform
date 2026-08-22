@@ -15,7 +15,7 @@ import org.springframework.stereotype.Component
  */
 @Component
 @Order(Ordered.LOWEST_PRECEDENCE)
-class LedgerGuard(private val audit: LedgerAudit) : ApplicationRunner {
+class LedgerGuard(private val audit: LedgerAudit, private val metrics: LedgerMetrics) : ApplicationRunner {
     private val log = LoggerFactory.getLogger(javaClass)
 
     override fun run(args: ApplicationArguments) {
@@ -24,6 +24,7 @@ class LedgerGuard(private val audit: LedgerAudit) : ApplicationRunner {
             log.warn("잔액을 전기에서 다시 접는다 — 고친 계정 {}", audit.recompute())
         }
         val broken = audit.check()
+        metrics.bootChecked(broken.size)
         check(broken.isEmpty()) { "원장이 스스로와 맞지 않는다: $broken" }
     }
 

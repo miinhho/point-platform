@@ -28,6 +28,23 @@ class DisciplineTest {
     }
 
     /**
+     * **잠그는 메서드는 빠짐없이 검사 대상이어야 한다.** [ledgerWriteNames] 가 표 이름으로
+     * 고르므로, 목록에 없는 표에 잠금이 생기면 그 자리가 조용히 검사 밖이 된다 — 파일
+     * 이름을 박았던 것과 같은 모양이고 한 겹 위일 뿐이다.
+     *
+     * 새 잠금이 생기면 여기서 빨개진다. 그때 [LEDGER_TABLES] 에 그 표를 더하거나, 원장이
+     * 지키는 것이 아니라면 왜 아닌지를 적고 뺀다.
+     */
+    @Test
+    fun `잠그는 메서드가 검사 밖에 있지 않다`() {
+        val locking = sources().filter { (path, _) -> path.endsWith("Repository.kt") }
+            .flatMap { (_, text) -> text.split("\n\n") }
+            .filter { block -> LOCKS.any { it in block } }
+            .mapNotNull { Regex("\\bfun\\s+(\\w+)").find(it)?.groupValues?.get(1) }
+        assertEquals(emptyList(), locking - ledgerWriteNames().toSet(), "잠그는데 아무도 안 보는 메서드가 있다")
+    }
+
+    /**
      * 원장이 지키는 표를 **잠그거나 바꾸는** 메서드 전부. 읽기만 하는 것은 뺀다.
      *
      * 파일 이름도 메서드 이름도 박지 않는다 — 어느 쪽을 박아도 다른 자리에 잠금이 생긴 날
@@ -109,7 +126,8 @@ class DisciplineTest {
 
         // @Lock 은 애너테이션, LockModeType 은 그 인자, entityManager.lock 은 직접 부르는 길.
         val ENTITY_LOCKS = listOf("LockModeType", "@Lock", "entityManager.lock")
-        val LOCKS_OR_WRITES = listOf("@Modifying", "for update", "for share")
+        val LOCKS = listOf("for update", "for share")
+        val LOCKS_OR_WRITES = listOf("@Modifying") + LOCKS
 
         // 원장이 지키는 표. 회원 자격도 refresh 도 원장 밖이라 여기 없다.
         val LEDGER_TABLES = listOf("accounts", "point_types")
