@@ -56,8 +56,6 @@ export interface PointType {
   nameIsShared: boolean
   /** 내가 이 포인트를 발행할 수 있는가. 클라이언트가 판정하지 않는다. */
   canIssue: boolean
-  /** 지금 더 발행할 수 있는 양. 상한 외의 규칙이 생기면 서버만 안다. */
-  issuableHeadroom: Points
   /** 발행자가 정한 색. 화면이 배정하면 순서가 바뀔 때 표식 노릇을 못 한다. */
   accent: PointAccent
   totalIssued: Points

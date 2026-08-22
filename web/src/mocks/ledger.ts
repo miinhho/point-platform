@@ -67,7 +67,7 @@ function seedUsers(): SeedUser[] {
 /** 씨앗은 보는 사람과 무관한 것만 갖는다. 나머지는 `viewOf` 가 요청자 기준으로 낸다 */
 type SeedPoint = Omit<
   PointType,
-  'canIssue' | 'issuableHeadroom' | 'nameIsShared' | 'memberCount' | 'membership'
+  'canIssue' | 'nameIsShared' | 'memberCount' | 'membership'
 >
 
 function seedPointTypes(): SeedPoint[] {
@@ -394,7 +394,6 @@ export function viewOf(pointType: SeedPoint, userId: UserId): PointType {
   return {
     ...pointType,
     canIssue: pointType.issuerId === userId,
-    issuableHeadroom: Math.max(0, pointType.issueCap - pointType.totalIssued),
     nameIsShared: sharesName(pointType.name, seedPoints()),
     // 공개 은행에는 회원 개념이 없다. 0 이 아니라 null 이어야 그 차이가 남는다.
     memberCount:
