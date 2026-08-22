@@ -6,6 +6,9 @@ import io.github.miinhho.point.pointtype.CapChangeRepository
 import io.github.miinhho.point.pointtype.membership.InviteRepository
 import io.github.miinhho.point.pointtype.membership.MembershipRepository
 import io.github.miinhho.point.pointtype.PointTypeRepository
+import io.github.miinhho.point.shop.ListingRepository
+import io.github.miinhho.point.shop.PurchaseRepository
+import io.github.miinhho.point.shop.VoucherRepository
 import io.github.miinhho.point.transfer.TransferRepository
 import io.github.miinhho.point.user.UserRepository
 import io.github.miinhho.point.ledger.AccountRepository
@@ -28,8 +31,14 @@ class LedgerReset(
     private val pointTypeRepository: PointTypeRepository,
     private val refreshTokenRepository: RefreshTokenRepository,
     private val userRepository: UserRepository,
+    private val voucherRepository: VoucherRepository,
+    private val purchaseRepository: PurchaseRepository,
+    private val listingRepository: ListingRepository,
 ) {
     fun wipe() {
+        voucherRepository.deleteAll()
+        purchaseRepository.deleteAll()
+        listingRepository.deleteAll()
         transferRepository.deleteAll()
         issueRepository.deleteAll()
         capChangeRepository.deleteAll()

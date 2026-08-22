@@ -4,6 +4,9 @@ import io.github.miinhho.point.ledger.AccountKind
 import io.github.miinhho.point.ledger.AccountRepository
 import io.github.miinhho.point.ledger.PostingRepository
 import io.github.miinhho.point.pointtype.PointTypeRepository
+import io.github.miinhho.point.shop.ListingRepository
+import io.github.miinhho.point.shop.PurchaseRepository
+import io.github.miinhho.point.shop.VoucherRepository
 import org.junit.jupiter.api.extension.AfterEachCallback
 import org.junit.jupiter.api.extension.ExtensionContext
 import org.springframework.context.ApplicationContext
@@ -40,6 +43,34 @@ class Invariants : AfterEachCallback {
         everyEntryBalances(postings)
         everyPointTypeBalances(postings)
         everyBalanceIsTheSumOfItsPostings(accounts, postings)
+
+        noListingSoldMoreThanItsStock(
+            spring.repository(ListingRepository::class.java),
+            spring.repository(VoucherRepository::class.java),
+        )
+        everyVoucherBelongsToItsBuyer(spring.repository(PurchaseRepository::class.java))
+    }
+
+    /**
+     * 판 수는 접어 두지 않고 세지만, **세어도 재고를 넘으면 안 된다.** 넘었다는 것은 판정과
+     * 판매 사이가 열려 있었다는 뜻이고, 환불이 없으므로 그 자리가 마지막 방어선이다.
+     */
+    private fun noListingSoldMoreThanItsStock(listings: ListingRepository, vouchers: VoucherRepository) {
+        val all = listings.findAll()
+        if (all.isEmpty()) return
+        val sold = vouchers.soldByListing(all.mapNotNull { it.id })
+            .associate { it[0] as Long to (it[1] as Long).toInt() }
+        val over = all.filter { listing -> listing.stock?.let { (sold[listing.id] ?: 0) > it } == true }
+            .map { "품목 ${it.id}: 교환권 ${sold[it.id]} > 재고 ${it.stock}" }
+        assertEquals(emptyList(), over, "판 수가 재고를 넘었다")
+    }
+
+    /** 스키마가 못 닫은 중복 하나 — `purchases.buyer_id` 는 그 사건의 요청자여야 한다. */
+    private fun everyVoucherBelongsToItsBuyer(purchases: PurchaseRepository) {
+        val wrong = purchases.buyersAndRequesters()
+            .filter { it[1] != it[2] }
+            .map { "구매 ${it[0]}: 산 사람 ${it[1]} ≠ 요청자 ${it[2]}" }
+        assertEquals(emptyList(), wrong, "구매의 산 사람이 사건의 요청자와 다르다")
     }
 
     /** 깨지면 상한을 보는 쪽이 잠글 행을 못 찾는다. */
