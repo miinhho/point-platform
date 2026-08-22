@@ -38,8 +38,19 @@ class Ledger(
     }
 
     @Transactional(propagation = Propagation.MANDATORY)
-    fun transfer(requesterId: Long, idempotencyKey: String, pointTypeId: Long, fromId: Long, toId: Long, amount: Long): JournalEntry {
-        val entry = open(JournalKind.TRANSFER, requesterId, idempotencyKey, pointTypeId)
+    fun transfer(requesterId: Long, idempotencyKey: String, pointTypeId: Long, fromId: Long, toId: Long, amount: Long): JournalEntry =
+        move(JournalKind.TRANSFER, requesterId, idempotencyKey, pointTypeId, fromId, toId, amount)
+
+    /**
+     * 구매. 원장에서는 이체와 같은 줄이고 종류만 다르다 — 산 사람 −N · 은행장 +N 이라
+     * **유통량을 줄이지 않는다.** 무엇을 샀는지는 원장 밖의 기록이다 (docs/LEDGER.md 6 단계).
+     */
+    @Transactional(propagation = Propagation.MANDATORY)
+    fun purchase(requesterId: Long, idempotencyKey: String, pointTypeId: Long, buyerId: Long, issuerId: Long, amount: Long): JournalEntry =
+        move(JournalKind.PURCHASE, requesterId, idempotencyKey, pointTypeId, buyerId, issuerId, amount)
+
+    private fun move(kind: JournalKind, requesterId: Long, idempotencyKey: String, pointTypeId: Long, fromId: Long, toId: Long, amount: Long): JournalEntry {
+        val entry = open(kind, requesterId, idempotencyKey, pointTypeId)
         apply(entry, Draft.transfer(fromKey = fromId, toKey = toId, amount = amount))
         return entry
     }
