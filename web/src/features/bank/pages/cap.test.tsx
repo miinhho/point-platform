@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { beforeEach, describe, expect, it } from 'vitest'
-import { screen, waitFor } from '@testing-library/react'
+import { screen, waitFor, within } from '@testing-library/react'
 import { userEvent } from '@testing-library/user-event'
 import { renderApp, signInAs } from '@/test/render'
 import App from '@/app/App'
@@ -150,37 +150,43 @@ describe('상한을 바꾼다', () => {
   })
 })
 
-describe('바뀐 사실은 가진 사람의 내역에 남는다', () => {
-  it('발행자의 내역에 이체와 다른 모양으로 온다', async () => {
+/*
+ * 전기가 없어 사건이 아니다 — 원장 밖에 남는다(docs/LEDGER.md 4 단계). 그래서 줄이
+ * 아니고, 대신 **지금 상한**이 은행 페이지에 늘 온다. 「안 보인다」만 재면 상한 변경
+ * 자체가 조용히 실패해도 통과하므로, 바뀐 값을 먼저 보고 나서 내역을 본다.
+ */
+describe('바뀐 사실은 내역에 오르지 않는다', () => {
+  it('바꾼 사람의 내역에도 줄이 생기지 않는다', async () => {
     const user = userEvent.setup()
     await openChangeCap(user)
     await user.type(screen.getByLabelText('새 상한'), '20000000')
     await hold(750)
     await screen.findByRole('heading', { name: '금머니' }, { timeout: 5000 })
+    expect(await screen.findByText('20,000,000')).toBeTruthy()
 
     // 은행 페이지는 플로우가 아니라 탭 바가 보인다.
     await user.click(await screen.findByRole('button', { name: '내역' }))
-
-    const row = await screen.findByText('금머니 발행 상한이 올랐어요', {}, { timeout: 5000 })
-    expect(screen.getByText(/10,000,000 → 20,000,000/)).toBeTruthy()
-    // 눌러도 갈 곳이 없다 — 단건 조회는 이체만이다.
-    expect(row.closest('button')).toBeNull()
+    expect(await screen.findByText('아직 보낸 것이 없어요', {}, { timeout: 5000 })).toBeTruthy()
   })
 
-  // 발행자만 아는 변경은 약속이 아니다 — docs/JOURNEY.md 여정 8
-  it('그 포인트를 가진 다른 사람의 내역에도 보인다', async () => {
+  // 보유자의 내역이 발행자의 관리 기록으로 채워지지 않는다 — docs/JOURNEY.md 여정 8
+  it('그 포인트를 가진 다른 사람의 내역에도 없다', async () => {
     const user = userEvent.setup()
     await openChangeCap(user)
     await user.type(screen.getByLabelText('새 상한'), '20000000')
     await hold(750)
     await screen.findByRole('heading', { name: '금머니' }, { timeout: 5000 })
 
-    // @jisu 는 금머니를 가졌지만 발행자가 아니다.
+    /*
+     * @jisu 는 금머니를 가졌지만 발행자가 아니다. 다시 그리면 주소가 그대로라 같은
+     * 은행 페이지가 열린다 — 앞 화면이 함께 떠 있어 이름이 겹치므로 새 쪽만 본다.
+     */
     await signInAs('@jisu')
-    renderApp(<App />)
-    await user.click(await screen.findByRole('button', { name: '내역' }))
-    expect(
-      await screen.findByText('금머니 발행 상한이 올랐어요', {}, { timeout: 5000 }),
-    ).toBeTruthy()
+    const jisu = within(renderApp(<App />).container)
+    // 상한은 보유자에게도 온다. 변경이 내역에서 빠져도 지금 값을 아는 길은 남는다.
+    expect(await jisu.findByText('20,000,000', {}, { timeout: 5000 })).toBeTruthy()
+
+    await user.click(await jisu.findByRole('button', { name: '내역' }))
+    expect(await jisu.findByText('아직 보낸 것이 없어요', {}, { timeout: 5000 })).toBeTruthy()
   })
 })
