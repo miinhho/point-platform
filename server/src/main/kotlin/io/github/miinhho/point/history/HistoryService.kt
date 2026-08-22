@@ -39,10 +39,7 @@ class HistoryService(
             runCatching { UUID.fromString(raw) }.getOrNull()?.let(pointTypeRepository::findIdByPublicId)
                 ?: return emptyList()
         }
-        val visible = visiblePointTypeIds(userId)
-        if (visible.isEmpty()) return emptyList()
-
-        val entries = journalEntryRepository.visibleTo(userId, visible, filterId, Limit.of(limit))
+        val entries = journalEntryRepository.visibleTo(userId, unusedMemberOf(userId), filterId, Limit.of(limit))
         if (entries.isEmpty()) return emptyList()
 
         val ids = entries.mapNotNull { it.id }
@@ -76,13 +73,16 @@ class HistoryService(
     }
 
     /**
-     * 지갑이 담는 것과 같은 기준이다 — 셋 다. 카드를 주기로 한 순간 그는 상한이라는 약속을
-     * 보는 사람이 됐는데 약속이 바뀐 기록만 안 오면 「아직 아무 일도 없었구나」로 읽는다.
+     * 회원인데 아직 아무것도 못 받은 은행. 전기도 없고 내가 요청한 사건도 없으므로 이 목록이
+     * 없으면 그 은행의 상한 변경이 안 보인다 — 「들어왔지만 아직 없는 0」인 회원의 자리다.
+     *
+     * 받은 적 있는 은행과 내가 만든 은행은 여기 없다. 그쪽은 전기와 요청자로 이미 잡힌다.
+     * 빈 목록은 넘기지 않는다 — `in ()` 은 드라이버가 거절한다.
      */
-    private fun visiblePointTypeIds(userId: Long): Set<Long> =
-        accountRepository.pointTypeIdsHeldBy(userId) +
-            pointTypeRepository.idsIssuedBy(userId) +
-            membershipRepository.pointTypeIdsOf(userId)
+    private fun unusedMemberOf(userId: Long): Collection<Long> {
+        val unused = membershipRepository.pointTypeIdsOf(userId) - accountRepository.pointTypeIdsHeldBy(userId)
+        return unused.ifEmpty { listOf(-1L) }
+    }
 }
 
 private fun CapChange.toResponse(by: User, point: PointType) = CapChangeResponse(
