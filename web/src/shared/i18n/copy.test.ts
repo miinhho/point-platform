@@ -38,6 +38,14 @@ const NOT_ON_FAILURE_SCREEN: FailureCode[] = [
   'NOT_A_PRIVATE_BANK',
   'ALREADY_MEMBER',
   'INVITE_NOT_FOUND',
+  // 상점(여정 12·13). 살 때의 실패는 그 화면 안에서 뜬다 — 화면이 생기면 그때 정한다.
+  'LISTING_NOT_FOUND',
+  'OUT_OF_STOCK',
+  'PURCHASE_LIMIT_EXCEEDED',
+  'STOCK_BELOW_SOLD',
+  'LISTING_UNLISTED',
+  'ISSUER_CANNOT_BUY',
+  'VOUCHER_NOT_FOUND',
 ]
 
 

@@ -68,6 +68,14 @@ export function handleFailure(code: FailureCode, kind: FlowKind): FailureHandlin
     case 'ISSUE_NOT_FOUND':
     case 'BAD_CREDENTIALS':
     case 'UNAUTHENTICATED':
+    // 상점은 자기 화면에서 답한다. 이체·발행 실패 화면으로 오지 않는다.
+    case 'LISTING_NOT_FOUND':
+    case 'OUT_OF_STOCK':
+    case 'PURCHASE_LIMIT_EXCEEDED':
+    case 'STOCK_BELOW_SOLD':
+    case 'LISTING_UNLISTED':
+    case 'ISSUER_CANNOT_BUY':
+    case 'VOUCHER_NOT_FOUND':
       return { retryable: false, editable: false, repickable: false, aboutSupply }
   }
 }

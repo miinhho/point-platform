@@ -1,5 +1,12 @@
 
 // UI 문체는 해요체. 규칙은 copy.test.ts 가 지킨다.
+
+/** 이체·발행 흐름에서는 날 수 없는 코드의 「돈이 어디 있는가」. 그 흐름은 손대지 않았다 */
+const NOT_FROM_HERE = {
+  whereTransfer: '아무것도 나가지 않았어요',
+  whereIssue: '발행되지 않았어요',
+} as const
+
 export const ko = {
   common: {
     loading: '불러오는 중',
@@ -355,6 +362,18 @@ export const ko = {
       whereTransfer: '아무것도 나가지 않았어요',
       whereIssue: '발행되지 않았어요',
     },
+    /*
+     * 상점(여정 12·13). 아직 서버가 내지 않고 화면도 없다. 「돈이 어디 있는가」는 살 때의
+     * 화면이 자기 자리에서 말할 것이고, 여기 붙는 문구는 **이체·발행 흐름에서는 이 코드가
+     * 날 수 없다**는 사실 그대로다.
+     */
+    LISTING_NOT_FOUND: { title: '이 품목을 찾을 수 없어요', ...NOT_FROM_HERE },
+    OUT_OF_STOCK: { title: '남은 재고보다 많아요', ...NOT_FROM_HERE },
+    PURCHASE_LIMIT_EXCEEDED: { title: '한 사람이 살 수 있는 수를 넘어요', ...NOT_FROM_HERE },
+    STOCK_BELOW_SOLD: { title: '이미 판 수보다 낮아요', ...NOT_FROM_HERE },
+    LISTING_UNLISTED: { title: '내린 품목은 고칠 수 없어요', ...NOT_FROM_HERE },
+    ISSUER_CANNOT_BUY: { title: '은행장은 자기 품목을 살 수 없어요', ...NOT_FROM_HERE },
+    VOUCHER_NOT_FOUND: { title: '이 교환권을 찾을 수 없어요', ...NOT_FROM_HERE },
     NETWORK: {
       title: '서버에 닿지 못했어요',
       whereTransfer: '보내졌는지 알 수 없어요. 다시 시도해도 두 번 나가지 않아요',

@@ -24,6 +24,15 @@ const STATUS: Record<FailureCode, number> = {
   MALFORMED_REQUEST: 400,
   TRANSFER_NOT_FOUND: 404,
   ISSUE_NOT_FOUND: 404,
+  // 상점(여정 12·13). 이 Mock 은 아직 그 경로를 서지 않지만 표는 비워 두지 않는다 —
+  // 빠진 코드는 타입이 잡고, 빠진 채로 두면 나중에 조용히 500 이 된다.
+  LISTING_NOT_FOUND: 404,
+  OUT_OF_STOCK: 422,
+  PURCHASE_LIMIT_EXCEEDED: 422,
+  STOCK_BELOW_SOLD: 422,
+  LISTING_UNLISTED: 409,
+  ISSUER_CANNOT_BUY: 409,
+  VOUCHER_NOT_FOUND: 404,
   NETWORK: 599,
   SERVER: 500,
 }
