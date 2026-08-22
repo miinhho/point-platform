@@ -1,5 +1,4 @@
 import type {
-  CapChange,
   HistoryEntry,
   PointMark,
   Invite,
@@ -239,7 +238,7 @@ interface State {
   issueOrder: IssueId[]
   /** `${요청자}:${멱등성 키}` → 발행 id */
   issuedByKey: Map<string, IssueId>
-  /** 최신순. 이체와 섞여 내역이 된다 */
+  /** 내역에 오르지 않는다. 같은 키로 다시 온 요청에 답하려고만 둔다 */
   capChanges: CapChange[]
   /** 비공개 은행의 회원. 은행장은 언제나 여기 있다 */
   members: Map<PointTypeId, Set<UserId>>
@@ -493,12 +492,7 @@ export function history(meId: UserId, pointTypeId: PointTypeId | null, limit: nu
     .filter((issue) => issue.issuerId === meId)
     .map((issue) => ({ type: 'issue', issue, point: pointOf(issue.pointTypeId) }))
 
-  const held = new Set(balancesOf(meId).map(({ pointType }) => pointType.id))
-  const caps: HistoryEntry[] = state.capChanges
-    .filter((capChange) => held.has(capChange.pointTypeId))
-    .map((capChange) => ({ type: 'capChange', capChange, point: pointOf(capChange.pointTypeId) }))
-
-  return [...transfers, ...issues, ...caps]
+  return [...transfers, ...issues]
     .filter((entry) => !pointTypeId || pointTypeIdOf(entry) === pointTypeId)
     .sort((a, b) => timeOf(b).localeCompare(timeOf(a)))
     .slice(0, limit)
@@ -525,8 +519,6 @@ function pointTypeIdOf(entry: HistoryEntry): PointTypeId {
       return entry.transfer.pointTypeId
     case 'issue':
       return entry.issue.pointTypeId
-    case 'capChange':
-      return entry.capChange.pointTypeId
   }
 }
 
@@ -536,8 +528,6 @@ function timeOf(entry: HistoryEntry): string {
       return entry.transfer.confirmedAt
     case 'issue':
       return entry.issue.confirmedAt
-    case 'capChange':
-      return entry.capChange.changedAt
   }
 }
 
@@ -590,6 +580,21 @@ export function createPointType(meId: UserId, input: CreatePointTypeInput): Poin
  */
 export function findCapChangeByKey(key: string): CapChange | undefined {
   return state.capChanges.find((change) => change.idempotencyKey === key)
+}
+
+/**
+ * 계약 타입이 아니다 — 어느 응답에도 실리지 않는다. 서버는 변경을 남기되 읽는
+ * 엔드포인트가 없고(docs/API.md), 여기서 남기는 이유도 하나뿐이다: 같은 키로 다시
+ * 온 요청에 「이미 했다」고 답하는 것.
+ */
+interface CapChange {
+  id: string
+  idempotencyKey: string
+  pointTypeId: PointTypeId
+  byId: UserId
+  previousCap: Points
+  issueCap: Points
+  changedAt: string
 }
 
 export function changeCap(

@@ -1179,13 +1179,13 @@ describe('상한 변경', () => {
     await expect(endpoints.changeCap(GM, 10_000_000, key())).rejects.toMatchObject({ status: 400 })
   })
 
-  it('같은 키로 다시 보내도 이력은 한 줄이다', async () => {
+  // 「지금과 같은 값이면 400」이 멱등성 검사보다 앞서면, 성공한 요청이 400 으로 돌아온다.
+  it('같은 키로 다시 보내면 같은 값이라고 거절하지 않는다', async () => {
     const k = key()
     await endpoints.changeCap(GM, 20_000_000, k)
     await expect(endpoints.changeCap(GM, 20_000_000, k)).resolves.toMatchObject({
       issueCap: 20_000_000,
     })
-    await expect(endpoints.history()).resolves.toHaveLength(1)
   })
 
   // 응답을 못 받고 다시 누르면 상한은 이미 새 값이다. 같은 값 판정이 앞서면
@@ -1198,10 +1198,14 @@ describe('상한 변경', () => {
     await expect(endpoints.changeCap(GM, 20_000_000, k)).resolves.toMatchObject({
       issueCap: 20_000_000,
     })
-    await expect(endpoints.history()).resolves.toHaveLength(1)
   })
 
-  it('내역에 이체와 섞여 최신순으로 온다', async () => {
+  /*
+   * 원장 밖에 남는다 — 전기가 없어 사건이 되지 않는다(docs/LEDGER.md 4 단계).
+   * 바꾼 사람의 내역에도 안 오르는 것이 요점이다: 「보유자에게만 안 보인다」면
+   * 그것은 감추는 규칙인데, 여기서 정한 것은 **내역이 아니라는 것**이다.
+   */
+  it('내역에 오르지 않는다. 바꾼 사람에게도', async () => {
     const sent = await endpoints.createTransfer(
       { pointTypeId: GM, toId: 'u_jisu', amount: 1_000 },
       key(),
@@ -1209,28 +1213,22 @@ describe('상한 변경', () => {
     await endpoints.changeCap(GM, 20_000_000, key())
 
     await expect(endpoints.history()).resolves.toMatchObject([
-      { type: 'capChange', capChange: { previousCap: 10_000_000, issueCap: 20_000_000 } },
+      { type: 'transfer', transfer: { id: sent.id } },
+    ])
+
+    // 금머니를 45,000 가진 사람에게도 마찬가지다.
+    await signInAs('@jisu')
+    await expect(endpoints.history()).resolves.toMatchObject([
       { type: 'transfer', transfer: { id: sent.id } },
     ])
   })
 
-  // 발행자만 아는 변경은 약속이 아니다 — docs/JOURNEY.md 여정 8
-  it('그 포인트를 가진 사람의 내역에 보인다', async () => {
+  // 지금 상한은 늘 실려 온다 — 변경이 내역에서 빠져도 보유자가 상한을 아는 길은 남는다.
+  it('바뀐 상한은 보유자의 은행 페이지에 그대로 보인다', async () => {
     await endpoints.changeCap(GM, 20_000_000, key())
 
-    // @jisu 는 금머니를 45,000 가지고 있다.
     await signInAs('@jisu')
-    await expect(endpoints.history()).resolves.toMatchObject([
-      { type: 'capChange', capChange: { pointTypeId: GM, byId: ME } },
-    ])
-  })
-
-  it('안 가진 사람의 내역에는 없다', async () => {
-    await endpoints.changeCap(GM, 20_000_000, key())
-
-    // @jisoo 는 온포인트만 가진다.
-    await signInAs('@jisoo')
-    await expect(endpoints.history()).resolves.toEqual([])
+    await expect(endpoints.pointType(GM)).resolves.toMatchObject({ issueCap: 20_000_000 })
   })
 })
 
@@ -1419,29 +1417,6 @@ describe('지갑은 관계로 담는다', () => {
 
     const held = (await endpoints.wallet()).balances.find((b) => b.pointType.id === 'pt_cl')
     expect(held).toBeUndefined()
-  })
-
-  /*
-   * 지갑을 넓히면 내역이 따라 넓어진다. 계약이 「상한 변경은 **그 포인트가 자기 지갑에
-   * 있는 사람**과 발행자에게 간다」고 하고, 이 Mock 은 그 집합을 `balancesOf` 에서
-   * 그대로 읽는다 — 한 곳을 고쳐 두 곳이 함께 움직인다.
-   *
-   * 방향은 맞아 보인다. 상한은 은행 페이지에 보이는 공개 사실이고, 회원이 그 변화를
-   * 아는 것이 일관된다. 다만 **아무도 의도한 적 없이 따라 움직인 것**이라 적어 둔다.
-   */
-  it('잔액 0 인 회원도 상한 변경 내역을 받는다', async () => {
-    await endpoints.createInvite('pt_cl', 'u_jisu', key())
-    setTokens(await endpoints.login({ handle: '@jisu', password: 'point' }))
-    await endpoints.acceptInvite('pt_cl')
-    await expect(endpoints.history()).resolves.toEqual([])
-
-    setTokens(await endpoints.login({ handle: '@minho', password: 'point' }))
-    await endpoints.changeCap('pt_cl', 9_000_000, key())
-
-    setTokens(await endpoints.login({ handle: '@jisu', password: 'point' }))
-    const mine = await endpoints.history()
-    expect(mine).toHaveLength(1)
-    expect(mine[0]).toMatchObject({ type: 'capChange' })
   })
 
   // 잔액이 남으면 나가도 담긴다. 쓸 수 없을 뿐이다 — 계약: docs/API.md

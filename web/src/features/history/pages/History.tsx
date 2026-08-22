@@ -5,8 +5,8 @@ import { useTranslation } from 'react-i18next'
 import { toGrouped } from '@/shared/format'
 import { goAtom } from '@/app/atoms'
 import { Loadable, RowSkeleton } from '@/shared/ui/Loadable'
-import { Body, Header, Note, Row, RowButton, Screen, Title } from '@/shared/ui/Screen'
-import type { CapChange, PointMark, Issue, Transfer } from '@/shared/contract'
+import { Body, Header, Note, RowButton, Screen, Title } from '@/shared/ui/Screen'
+import type { PointMark, Issue, Transfer } from '@/shared/contract'
 import { formatTime } from '../model/time'
 import { useHistoryPage } from '../model/useHistory'
 
@@ -48,18 +48,12 @@ export function History() {
                 point={entry.point}
                 onOpen={() => go({ name: 'historyDetail', transferId: entry.transfer.id })}
               />
-            ) : entry.type === 'issue' ? (
+            ) : (
               <IssueRow
                 key={entry.issue.id}
                 issue={entry.issue}
                 point={entry.point}
                 onOpen={() => go({ name: 'issueDetail', issueId: entry.issue.id })}
-              />
-            ) : (
-              <CapChangeRow
-                key={entry.capChange.id}
-                capChange={entry.capChange}
-                point={entry.point}
               />
             ),
           )}
@@ -97,10 +91,7 @@ function TransferRow({ transfer, point, onOpen }: TransferRowProps) {
   )
 }
 
-/**
- * 발행에는 「누구에게」가 없다. 이체 줄의 위계를 빌려 쓰면 셋이 한 종류로 읽힌다 —
- * `CapChangeRow` 와 같은 판단이다.
- */
+/** 발행에는 「누구에게」가 없다. 이체 줄의 위계를 빌려 쓰면 둘이 한 종류로 읽힌다 */
 function IssueRow({
   issue,
   point,
@@ -124,33 +115,5 @@ function IssueRow({
         <Text textStyle="line">{toGrouped(issue.amount)}</Text>
       </motion.div>
     </RowButton>
-  )
-}
-
-/**
- * 상한 변경은 눌러도 갈 곳이 없다 — 단건 조회는 이체만이다. 그래서 버튼이 아니고,
- * 「누구에게 → 무엇을 → 얼마」 자리에 사람도 금액도 넣지 않는다. 위계를 빌려 쓰면
- * 이체 목록으로 읽힌다.
- */
-function CapChangeRow({ capChange, point }: { capChange: CapChange; point: PointMark }) {
-  const { t } = useTranslation()
-  const raised = capChange.issueCap > capChange.previousCap
-
-  return (
-    <Row>
-      <Box flex={1} minW={0}>
-        <Text textStyle="label">
-          {t(raised ? 'history.capRaised' : 'history.capLowered', { name: point.name })}
-        </Text>
-        <Text textStyle="caption">
-          {t('history.capFromTo', {
-            from: toGrouped(capChange.previousCap),
-            to: toGrouped(capChange.issueCap),
-          })}
-          {' · '}
-          {formatTime(capChange.changedAt)}
-        </Text>
-      </Box>
-    </Row>
   )
 }

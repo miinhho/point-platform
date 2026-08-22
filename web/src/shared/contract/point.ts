@@ -96,18 +96,3 @@ export interface PointMark {
   nameIsShared: boolean
   issuerHandle: string
 }
-
-/**
- * 상한이 바뀐 사건. 되돌리는 것이 아니라 또 하나의 변경으로만 이어진다 —
- * docs/JOURNEY.md 여정 9
- */
-export interface CapChange {
-  id: string
-  idempotencyKey: string
-  pointTypeId: PointTypeId
-  /** 바꾼 사람. 그 포인트의 발행자다 */
-  byId: UserId
-  previousCap: Points
-  issueCap: Points
-  changedAt: string
-}

@@ -47,10 +47,6 @@ export const ko = {
     /** 그때의 값이다. 지금 값이 아니다 — 계약: docs/API.md */
     supplyAfter: '발행 뒤 총 유통량',
     capAt: '그때의 발행 상한',
-    /** 상한 변경 줄. 이체 줄의 위계를 빌려 쓰지 않는다 — 여정 8 */
-    capRaised: '{{name}} 발행 상한이 올랐어요',
-    capLowered: '{{name}} 발행 상한이 내렸어요',
-    capFromTo: '{{from}} → {{to}}',
   },
 
   create: {

@@ -8,7 +8,6 @@ export type { IssueId, Points, PointTypeId, TransferId, UserId } from './ids'
 export type { User } from './user'
 export { ALLOWED_EMOJI } from './point'
 export type {
-  CapChange,
   Membership,
   PointAccent,
   PointMark,
