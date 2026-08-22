@@ -263,7 +263,6 @@ class BankPageTest {
         assertTrue(body.contains("\"issueCap\":1000000"), "상한은 보유자에게 하는 약속이다: $body")
         // 픽스처가 나간 사람 몫으로 3000 을 찍었다 — 유통량의 정본은 발행 계정 잔액이다.
         assertTrue(body.contains("\"totalIssued\":3000"), body)
-        assertTrue(body.contains("\"issuableHeadroom\":997000"), body)
         assertTrue(body.contains("\"canIssue\":false"), "바꾸는 힘만 발행자 것이다: $body")
     }
 

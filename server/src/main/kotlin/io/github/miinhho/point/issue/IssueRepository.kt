@@ -6,7 +6,9 @@ import org.springframework.data.jpa.repository.Query
 import java.util.UUID
 
 interface IssueRepository : JpaRepository<Issue, Long> {
-    fun findByPublicId(publicId: UUID): Issue?
+    /** 사건의 id 로 찾는다 — 부속 기록이 자기 id 를 갖지 않는다. */
+    @Query("select i from Issue i where i.journalEntry.publicId = :publicId")
+    fun findByEventId(publicId: UUID): Issue?
 
     // 키는 「내가 같은 요청을 두 번 보냈나」에 답한다 — 임자와 함께 찾는다.
     // 키만으로 찾는 길을 두면 남의 것을 물을 수 있다.

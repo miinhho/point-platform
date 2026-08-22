@@ -27,7 +27,7 @@ class IssueService(
     @Transactional(readOnly = true)
     fun findById(publicId: String, viewerId: Long): IssueResponse {
         val issue = runCatching { UUID.fromString(publicId) }.getOrNull()
-            ?.let(issueRepository::findByPublicId)
+            ?.let(issueRepository::findByEventId)
             ?.takeIf { it.journalEntry.requesterId == viewerId }
             ?: throw DomainFailureException(FailureCode.ISSUE_NOT_FOUND, "없음")
         return issue.render()

@@ -10,7 +10,6 @@ import jakarta.persistence.Id
 import jakarta.persistence.JoinColumn
 import jakarta.persistence.ManyToOne
 import jakarta.persistence.Table
-import java.util.UUID
 
 /**
  * 발행은 사건의 부속 기록이다 — 포인트도 발행자도 시각도 [JournalEntry] 의 것이다.
@@ -39,10 +38,7 @@ class Issue(
     var id: Long? = null
         protected set
 
-    @Column(name = "public_id", nullable = false, unique = true, updatable = false)
-    var publicId: UUID = UUID.randomUUID()
-        protected set
 
-    override fun equals(other: Any?) = other is Issue && publicId == other.publicId
-    override fun hashCode() = publicId.hashCode()
+    override fun equals(other: Any?) = other is Issue && id != null && id == other.id
+    override fun hashCode() = id?.hashCode() ?: 0
 }

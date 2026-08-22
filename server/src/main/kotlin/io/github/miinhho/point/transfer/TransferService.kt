@@ -63,7 +63,7 @@ class TransferService(
     @Transactional(readOnly = true)
     fun findById(publicId: String, viewerId: Long): TransferResponse {
         val transfer = runCatching { UUID.fromString(publicId) }.getOrNull()
-            ?.let(transferRepository::findByPublicId)
+            ?.let(transferRepository::findByEventId)
             ?.takeIf { it.journalEntry.requesterId == viewerId || it.to.id == viewerId }
             ?: throw DomainFailureException(FailureCode.TRANSFER_NOT_FOUND, "없음")
         return transfer.render(viewerId)
