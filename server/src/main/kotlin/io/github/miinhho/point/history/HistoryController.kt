@@ -2,6 +2,7 @@ package io.github.miinhho.point.history
 
 import io.github.miinhho.point.issue.IssueResponse
 import io.github.miinhho.point.pointtype.PointMarkResponse
+import io.github.miinhho.point.shop.PurchaseResponse
 import io.github.miinhho.point.transfer.TransferResponse
 import org.springframework.security.core.annotation.AuthenticationPrincipal
 import org.springframework.web.bind.annotation.GetMapping
@@ -15,6 +16,7 @@ data class HistoryEntryResponse(
     val point: PointMarkResponse,
     val transfer: TransferResponse? = null,
     val issue: IssueResponse? = null,
+    val purchase: PurchaseResponse? = null,
 )
 
 @RestController
