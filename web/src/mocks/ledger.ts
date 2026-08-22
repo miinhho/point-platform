@@ -777,8 +777,8 @@ export function removeMember(meId: UserId, pointTypeId: PointTypeId, targetId: U
   if (!pointType || pointType.visibility === 'public' || !isMember(pointTypeId, meId)) {
     throw new LedgerError('POINT_TYPE_NOT_FOUND')
   }
-  // 남을 내보내는 것은 은행장만 한다. 나가는 것은 누구나 자기에 대해 한다.
-  if (targetId !== meId && pointType.issuerId !== meId) throw new LedgerError('NOT_ISSUER')
+  // 은행장만 부른다. 자기 자신을 id 로 지목해도 마찬가지다 — 나가기는 다른 경로다.
+  if (pointType.issuerId !== meId) throw new LedgerError('NOT_ISSUER')
   // 발행할 사람이 없는 은행이 되고, 상한도 품목도 관리할 수 없어진다.
   if (targetId === pointType.issuerId) throw new LedgerError('ISSUER_CANNOT_LEAVE')
 
