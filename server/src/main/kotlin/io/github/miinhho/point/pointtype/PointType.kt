@@ -43,12 +43,6 @@ class PointType(
     @Column(length = 255)
     var description: String? = null,
 
-    @Column(name = "issue_cap", nullable = false)
-    var issueCap: Long,
-
-    @Column(name = "total_issued", nullable = false)
-    var totalIssued: Long = 0,
-
     // 창설도 되돌릴 수 없다. 응답을 못 받은 사용자가 다시 눌러 같은 이름이 둘 생기면
     // 어느 것이 자기 것인지 알 방법이 없다. 시드로 만든 것은 키가 없다.
     @Column(name = "idempotency_key", length = 36, updatable = false)

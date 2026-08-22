@@ -1,4 +1,4 @@
-package io.github.miinhho.point.pointtype
+package io.github.miinhho.point.pointtype.membership
 
 import io.github.miinhho.point.user.User
 import jakarta.persistence.Column
@@ -14,6 +14,7 @@ import jakarta.persistence.Table
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 import java.util.UUID
+import io.github.miinhho.point.pointtype.PointType
 
 // 거절도 취소도 없다. 수락·나가기·내보내기 셋에서 소진된다 (docs/API.md 「회원 자격」).
 @Entity

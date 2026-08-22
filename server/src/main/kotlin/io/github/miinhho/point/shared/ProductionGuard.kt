@@ -1,6 +1,5 @@
 package io.github.miinhho.point.shared
 
-import io.github.miinhho.point.auth.JwtProperties
 import org.springframework.boot.ApplicationArguments
 import org.springframework.boot.ApplicationRunner
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
@@ -25,13 +24,13 @@ import org.springframework.stereotype.Component
 @Component
 @Order(Ordered.HIGHEST_PRECEDENCE)
 @ConditionalOnProperty("point.dev-defaults", havingValue = "false")
-class ProductionGuard(
-    private val jwtProperties: JwtProperties,
-    private val environment: Environment,
-) : ApplicationRunner {
+class ProductionGuard(private val environment: Environment) : ApplicationRunner {
     override fun run(args: ApplicationArguments) {
         val wrong = buildList {
-            if (jwtProperties.secret == COMMITTED_DEV_SECRET) add("point.jwt.secret 이 저장소에 공개된 개발용 값이다")
+            // 설정값으로 읽는다 — 검사 하나 때문에 이 자리가 인증을 알 이유가 없다.
+            if (environment.getProperty("point.jwt.secret") == COMMITTED_DEV_SECRET) {
+                add("point.jwt.secret 이 저장소에 공개된 개발용 값이다")
+            }
             if (environment.getProperty("point.seed-users", Boolean::class.java, false)) {
                 add("point.seed-users 가 켜져 있다 — 암호가 공개된 계정이 생긴다")
             }

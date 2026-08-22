@@ -1,4 +1,4 @@
-package io.github.miinhho.point.pointtype
+package io.github.miinhho.point.pointtype.membership
 
 import jakarta.persistence.Column
 import jakarta.persistence.Embeddable

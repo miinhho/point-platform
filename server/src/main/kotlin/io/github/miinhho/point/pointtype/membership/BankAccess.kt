@@ -1,13 +1,17 @@
-package io.github.miinhho.point.pointtype
+package io.github.miinhho.point.pointtype.membership
 
 import io.github.miinhho.point.ledger.AccountRepository
 import org.springframework.stereotype.Service
+import io.github.miinhho.point.pointtype.PointType
+import io.github.miinhho.point.pointtype.PointTypeRepository
+import io.github.miinhho.point.pointtype.PointVisibility
 
 /** 누가 이 은행에 닿을 수 있는가. 근거: docs/API.md 「회원 자격」. */
 @Service
 class BankAccess(
     private val membershipRepository: MembershipRepository,
     private val inviteRepository: InviteRepository,
+    private val pointTypeRepository: PointTypeRepository,
     private val accountRepository: AccountRepository,
 ) {
     // 공개이거나 은행장이면 뒤엣것을 조회하지 않는다 — any 가 첫 참에서 멈춘다.
@@ -34,6 +38,7 @@ class BankAccess(
         memberOf = memberOf(viewerId),
         invitedTo = invitedTo(viewerId),
         holds = accountRepository.pointTypeIdsHeldBy(viewerId),
+        issued = pointTypeRepository.idsIssuedBy(viewerId),
     )
 
     class Relations(
@@ -41,6 +46,7 @@ class BankAccess(
         private val memberOf: Set<Long>,
         private val invitedTo: Set<Long>,
         private val holds: Set<Long>,
+        private val issued: Set<Long>,
     ) {
         fun of(pointType: PointType): Set<Relation> = buildSet {
             if (pointType.visibility == PointVisibility.PUBLIC) add(Relation.PUBLIC)
@@ -51,6 +57,17 @@ class BankAccess(
         }
 
         fun any(pointType: PointType, opens: Set<Relation>): Boolean = of(pointType).any { it in opens }
+
+        /**
+         * 그 관계들로 열릴 수 있는 은행 id. [Relation.PUBLIC] 은 은행의 성질이라 여기 없다 —
+         * 담는 쪽이 그것까지 봐야 하면 [publicOrRelated] 를 쓴다.
+         */
+        fun ids(opens: Set<Relation>): Set<Long> = buildSet {
+            if (Relation.ISSUER in opens) addAll(issued)
+            if (Relation.MEMBER in opens) addAll(memberOf)
+            if (Relation.INVITED in opens) addAll(invitedTo)
+            if (Relation.HOLDS_BALANCE in opens) addAll(holds)
+        }
     }
 
     /** 공개 은행에는 회원이 없다 — 누구나 주고받으므로 언제나 참이다. */

@@ -2,11 +2,10 @@ package io.github.miinhho.point
 
 import io.github.miinhho.point.auth.LoginRequest
 import io.github.miinhho.point.auth.LoginResponse
-import io.github.miinhho.point.pointtype.ChangeCapRequest
-import io.github.miinhho.point.pointtype.InviteRepository
-import io.github.miinhho.point.pointtype.InviteRequest
-import io.github.miinhho.point.pointtype.Membership
-import io.github.miinhho.point.pointtype.MembershipRepository
+import io.github.miinhho.point.pointtype.membership.InviteRepository
+import io.github.miinhho.point.pointtype.membership.InviteRequest
+import io.github.miinhho.point.pointtype.membership.Membership
+import io.github.miinhho.point.pointtype.membership.MembershipRepository
 import io.github.miinhho.point.pointtype.PointAccent
 import io.github.miinhho.point.pointtype.PointType
 import io.github.miinhho.point.pointtype.PointTypeRepository
@@ -42,6 +41,7 @@ import kotlin.test.assertTrue
 class InviteTest {
     @Autowired lateinit var ledgerReset: LedgerReset
     @Autowired lateinit var bankFixture: BankFixture
+    @Autowired lateinit var ledgerFixture: LedgerFixture
     @Autowired lateinit var restTemplate: TestRestTemplate
     @Autowired lateinit var userRepository: UserRepository
     @Autowired lateinit var pointTypeRepository: PointTypeRepository
@@ -130,18 +130,6 @@ class InviteTest {
         assertTrue(wallet.contains("\"amount\":0"), wallet)
         assertTrue(wallet.contains("\"membership\":\"member\""), "세 가지 0 을 가를 재료가 실려 온다: $wallet")
 
-        // 상한은 보유자에게 하는 약속이다. 카드를 주기로 했으면 그 약속이 바뀐 기록도 와야 한다.
-        val capKey = UUID.randomUUID().toString()
-        val cap = restTemplate.exchange(
-            "/api/point-types/${closed.publicId}/cap",
-            HttpMethod.PATCH,
-            HttpEntity(ChangeCapRequest(java.math.BigDecimal(2_000_000)), authOf(issuer).apply { set("Idempotency-Key", capKey) }),
-            String::class.java,
-        )
-        assertEquals(HttpStatus.OK, cap.statusCode, cap.body)
-        val history = assertNotNull(get(outsider, "/api/history?limit=10").body)
-        assertTrue(history.contains("capChange"), "지갑에 담기는 사람은 상한 변경도 본다: $history")
-
         // 내보내지면 관계가 끊긴다. 잔액도 없으므로 담을 이유가 없다.
         delete(issuer, "/api/point-types/${closed.publicId}/members/${publicId(outsider)}")
         assertFalse(assertNotNull(get(outsider, "/api/wallet").body).contains("동아리비"))
@@ -185,7 +173,7 @@ class InviteTest {
         // 아무 관계도 없으면 페이지 자체가 404 라, outsider 가 보이는 자리는
         // 잔액이 남은 채 나온 사람이다. 잔액이 닿을 자격을 준다.
         assertEquals(HttpStatus.NOT_FOUND, get(outsider, "/api/point-types/${closed.publicId}").statusCode)
-        accountRepository.save(Account(pointType = closed, user = outsider, kind = AccountKind.HOLDER, balance = 3_000))
+        ledgerFixture.giveThenLeave(closed, outsider, 3_000)
         assertTrue(bankOf(outsider, closed).contains("\"membership\":\"outsider\""), bankOf(outsider, closed))
 
         val inviteId = idOf(assertNotNull(invite(issuer, closed, outsider).body))
@@ -205,7 +193,7 @@ class InviteTest {
     @Test
     fun `내보내면 초대함이 비고 스스로 걸어 들어올 수 없다`() {
         // 잔액이 은행에 닿을 자격을 준다 — 그래야 「보이는데 못 들어온다」가 시험된다.
-        accountRepository.save(Account(pointType = closed, user = outsider, kind = AccountKind.HOLDER, balance = 3_000))
+        ledgerFixture.giveThenLeave(closed, outsider, 3_000)
         invite(issuer, closed, outsider)
         assertEquals(HttpStatus.OK, accept(outsider).statusCode)
 
@@ -264,7 +252,7 @@ class InviteTest {
     @Test
     fun `이미 나간 사람이 다시 나가도 204 다`() {
         // 잔액이 은행에 닿을 자격을 주므로 비회원도 이 길을 부를 수 있다.
-        accountRepository.save(Account(pointType = closed, user = outsider, kind = AccountKind.HOLDER, balance = 3_000))
+        ledgerFixture.giveThenLeave(closed, outsider, 3_000)
 
         // 그가 원한 것은 회원이 아니게 되는 것이고 그는 이미 회원이 아니다.
         val leaving = delete(outsider, "/api/point-types/${closed.publicId}/members/me")
@@ -272,8 +260,27 @@ class InviteTest {
     }
 
     @Test
+    fun `잔액 없이 나간 사람이 다시 나가도 204 다`() {
+        val first = delete(member, "/api/point-types/${closed.publicId}/members/me")
+        assertEquals(HttpStatus.NO_CONTENT, first.statusCode, first.body)
+
+        // 잔액이 없으면 나간 순간 은행에 닿지 못한다. 그래도 그가 원한 것은 이미 참이라
+        // 「없어요」로 답하면 방금까지 보던 은행이 사라진 것으로 들린다.
+        val again = delete(member, "/api/point-types/${closed.publicId}/members/me")
+        assertEquals(HttpStatus.NO_CONTENT, again.statusCode, again.body)
+
+        val absent = delete(member, "/api/point-types/${UUID.randomUUID()}/members/me")
+        assertEquals(HttpStatus.NO_CONTENT, absent.statusCode, "없는 은행도 같은 답이다: ${absent.body}")
+
+        // 공개 은행은 감출 것이 없어 답이 다르다 — 나갈 회원 자격이라는 개념이 없다.
+        val public = delete(member, "/api/point-types/${open.publicId}/members/me")
+        assertEquals(HttpStatus.NOT_FOUND, public.statusCode, public.body)
+        assertTrue(assertNotNull(public.body).contains("NOT_A_PRIVATE_BANK"), public.body)
+    }
+
+    @Test
     fun `나가도 잔액은 남고 은행장은 나갈 수 없다`() {
-        accountRepository.save(Account(pointType = closed, user = member, kind = AccountKind.HOLDER, balance = 5_000))
+        ledgerFixture.give(closed, member, 5_000)
 
         assertEquals(HttpStatus.NO_CONTENT, delete(member, "/api/point-types/${closed.publicId}/members/me").statusCode)
         val wallet = assertNotNull(get(member, "/api/wallet").body)
@@ -349,7 +356,5 @@ class InviteTest {
         issuer = issuer,
         accent = PointAccent.BLUE,
         visibility = visibility,
-        issueCap = 1_000_000,
-        totalIssued = 0,
     )
 }

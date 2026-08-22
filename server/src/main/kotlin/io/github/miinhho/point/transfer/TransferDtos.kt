@@ -1,6 +1,8 @@
 package io.github.miinhho.point.transfer
 
 import io.github.miinhho.point.pointtype.PointMarkResponse
+import io.github.miinhho.point.pointtype.PointType
+import io.github.miinhho.point.user.User
 import io.github.miinhho.point.pointtype.toMark
 import java.math.BigDecimal
 import java.time.Instant
@@ -28,16 +30,29 @@ data class TransferResponse(
     val confirmedAt: Instant,
 )
 
-fun Transfer.toResponse(viewerId: Long, sharedNames: Set<String>, sharedPointNames: Set<String>) = TransferResponse(
-    id = publicId.toString(),
-    idempotencyKey = idempotencyKey,
-    pointTypeId = pointType.publicId.toString(),
-    point = pointType.toMark(sharedPointNames),
-    fromId = from.publicId.toString(),
-    toId = to.publicId.toString(),
-    counterparty = (if (from.id == viewerId) to else from)
-        .let { CounterpartyResponse(it.name, it.handle, it.name in sharedNames) },
-    amount = amount,
-    createdAt = createdAt,
-    confirmedAt = confirmedAt,
-)
+/**
+ * 보낸 사람과 포인트는 사건이 id 로만 아는 것이라 **호출부가 모아서 넘긴다** — 줄마다
+ * 프록시를 열면 내역 한 화면이 조회 서른 번이다.
+ */
+fun Transfer.toResponse(
+    viewerId: Long,
+    from: User,
+    point: PointType,
+    sharedNames: Set<String>,
+    sharedPointNames: Set<String>,
+): TransferResponse {
+    return TransferResponse(
+        id = publicId.toString(),
+        idempotencyKey = journalEntry.idempotencyKey,
+        pointTypeId = point.publicId.toString(),
+        point = point.toMark(sharedPointNames),
+        fromId = from.publicId.toString(),
+        toId = to.publicId.toString(),
+        counterparty = (if (from.id == viewerId) to else from)
+            .let { CounterpartyResponse(it.name, it.handle, it.name in sharedNames) },
+        amount = amount,
+        // 만들어진 때와 확정된 때가 갈리지 않는다 — 저장된 이체는 언제나 확정이다.
+        createdAt = journalEntry.occurredAt,
+        confirmedAt = journalEntry.occurredAt,
+    )
+}
