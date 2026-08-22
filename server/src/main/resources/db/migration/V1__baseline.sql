@@ -13,6 +13,10 @@ create table users (
     constraint uk_users_handle unique (handle),
     -- 겹치는 이름을 그 이름으로 묻는다. 없으면 응답마다 표를 통째로 훑는다.
     key ix_users_name (name),
+    -- 부분 일치 검색. like '%q%' 는 어떤 인덱스도 못 타므로 사람이 늘수록 전체를 훑는다.
+    -- ngram 파서라 한글도 두 글자씩 쪼갠다 — 그래서 한 글자 검색은 이 인덱스로 못 하고,
+    -- 그 갈래만 훑는다 (UserRepository.matching).
+    fulltext key ft_users_search (name, handle) with parser ngram,
     constraint uk_users_public_id unique (public_id)
 ) engine = InnoDB;
 

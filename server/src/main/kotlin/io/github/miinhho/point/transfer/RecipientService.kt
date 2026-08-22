@@ -29,7 +29,7 @@ class RecipientService(
         val members = membersOf(pointTypePublicId, meId)
         val needle = query?.trim()?.lowercase()
         // 검색어가 있으면 DB 가 거른다 — 전부 읽어 메모리에서 거르면 사람이 늘수록 무거워진다.
-        val candidates = if (needle.isNullOrEmpty()) all(members) else userRepository.matching(needle)
+        val candidates = if (needle.isNullOrEmpty()) all(members) else withNamesakes(needle)
         val found = candidates.filter { it.id != meId && (members == null || it.id in members) }
         val shared = userRepository.sharedNames(found.map { it.name })
         return found.map { it.toResponse(shared) }
@@ -53,6 +53,14 @@ class RecipientService(
         val recent = seen.mapNotNull { userRepository.findById(it).orElse(null) }
         val shared = userRepository.sharedNames(recent.map { it.name })
         return recent.map { it.toResponse(shared) }
+    }
+
+    // 핸들로 한 명만 맞아도 같은 이름을 쓰는 전원을 함께 담는다 — 결과 안에서만 세면
+    // 「@jisu 로 검색한 순간 동명이인 방어가 꺼진다」 (docs/API.md).
+    private fun withNamesakes(needle: String): List<User> {
+        val matched = userRepository.matching(needle)
+        if (matched.isEmpty()) return matched
+        return (matched + userRepository.findByNameIn(matched.map { it.name }.toSet())).distinctBy { it.id }
     }
 
     private fun all(members: Set<Long>?): List<User> =
