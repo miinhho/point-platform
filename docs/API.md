@@ -227,7 +227,7 @@ type HistoryEntry =
   | { type: 'issue'; issue: Issue }
   | { type: 'purchase'; purchase: Purchase }
 
-/** 그 줄이 어느 포인트인가. 세 갈래 모두 싣고, 단건 조회도 싣는다 */
+/** 그 줄이 어느 포인트인가 */
 interface PointMark {
   name: string
   emoji: string
@@ -236,19 +236,24 @@ interface PointMark {
   issuerHandle: string
 }
 
-**세 갈래 모두 `point` 를 싣는다. 단건 조회(`GET /api/transfers/:id` ·
-`GET /api/issues/:id`)도 싣는다.**
-
-클라이언트가 `pointTypeId` 로 지갑을 뒤져 이름을 맞추면 안 된다. **지갑과 내역은 모수가
-다르다** — 지갑은 「지금 가진 것」이고 내역은 「일어난 일」이다. 전액을 보내면 그 포인트는
-지갑에서 빠지지만 그 이체 줄은 내역에 남는다.
-
-이름·이모지·색은 표기이므로 「일어난 때의 값」을 따로 실을 필요가 없다. 수가 아니다.
+interface Transfer {
+  id: TransferId
+  idempotencyKey: string
+  pointTypeId: PointTypeId
+  point: PointMark
+  /** 보는 사람 기준 — 보낸 것이면 참 */
+  outgoing: boolean
+  /** 상대. 보낸 쪽에는 받은 사람이, 받은 쪽에는 보낸 사람이 실린다 */
+  counterparty: { name: string; handle: string; nameIsShared: boolean }
+  amount: Points
+  occurredAt: string
+}
 
 interface Issue {
   id: IssueId
   idempotencyKey: string
   pointTypeId: PointTypeId
+  point: PointMark
   /** 발행자. 받는 사람이기도 하다 — 한 사람이라 칸이 하나다 */
   issuerId: UserId
   amount: Points
@@ -260,10 +265,21 @@ interface Issue {
 }
 ```
 
-**이체에는 상대와 방향이 실려 온다.** `Transfer.counterparty` = `{ name, handle, nameIsShared }`
-와 `Transfer.outgoing`(보는 사람이 보낸 것이면 참). `fromId` · `toId` 는 오지 않는다 — 화면이
-id 를 맞춰 보고 방향을 정하지 않는다. 클라이언트가 사용자 목록을 뒤져 이름을 맞추면 안 된다 —
-목록에 없는 순간 조용히 틀린다. **누구인지는 서버가 아는 사실이다.**
+**`point` 는 줄 안에 있다. 봉투에 붙이지 않는다.** 어느 포인트인가는 그 사건의 성질이지
+그것을 감싼 것의 성질이 아니다. 그래서 **단건 조회(`GET /api/transfers/:id` ·
+`GET /api/issues/:id`)는 같은 것을 그대로 준다 — 감싸지 않는다.** `{ transfer, point }` 처럼
+봉투를 만들면 목록과 단건이 두 모양이 되고, 화면이 그 둘을 각각 풀어야 한다.
+
+클라이언트가 `pointTypeId` 로 지갑을 뒤져 이름을 맞추면 안 된다. **지갑과 내역은 다른 물음에
+답한다** — 지갑은 「이 포인트가 내 화면에 있어야 하는가」(관계)이고 내역은 「무슨 일이
+일어났는가」(사건)다. 두 정의가 각자 움직이므로 오늘 겹친다고 내일 겹치지 않는다. 그리고
+목록은 언제나 잘려 올 수 있다.
+
+이름·이모지·색은 표기이므로 「일어난 때의 값」을 따로 실을 필요가 없다. 수가 아니다.
+
+**이체에는 상대와 방향이 실려 온다.** `fromId` · `toId` 는 오지 않는다 — 화면이 id 를 맞춰
+보고 방향을 정하지 않는다. 이름도 사용자 목록을 뒤져 맞추면 안 된다 — 목록에 없는 순간
+조용히 틀린다. **누구인지도 어느 방향인지도 서버가 아는 사실이다.**
 
 **시각은 `occurredAt` 하나다.** 확정이 곧 기입이라 `createdAt` · `confirmedAt` 을 나누지 않는다
 (`docs/LEDGER.md` 「거래일과 기표일을 나누지 않는다」). `Transfer.id` · `Issue.id` 는 사건의 id 다 —
@@ -502,7 +518,6 @@ interface Listing {
 
 type Buyability =
   | 'ok'
-  | 'notMember'            // 비공개 은행의 비회원
   | 'issuer'               // 은행장은 자기 품목을 사지 않는다
   | 'unlisted'             // 내려갔다
   | 'soldOut'              // 남은 것이 없다
@@ -512,6 +527,7 @@ type Buyability =
 /** 한 번의 구매. 수량은 화면의 편의이고 원장의 단위는 교환권 하나다 */
 interface Purchase {
   id: string
+  point: PointMark
   listingId: string
   listingName: string          // 그때의 이름. 품목이 내려가도 줄은 남는다
   pointTypeId: PointTypeId
@@ -573,9 +589,15 @@ interface PurchaseResult {
 **내린 품목은 고칠 수 없다**(`409 LISTING_UNLISTED`). 내린 것은 끝난 것이고 되살리는 길을
 두지 않는다 — 다시 팔려면 새로 게시한다. 그것은 새 약속이다.
 
-**내리기** — 아직 아무도 안 샀으면 행이 사라진다. 팔린 뒤에는 `unlistedAt` 이 찍히고
-살 수 없게 된다. **이미 산 사람의 교환권은 그대로다.** 둘 다 `204` 이고, 이미 내린 것을
-다시 내려도 `204` 다.
+**내리기** — `unlistedAt` 이 찍힌다. **행을 지우지 않는다.** 목록에서 사라지고 살 수 없게
+되는 것은 같지만, 지우면 그 id 가 무엇이었는지도 누가 그 은행의 은행장이었는지도 함께
+사라져 **다시 누른 사람에게 「없다」밖에 답할 것이 없다.** 초대를 소진 표시로 남기는 것과
+같은 이유다(위 「초대는 수락되면 소진된다」). `204` 이고 **이미 내린 것을 다시 내려도
+`204`** 다 — 예외가 없다.
+
+「없으면 `204`」로 접을 수는 없다. 그러면 남의 품목은 `403` 이고 없는 id 는 `204` 라 그 차이가
+존재를 알려 주고, 반대로 전부 `204` 로 접으면 남의 품목을 내리려던 사람에게 「내렸다」고
+말하게 된다. **지우지 않는 것이 그 갈림을 애초에 만들지 않는다.**
 
 **내리기도 품목 행을 잠그고 읽는다.** 「지울지 표시만 할지」가 판 수로 갈리는데, 잠그지
 않으면 구매가 커밋하는 사이 스냅샷으로 「아무도 안 샀다」를 읽고 **방금 교환권이 가리키는
