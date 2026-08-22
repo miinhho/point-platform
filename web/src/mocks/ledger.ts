@@ -1,5 +1,4 @@
 import type {
-  CapChange,
   HistoryEntry,
   PointMark,
   Invite,
@@ -68,7 +67,7 @@ function seedUsers(): SeedUser[] {
 /** 씨앗은 보는 사람과 무관한 것만 갖는다. 나머지는 `viewOf` 가 요청자 기준으로 낸다 */
 type SeedPoint = Omit<
   PointType,
-  'canIssue' | 'issuableHeadroom' | 'nameIsShared' | 'memberCount' | 'membership'
+  'canIssue' | 'nameIsShared' | 'memberCount' | 'membership'
 >
 
 function seedPointTypes(): SeedPoint[] {
@@ -167,6 +166,11 @@ type BalanceKey = string
 const balanceKey = (pointTypeId: PointTypeId, userId: UserId): BalanceKey =>
   `${pointTypeId}:${userId}`
 
+/** `${pointTypeId}:${senderId}` → 그 사람이 그 포인트로 보낸 사람들 */
+type RecentKey = string
+const recentKey = (pointTypeId: PointTypeId, senderId: UserId): RecentKey =>
+  `${pointTypeId}:${senderId}`
+
 function seedBalances(): Map<BalanceKey, Points> {
   return new Map<BalanceKey, Points>([
     [balanceKey('pt_on', SEED_ISSUER), 3_240_000],
@@ -206,12 +210,12 @@ function seedMembers(): Map<PointTypeId, Set<UserId>> {
   ])
 }
 
-/** 포인트별로 다르다. */
-function seedRecent(): Map<PointTypeId, UserId[]> {
-  return new Map<PointTypeId, UserId[]>([
-    ['pt_on', ['u_jisoo', 'u_taeyun', 'u_junho']],
-    ['pt_sol', ['u_seoyeon']],
-    ['pt_gm', ['u_jisu']],
+/** 포인트별로 다르고 **사람별로도 다르다.** 내가 보낸 사람이지 그 은행이 보낸 사람이 아니다 */
+function seedRecent(): Map<RecentKey, UserId[]> {
+  return new Map<RecentKey, UserId[]>([
+    [recentKey('pt_on', SEED_ISSUER), ['u_jisoo', 'u_taeyun', 'u_junho']],
+    [recentKey('pt_sol', SEED_ISSUER), ['u_seoyeon']],
+    [recentKey('pt_gm', SEED_ISSUER), ['u_jisu']],
   ])
 }
 
@@ -221,7 +225,7 @@ interface State {
   balances: Map<BalanceKey, Points>
   /** 「처음이에요」 표시가 꺼진 (포인트, 사용자). 발행은 쓰는 것이 아니라 넣지 않는다 */
   spent: Set<BalanceKey>
-  transfers: Map<TransferId, Transfer>
+  transfers: Map<TransferId, StoredTransfer>
   /** `${요청자}:${멱등성 키}` → 이체 id. 남의 키로 남의 이체를 꺼낼 수 없다 */
   byKey: Map<string, TransferId>
   /** 멱등성 키 → 창설된 포인트 id. 창설도 되돌릴 수 없으므로 두 번 만들지 않는다 */
@@ -234,7 +238,7 @@ interface State {
   issueOrder: IssueId[]
   /** `${요청자}:${멱등성 키}` → 발행 id */
   issuedByKey: Map<string, IssueId>
-  /** 최신순. 이체와 섞여 내역이 된다 */
+  /** 내역에 오르지 않는다. 같은 키로 다시 온 요청에 답하려고만 둔다 */
   capChanges: CapChange[]
   /** 비공개 은행의 회원. 은행장은 언제나 여기 있다 */
   members: Map<PointTypeId, Set<UserId>>
@@ -244,7 +248,7 @@ interface State {
   acceptedInvites: Map<string, SeedInvite>
   /** `${요청자}:${멱등성 키}` → 초대 id */
   invitedByKey: Map<string, string>
-  recent: Map<PointTypeId, UserId[]>
+  recent: Map<RecentKey, UserId[]>
 }
 
 function initialState(): State {
@@ -316,23 +320,23 @@ export function findPointType(pointTypeId: PointTypeId, userId: UserId): PointTy
 }
 
 /**
- * 그 사람에게 이 은행이 존재하는가. `404` 는 **존재를 감추는 규칙**이지 회원을
- * 가르는 규칙이 아니다 — 잔액 행이 있다는 것은 이미 닿았다는 증거이고, 이미 아는
- * 것을 감추면 감춰지는 것이 아니라 고장난 것처럼 보인다. 계약: docs/API.md
- */
-/**
  * 이 은행의 **존재를 알아도 되는가.** 지갑이 담는 기준과 다르고, 맞추면 틀린다 —
- * 계약: docs/API.md 「지갑과 도달성은 다른 물음이다」
+ * 계약: docs/API.md 「지갑과 도달성은 다른 물음이다」. `404` 는 존재를 감추는 규칙이지
+ * 회원을 가르는 규칙이 아니다.
  *
- * 여기서 잔액을 보는 이유는 나온 사람의 언 잔액이 계약이 의도해서 만든 상태이기
- * 때문이다. 카드는 있는데 페이지가 없으면 같은 사실을 두 곳이 다르게 말한다.
+ * **한 번 받은 사람은 영원히 닿는다.** 다 쓰고 나가도 그 은행의 페이지는 계속 보인다 —
+ * 이미 본 은행을 다시 감출 수는 없고, 은행장이 내보내기로 끊는 것은 앞으로의 거래이지
+ * 존재를 안다는 사실이 아니다.
+ *
+ * 은행장이 여기 없는 이유는 창설이 그를 회원으로 넣기 때문이다. 그 둘 중 하나가 빠지면
+ * 자기가 만든 은행에 못 닿는다.
  */
 function reachable(pointType: SeedPoint, userId: UserId): boolean {
   return (
     pointType.visibility === 'public' ||
     isMember(pointType.id, userId) ||
     isInvited(pointType.id, userId) ||
-    balanceOf(pointType.id, userId) > 0
+    hasReceived(pointType.id, userId)
   )
 }
 
@@ -360,11 +364,27 @@ export function balanceOf(pointTypeId: PointTypeId, userId: UserId): Points {
 }
 
 /**
+ * 받은 적이 있는가. **행의 존재가 답이다** — 행은 받을 때만 나므로 다 써서 0 이 되어도
+ * 남고, 한 번도 못 받았으면 아예 없다. 잔액 `> 0` 과 다른 물음이고, 그 차이가 「가진 적
+ * 없는 0」과 「가졌던 0」을 가른다(docs/JOURNEY.md 여정 1 · docs/LEDGER.md 3 단계).
+ */
+function hasReceived(pointTypeId: PointTypeId, userId: UserId): boolean {
+  return state.balances.has(balanceKey(pointTypeId, userId))
+}
+
+/**
  * **담는 기준은 잔액이 아니라 관계다** — 계약: docs/API.md.
  *
- * 잔액 0 이어도 발행자이거나 회원이면 담는다. 걸러 내면 화면이 그 상태를 표현할 수
- * 없다 — 초대를 수락한 사람은 처음엔 잔액이 0 이고, 수락이 초대를 소진시키므로
- * 들어온 문마저 닫힌다. 가입은 됐는데 그 은행이 어느 화면에도 없게 된다.
+ * 관계 셋: 받은 적 있다 · 발행자다 · 회원이다. 잔액 `> 0` 이 아니다.
+ *
+ * - 걸러 내면 화면이 그 상태를 표현할 수 없다. 초대를 수락한 사람은 처음엔 잔액이 0 이고,
+ *   수락이 초대를 소진시키므로 들어온 문마저 닫힌다 — 가입은 됐는데 그 은행이 어느
+ *   화면에도 없게 된다
+ * - 받은 적 있는 0 을 걸러 내면 「가진 적 없는 0」과 「가졌던 0」이 둘 다 없음이 되어
+ *   구별할 재료가 사라진다 (여정 1)
+ *
+ * 이 셋은 `reachable` 안에 있어야 한다 — 담기는데 못 닿으면 카드는 있고 페이지는 없다.
+ * 반대는 열려 있다: 초대만 받은 사람은 닿지만 안 담긴다.
  */
 export function balancesOf(userId: UserId) {
   return seedPoints()
@@ -380,8 +400,10 @@ export function balancesOf(userId: UserId) {
       }
     })
     .filter(
-      ({ pointType, amount }) =>
-        amount > 0 || pointType.canIssue || pointType.membership === 'member',
+      ({ pointType }) =>
+        hasReceived(pointType.id, userId) ||
+        pointType.canIssue ||
+        pointType.membership === 'member',
     )
 }
 
@@ -390,7 +412,6 @@ export function viewOf(pointType: SeedPoint, userId: UserId): PointType {
   return {
     ...pointType,
     canIssue: pointType.issuerId === userId,
-    issuableHeadroom: Math.max(0, pointType.issueCap - pointType.totalIssued),
     nameIsShared: sharesName(pointType.name, seedPoints()),
     // 공개 은행에는 회원 개념이 없다. 0 이 아니라 null 이어야 그 차이가 남는다.
     memberCount:
@@ -407,7 +428,9 @@ function membershipOf(pointType: SeedPoint, userId: UserId): Membership | null {
 }
 
 /**
- * 결과에 동명이인을 함께 담는다. 겹침은 결과의 성질이 아니라 원장의 성질이다.
+ * 맞는 사람만 담는다. **동명이인을 함께 담지 않는다** — 겹치는지는 `nameIsShared` 가
+ * 이미 답하므로 함께 담는 것은 그것이 없던 때의 방어이고, 지금은 `@jisu` 로 찾은
+ * 사람에게 모르는 김지수가 딸려 나오는 부작용만 남는다. 계약: docs/API.md
  *
  * `pointTypeId` 가 오면 그 포인트로 보낼 수 있는 사람만 담는다 — 비공개 은행이면
  * 회원뿐이다. 애초에 안 뜨게 하는 것이 「회원이 아니에요」라고 말하는 것보다 낫다.
@@ -418,43 +441,90 @@ export function searchUsers(
   pointTypeId: PointTypeId | null,
 ): User[] {
   const bank = pointTypeId ? state.pointTypes.get(pointTypeId) : undefined
+  /*
+   * 은행을 대고 물었는데 그 안에서 내가 보낼 수 없으면 **아무도 없다.** 없는 은행도
+   * 같은 답이다 — 답의 모양이 갈리면 감춘 은행의 존재가 목록의 길이로 샌다.
+   * 실서버가 그렇게 답하는 것을 확인했다.
+   */
+  if (pointTypeId && (bank === undefined || !usable(bank, meId))) return []
   const others = allUsers().filter(
     (user) => user.id !== meId && (!bank || usable(bank, user.id)),
   )
   if (!query?.trim()) return others
 
   const needle = query.trim().toLowerCase()
-  const matched = others.filter(
+  return others.filter(
     (user) => user.name.includes(needle) || user.handle.toLowerCase().includes(needle),
   )
-  const names = new Set(matched.map((user) => user.name))
-  return others.filter((user) => names.has(user.name))
 }
 
-export function recentFor(pointTypeId: PointTypeId, limit: number): User[] {
-  return (state.recent.get(pointTypeId) ?? [])
-    .slice(0, limit)
+/**
+ * **내가** 그 포인트로 최근에 보낸 사람 — 계약: docs/API.md.
+ *
+ * 은행별로만 두면 그 은행에서 누가 최근에 받았는지를 아무에게나 답하게 된다.
+ * 명부보다 더 새는 쪽이다 — 명부는 누가 속하는지고 이것은 **누가 움직였는지**라,
+ * 길이가 0 이 아닌 것 하나로 감춘 은행의 존재까지 드러난다.
+ */
+export function recentFor(pointTypeId: PointTypeId, meId: UserId, limit: number): User[] {
+  const bank = state.pointTypes.get(pointTypeId)
+  if (bank === undefined || !usable(bank, meId)) return []
+  return (state.recent.get(recentKey(pointTypeId, meId)) ?? [])
     .map((id) => userById(id))
-    .filter((user): user is User => user !== undefined)
+    // 받았던 사람이 나갔으면 지금은 보낼 수 없다. 지운 것이 아니라 못 보내는 것이다
+    .filter((user): user is User => user !== undefined && usable(bank, user.id))
+    .slice(0, limit)
+}
+
+/**
+ * 원장이 쥐고 있는 이체. **보내는 쪽과 받는 쪽이 여기 있고 응답에는 없다** — 상대와
+ * 방향은 보는 사람마다 다르므로 `transferViewOf` 가 그때 만든다. 계약: docs/API.md
+ */
+interface StoredTransfer {
+  id: TransferId
+  idempotencyKey: string
+  pointTypeId: PointTypeId
+  fromId: UserId
+  toId: UserId
+  amount: Points
+  occurredAt: string
 }
 
 /** 이체는 관여한 사람만 읽는다 — 계약: docs/API.md */
-const involves = (transfer: Transfer, meId: UserId): boolean =>
+const involves = (transfer: StoredTransfer, meId: UserId): boolean =>
   transfer.fromId === meId || transfer.toId === meId
+
+/**
+ * 보는 사람 기준으로 세운다. 보낸 쪽에는 받은 사람이, 받은 쪽에는 보낸 사람이 실린다 —
+ * 상대를 기록할 때 하나로 정해 두면 **받은 사람의 내역에 자기 이름이 상대로 뜬다.**
+ */
+function transferViewOf(stored: StoredTransfer, meId: UserId): Transfer {
+  const outgoing = stored.fromId === meId
+  const other = userById(outgoing ? stored.toId : stored.fromId)!
+  return {
+    id: stored.id,
+    idempotencyKey: stored.idempotencyKey,
+    pointTypeId: stored.pointTypeId,
+    amount: stored.amount,
+    counterparty: { name: other.name, handle: other.handle, nameIsShared: other.nameIsShared },
+    outgoing,
+    occurredAt: stored.occurredAt,
+  }
+}
 
 const idempotencyScope = (meId: UserId, key: string): string => `${meId}:${key}`
 
 export function findByIdempotencyKey(key: string, meId: UserId): Transfer | undefined {
   const id = state.byKey.get(idempotencyScope(meId, key))
-  return id ? state.transfers.get(id) : undefined
+  const stored = id ? state.transfers.get(id) : undefined
+  return stored && transferViewOf(stored, meId)
 }
 
 /** 남의 것은 없는 것과 같다. 있다고 알려 주면 그 id 가 존재한다는 답이 된다. */
 export function findTransfer(id: TransferId, meId: UserId): TransferDetail | undefined {
-  const transfer = state.transfers.get(id)
-  if (!transfer || !involves(transfer, meId)) return undefined
+  const stored = state.transfers.get(id)
+  if (!stored || !involves(stored, meId)) return undefined
   // 상세도 일어난 일이지 지금 가진 것이 아니다 — 지갑을 뒤지는 길을 남기지 않는다.
-  return { transfer, point: pointOf(transfer.pointTypeId) }
+  return { transfer: transferViewOf(stored, meId), point: pointOf(stored.pointTypeId) }
 }
 
 /**
@@ -464,20 +534,19 @@ export function findTransfer(id: TransferId, meId: UserId): TransferDetail | und
 export function history(meId: UserId, pointTypeId: PointTypeId | null, limit: number): HistoryEntry[] {
   const transfers: HistoryEntry[] = state.order
     .map((id) => state.transfers.get(id)!)
-    .filter((transfer) => involves(transfer, meId))
-    .map((transfer) => ({ type: 'transfer', transfer, point: pointOf(transfer.pointTypeId) }))
+    .filter((stored) => involves(stored, meId))
+    .map((stored) => ({
+      type: 'transfer',
+      transfer: transferViewOf(stored, meId),
+      point: pointOf(stored.pointTypeId),
+    }))
 
   const issues: HistoryEntry[] = state.issueOrder
     .map((id) => state.issues.get(id)!)
     .filter((issue) => issue.issuerId === meId)
     .map((issue) => ({ type: 'issue', issue, point: pointOf(issue.pointTypeId) }))
 
-  const held = new Set(balancesOf(meId).map(({ pointType }) => pointType.id))
-  const caps: HistoryEntry[] = state.capChanges
-    .filter((capChange) => held.has(capChange.pointTypeId))
-    .map((capChange) => ({ type: 'capChange', capChange, point: pointOf(capChange.pointTypeId) }))
-
-  return [...transfers, ...issues, ...caps]
+  return [...transfers, ...issues]
     .filter((entry) => !pointTypeId || pointTypeIdOf(entry) === pointTypeId)
     .sort((a, b) => timeOf(b).localeCompare(timeOf(a)))
     .slice(0, limit)
@@ -504,19 +573,15 @@ function pointTypeIdOf(entry: HistoryEntry): PointTypeId {
       return entry.transfer.pointTypeId
     case 'issue':
       return entry.issue.pointTypeId
-    case 'capChange':
-      return entry.capChange.pointTypeId
   }
 }
 
 function timeOf(entry: HistoryEntry): string {
   switch (entry.type) {
     case 'transfer':
-      return entry.transfer.confirmedAt
+      return entry.transfer.occurredAt
     case 'issue':
-      return entry.issue.confirmedAt
-    case 'capChange':
-      return entry.capChange.changedAt
+      return entry.issue.occurredAt
   }
 }
 
@@ -569,6 +634,21 @@ export function createPointType(meId: UserId, input: CreatePointTypeInput): Poin
  */
 export function findCapChangeByKey(key: string): CapChange | undefined {
   return state.capChanges.find((change) => change.idempotencyKey === key)
+}
+
+/**
+ * 계약 타입이 아니다 — 어느 응답에도 실리지 않는다. 서버는 변경을 남기되 읽는
+ * 엔드포인트가 없고(docs/API.md), 여기서 남기는 이유도 하나뿐이다: 같은 키로 다시
+ * 온 요청에 「이미 했다」고 답하는 것.
+ */
+interface CapChange {
+  id: string
+  idempotencyKey: string
+  pointTypeId: PointTypeId
+  byId: UserId
+  previousCap: Points
+  issueCap: Points
+  changedAt: string
 }
 
 export function changeCap(
@@ -723,8 +803,28 @@ export function membersOf(pointTypeId: PointTypeId, meId: UserId): User[] {
 }
 
 /**
- * 나가기와 내보내기는 같은 일을 하고 누가 정했느냐만 다르다. 둘 다 **포인트를
- * 회수하지 않는다** — 잔액은 그대로 남고 쓸 수 없다. 계약: docs/API.md
+ * 나간다. **답은 「지금 회원인가」 하나로 갈린다** — 방금 나갔든, 처음부터 아니든,
+ * 닿지 못하든, 그 id 의 은행이 없든 전부 성공이다. 계약: docs/API.md
+ *
+ * 「닿지 못하면 없는 은행」을 여기 적용하면 틀린다. 잔액 0 으로 나간 사람은 더는 닿지
+ * 못하므로, 응답을 못 받고 다시 누른 그 사람이 「이 은행이 없어요」를 본다.
+ */
+export function leaveBank(meId: UserId, pointTypeId: PointTypeId): void {
+  const pointType = state.pointTypes.get(pointTypeId)
+  if (!pointType) return
+  // 감출 것이 없는 자리 둘 — 공개 은행은 감추지 않고, 은행장은 언제나 닿는다
+  if (pointType.visibility === 'public') throw new LedgerError('NOT_A_PRIVATE_BANK')
+  if (pointType.issuerId === meId) throw new LedgerError('ISSUER_CANNOT_LEAVE')
+
+  state.members.get(pointTypeId)?.delete(meId)
+}
+
+/**
+ * 내보낸다. 나가기와 같은 일을 하고 누가 정했느냐만 다르다 — 둘 다 **포인트를 회수하지
+ * 않는다.** 잔액은 그대로 남고 쓸 수 없다. 계약: docs/API.md
+ *
+ * 문이 나가기와 다른 이유는 부르는 사람이 다르기 때문이다. 은행장은 언제나 회원이라
+ * 여기서 감추는 것은 「남의 은행 명부를 건드리려는 사람」이다.
  */
 export function removeMember(meId: UserId, pointTypeId: PointTypeId, targetId: UserId): void {
   const pointType = state.pointTypes.get(pointTypeId)
@@ -732,8 +832,8 @@ export function removeMember(meId: UserId, pointTypeId: PointTypeId, targetId: U
   if (!pointType || pointType.visibility === 'public' || !isMember(pointTypeId, meId)) {
     throw new LedgerError('POINT_TYPE_NOT_FOUND')
   }
-  // 남을 내보내는 것은 은행장만 한다. 나가는 것은 누구나 자기에 대해 한다.
-  if (targetId !== meId && pointType.issuerId !== meId) throw new LedgerError('NOT_ISSUER')
+  // 은행장만 부른다. 자기 자신을 id 로 지목해도 마찬가지다 — 나가기는 다른 경로다.
+  if (pointType.issuerId !== meId) throw new LedgerError('NOT_ISSUER')
   // 발행할 사람이 없는 은행이 되고, 상한도 품목도 관리할 수 없어진다.
   if (targetId === pointType.issuerId) throw new LedgerError('ISSUER_CANNOT_LEAVE')
 
@@ -763,8 +863,8 @@ export function commitTransfer(meId: UserId, input: CommitInput): Transfer {
     throw new LedgerError('INSUFFICIENT_BALANCE')
   }
 
-  move(pointType.id, meId, -input.amount)
-  move(pointType.id, recipient.id, input.amount)
+  debit(pointType.id, meId, input.amount)
+  credit(pointType.id, recipient.id, input.amount)
   // 판단이 실제로 필요한 순간이 여기였다. 지나고 나면 판단은 끝난 것이다.
   state.spent.add(balanceKey(pointType.id, meId))
   return record(meId, pointType.id, recipient, input)
@@ -803,7 +903,7 @@ export function commitIssue(meId: UserId, input: IssueInput): Issue {
 
   const totalIssuedAfter = pointType.totalIssued + input.amount
   state.pointTypes.set(pointType.id, { ...pointType, totalIssued: totalIssuedAfter })
-  move(pointType.id, meId, input.amount)
+  credit(pointType.id, meId, input.amount)
 
   const issue: Issue = {
     id: `i_${state.issueOrder.length + 1}_${input.idempotencyKey.slice(0, 8)}`,
@@ -813,7 +913,7 @@ export function commitIssue(meId: UserId, input: IssueInput): Issue {
     amount: input.amount,
     totalIssuedAfter,
     issueCapAt: pointType.issueCap,
-    confirmedAt: new Date().toISOString(),
+    occurredAt: new Date().toISOString(),
   }
   state.issues.set(issue.id, issue)
   state.issueOrder.unshift(issue.id)
@@ -833,8 +933,19 @@ function requireRecipient(toId: UserId): SeedUser {
   return recipient
 }
 
-function move(pointTypeId: PointTypeId, userId: UserId, delta: Points): void {
-  state.balances.set(balanceKey(pointTypeId, userId), balanceOf(pointTypeId, userId) + delta)
+/** 입금. **행이 없으면 만든다** — 보유자 계정이 나는 자리는 여기 하나다 */
+function credit(pointTypeId: PointTypeId, userId: UserId, amount: Points): void {
+  state.balances.set(balanceKey(pointTypeId, userId), balanceOf(pointTypeId, userId) + amount)
+}
+
+/**
+ * 차감. 행을 만들지 않는다 — 잔액이 모자라면 여기 오기 전에 막히므로 행은 이미 있다.
+ * 여기서 행이 나면 「받은 적 있다」가 「보내려 한 적 있다」로 넓어진다.
+ */
+function debit(pointTypeId: PointTypeId, userId: UserId, amount: Points): void {
+  const key = balanceKey(pointTypeId, userId)
+  if (!state.balances.has(key)) return
+  state.balances.set(key, balanceOf(pointTypeId, userId) - amount)
 }
 
 function record(
@@ -843,30 +954,23 @@ function record(
   recipient: SeedUser,
   input: CommitInput,
 ): Transfer {
-  const now = new Date().toISOString()
-  const other = userById(recipient.id)!
-  const transfer: Transfer = {
+  const transfer: StoredTransfer = {
     id: `t_${state.order.length + 1}_${input.idempotencyKey.slice(0, 8)}`,
     idempotencyKey: input.idempotencyKey,
     pointTypeId,
     fromId: meId,
     toId: recipient.id,
     amount: input.amount,
-    // 누구인지는 원장의 성질이다. 화면이 목록을 뒤지면 목록에 없는 순간 틀린다.
-    counterparty: { name: other.name, handle: other.handle, nameIsShared: other.nameIsShared },
-    createdAt: now,
-    confirmedAt: now,
+    occurredAt: new Date().toISOString(),
   }
 
   state.transfers.set(transfer.id, transfer)
   state.byKey.set(idempotencyScope(meId, input.idempotencyKey), transfer.id)
   state.order.unshift(transfer.id)
 
-  const previous = state.recent.get(pointTypeId) ?? []
-  state.recent.set(pointTypeId, [
-    recipient.id,
-    ...previous.filter((id) => id !== recipient.id),
-  ])
+  const key = recentKey(pointTypeId, meId)
+  const previous = state.recent.get(key) ?? []
+  state.recent.set(key, [recipient.id, ...previous.filter((id) => id !== recipient.id)])
 
-  return transfer
+  return transferViewOf(transfer, meId)
 }

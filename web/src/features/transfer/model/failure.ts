@@ -59,14 +59,23 @@ export function handleFailure(code: FailureCode, kind: FlowKind): FailureHandlin
     case 'SERVER':
       return { retryable: true, editable: true, repickable: false, aboutSupply }
 
-    // 이 다섯은 실패 화면에 오지 않는다 — 인증은 로그인으로 가고, 상한 미달은
+    // 아래는 실패 화면에 오지 않는다 — 인증은 로그인으로 가고, 상한 미달은
     // 그 화면 안에서 그 자리에 뜬다. 그래도 값을 주는 것은 화면이 방어적으로
     // 그리기 때문이고, 여기서 빠뜨리면 컴파일이 잡는다.
     case 'CAP_BELOW_ISSUED':
     case 'MALFORMED_REQUEST':
     case 'TRANSFER_NOT_FOUND':
+    case 'ISSUE_NOT_FOUND':
     case 'BAD_CREDENTIALS':
     case 'UNAUTHENTICATED':
+    // 상점은 자기 화면에서 답한다. 이체·발행 실패 화면으로 오지 않는다.
+    case 'LISTING_NOT_FOUND':
+    case 'OUT_OF_STOCK':
+    case 'PURCHASE_LIMIT_EXCEEDED':
+    case 'STOCK_BELOW_SOLD':
+    case 'LISTING_UNLISTED':
+    case 'ISSUER_CANNOT_BUY':
+    case 'VOUCHER_NOT_FOUND':
       return { retryable: false, editable: false, repickable: false, aboutSupply }
   }
 }

@@ -33,7 +33,6 @@ const ON: PointType = {
   totalIssued: 50_000_000,
   issueCap: 100_000_000,
   canIssue: false,
-  issuableHeadroom: 50_000_000,
 }
 const JISOO: User = { id: 'u_jisoo', name: '김지수', handle: '@jisoo', nameIsShared: true }
 

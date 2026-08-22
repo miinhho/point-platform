@@ -131,11 +131,25 @@ describe('여정 3 — 받는 사람', () => {
     expect(screen.getByText('보낸 적 없음')).toBeTruthy()
   })
 
-  // 결과 안에서만 겹침을 세면 여기서 방어가 꺼진다.
-  it('핸들로 검색해 한 명만 맞아도 동명이인이 함께 보인다', async () => {
+  it('핸들로 검색하면 그 한 명만 나온다 — 모르는 동명이인이 딸려 오지 않는다', async () => {
     const user = await openPicker()
     await user.type(screen.getByPlaceholderText('이름 또는 핸들'), '@jisu')
-    expect(await screen.findByText('@jisoo')).toBeTruthy()
+    expect(await screen.findByText('@jisu')).toBeTruthy()
+    await waitFor(() => expect(screen.queryByText('@jisoo')).toBeNull())
+  })
+
+  /*
+   * 비교할 옆줄이 사라진 자리다. 전에는 동명이인 둘이 나란히 와서 「겹친다」를 배치가
+   * 말했고, 이제는 한 줄뿐이라 **핸들 하나가 그 일을 한다.** 무엇으로 강조하는지는
+   * `system.ts` 가 정한다 — `handleVerify` 는 `handle` 보다 크고 굵고 색이 다르다
+   * (색만으로 가르지 않는다). 여기서 재는 것은 화면이 그 갈래를 실제로 타는가다.
+   */
+  it('한 명만 나와도 겹치는 이름의 핸들은 안 겹치는 핸들과 다르게 그려진다', async () => {
+    const user = await openPicker()
+    await user.type(screen.getByPlaceholderText('이름 또는 핸들'), '@j')
+    const shared = await screen.findByText('@jisu')
+    const plain = screen.getByText('@junho')
+    expect(shared.className).not.toBe(plain.className)
   })
 
   it('찾는 사람이 없으면 그렇게 말한다', async () => {

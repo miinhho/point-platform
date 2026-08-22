@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { goAtom } from '@/app/atoms'
 import { toGrouped } from '@/shared/format'
+import { headroomOf } from '@/shared/headroom'
 import { startIssueAtom, startTransferAtom } from '@/features/transfer'
 import { BackButton } from '@/shared/ui/BackButton'
 import { IssuerSuffix } from '@/shared/ui/IssuerSuffix'
@@ -116,7 +117,7 @@ export function Bank({ pointTypeId, onBack }: { pointTypeId: PointTypeId; onBack
 
           {/* 여력·유통량·상한은 한 덩어리다. 상한 바꾸기는 그 안의 행동이지 나란한 기능이 아니다 */}
           {pointType.canIssue ? (
-            <Section label={t('bank.headroom')} value={toGrouped(pointType.issuableHeadroom)}>
+            <Section label={t('bank.headroom')} value={toGrouped(headroomOf(pointType))}>
               <Button
                 size="xl"
                 width="full"

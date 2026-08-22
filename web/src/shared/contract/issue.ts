@@ -7,6 +7,7 @@ import type { PointMark } from './point'
  * 「나」가 그 결과였다. 계약: docs/API.md 「발행은 이체가 아니다」
  */
 export interface Issue {
+  /** 사건의 id 다. 부속 기록이 자기 id 를 따로 갖지 않는다 */
   id: IssueId
   idempotencyKey: string
   pointTypeId: PointTypeId
@@ -17,7 +18,8 @@ export interface Issue {
   totalIssuedAfter: Points
   /** 그때의 상한. 나중에 바뀌어도 이 값은 안 바뀐다 */
   issueCapAt: Points
-  confirmedAt: string
+  /** 일어난 때. 이체와 같은 이름이다 — 갈래가 달라도 사건은 사건이다 */
+  occurredAt: string
 }
 
 export interface IssueDetail {

@@ -8,6 +8,7 @@ import { pointsApi } from './points'
 import { transfersApi } from './transfers'
 import { usersApi } from './users'
 import { walletApi } from './wallet'
+import type { PointTypeId } from '@/shared/contract'
 import { balanceOf, SEED_ISSUER as ME } from '@/mocks/ledger'
 import { expireAccessTokens } from '@/mocks/sessions'
 import { setSim } from '@/mocks/sim'
@@ -79,15 +80,31 @@ describe('조회', () => {
     expect(gm).toMatchObject({ amount: 0 })
   })
 
-  it('이름 검색은 동명이인을 모두 준다 — 화면이 구별을 책임진다', async () => {
+  it('이름 검색은 그 이름인 사람을 모두 준다 — 화면이 구별을 책임진다', async () => {
     const found = await endpoints.users('김지수')
     expect(found.map((u) => u.handle).sort()).toEqual(['@jisoo', '@jisu'])
   })
 
-  // 결과 안에서만 겹침을 세면 여기서 동명이인 방어가 꺼진다.
-  it('핸들로 검색해 한 명만 맞아도 동명이인을 함께 준다', async () => {
+  /*
+   * 맞는 사람만 온다. 겹침을 결과 안에서 세면 방어가 꺼지지만, 그것은 `nameIsShared`
+   * 가 없던 때의 이야기다 — 서버가 원장 전체를 보고 답하므로 한 명짜리 결과에서도
+   * 켜져 있다. 함께 담으면 부작용만 남는다: 핸들로 찾은 사람에게 모르는 사람이 딸려 온다.
+   */
+  it('핸들로 검색해 한 명만 맞으면 그 한 명만 준다. 겹침 표시는 켜져 있다', async () => {
     const found = await endpoints.users('@jisu')
-    expect(found.map((u) => u.handle).sort()).toEqual(['@jisoo', '@jisu'])
+    expect(found.map((u) => u.handle)).toEqual(['@jisu'])
+    expect(found[0].nameIsShared).toBe(true)
+  })
+
+  /*
+   * **포인트별이면서 사람별이다.** 은행별로만 두면 그 은행에서 누가 최근에 받았는지를
+   * 아무에게나 답하게 된다 — 계약: docs/API.md 「그 포인트로 최근에 **보낸** 사람」.
+   * 실서버가 요청자에 매어 답하는 것을 대조로 확인했다.
+   */
+  it('최근 대상은 사람마다 다르다 — 한 번도 안 보낸 사람에게는 비어 있다', async () => {
+    const session = await endpoints.login({ handle: '@jisoo', password: 'point' })
+    setTokens(session)
+    expect(await endpoints.recent('pt_on')).toEqual([])
   })
 
   // 포인트별 최근 대상이 이 계약의 핵심 중 하나다.
@@ -107,7 +124,7 @@ describe('이체', () => {
       { pointTypeId: 'pt_on', toId: 'u_jisoo', amount: 30_000 },
       key(),
     )
-    expect(transfer.confirmedAt).toBeTruthy()
+    expect(transfer.occurredAt).toBeTruthy()
     expect(transfer.pointTypeId).toBe('pt_on')
     expect(balanceOf('pt_on', ME)).toBe(3_210_000)
     expect(balanceOf('pt_on', 'u_jisoo')).toBe(842_000)
@@ -218,6 +235,32 @@ describe('발행', () => {
 
     const types = await endpoints.pointTypes()
     expect(types.find((t) => t.id === 'pt_gm')?.totalIssued).toBe(1_300_000)
+  })
+
+  async function refusedIssue(id: string): Promise<ApiError> {
+    const error: unknown = await endpoints.issue(id).then(() => null, (thrown: unknown) => thrown)
+    expect(error).toBeInstanceOf(ApiError)
+    return error as ApiError
+  }
+
+  /*
+   * 발행 id 도 내역에서 새어 나갈 수 있으므로 남의 것과 없는 것이 같은 답이다. 다만
+   * 이체의 코드를 빌리지는 않는다 — 화면이 코드로 갈리므로, 빌리면 발행 상세가
+   * 이체 이야기를 한다. 계약: docs/API.md 「발행도 같다」
+   */
+  it('남의 발행은 없는 발행과 같은 답이고, 이체의 코드를 빌리지 않는다', async () => {
+    const mine = await endpoints.createIssue({ pointTypeId: 'pt_gm', amount: 100_000 }, key())
+    setTokens(await endpoints.login({ handle: '@jisoo', password: 'point' }))
+
+    const theirs = await refusedIssue(mine.id)
+    const nothing = await refusedIssue('is_nope')
+    // 답이 갈리면 그 차이가 곧 「그 id 는 존재한다」가 된다
+    expect([theirs.status, theirs.code, theirs.message]).toEqual([
+      nothing.status,
+      nothing.code,
+      nothing.message,
+    ])
+    expect([theirs.status, theirs.code]).toEqual([404, 'ISSUE_NOT_FOUND'])
   })
 
   /*
@@ -530,15 +573,22 @@ describe('이체는 관여한 사람만 읽는다', () => {
     await expect(endpoints.transferByKey(idempotencyKey)).resolves.toMatchObject({ id: created.id })
   })
 
-  // 받은 쪽에게도 "돈이 어디 있는가" 를 답해야 한다 — docs/JOURNEY.md 여정 6
-  it('받은 쪽도 읽는다', async () => {
+  /*
+   * 받은 쪽에게도 "돈이 어디 있는가" 를 답해야 한다 — docs/JOURNEY.md 여정 6.
+   *
+   * **상대와 방향은 보는 사람마다 다르다.** 기록할 때 하나로 정해 두면 받은 사람의
+   * 내역에 자기 이름이 상대로 뜬다 — 화면은 그것을 「내가 나에게 보냈다」로 그린다.
+   */
+  it('받은 쪽도 읽는다. 상대는 보낸 사람이고 방향은 뒤집혀 있다', async () => {
     const created = await endpoints.createTransfer(
       { pointTypeId: 'pt_on', toId: 'u_jisoo', amount: 1_000 },
       key(),
     )
+    expect(created).toMatchObject({ outgoing: true, counterparty: { handle: '@jisoo' } })
+
     await switchTo(OUTSIDER)
     await expect(endpoints.transfer(created.id)).resolves.toMatchObject({
-      transfer: { id: created.id },
+      transfer: { id: created.id, outgoing: false, counterparty: { handle: '@minho' } },
     })
   })
 
@@ -552,7 +602,8 @@ describe('이체는 관여한 사람만 읽는다', () => {
       idempotencyKey,
     )
     expect(own.id).not.toBe(created.id)
-    expect(own.fromId).toBe('u_jisoo')
+    // 내 이체다 — 보낸 쪽이 나이고 상대는 내가 고른 사람이다.
+    expect(own).toMatchObject({ outgoing: true, counterparty: { handle: '@taeyun' } })
   })
 })
 
@@ -595,6 +646,10 @@ describe('비공개 은행은 회원이 아니면 없는 것과 같다', () => {
     const session = await endpoints.login({ handle: '@jisu', password: 'point' })
     setTokens(session)
   }
+  const asIssuer = async () => {
+    const session = await endpoints.login({ handle: '@minho', password: 'point' })
+    setTokens(session)
+  }
 
   it('회원에게는 보인다', async () => {
     expect(await endpoints.pointType('pt_cl')).toMatchObject({ visibility: 'private' })
@@ -614,6 +669,64 @@ describe('비공개 은행은 회원이 아니면 없는 것과 같다', () => {
     expect(types.map((type) => type.id)).not.toContain('pt_cl')
     // 공개 은행은 그대로 온다.
     expect(types.map((type) => type.id)).toContain('pt_on')
+  })
+
+  /*
+   * 은행 조회만 감추면 모자란다. 후보 목록이 그 은행의 회원을 그대로 답하면 **감춘
+   * 은행의 명부가 다른 문으로 나온다.** 실서버는 `[]` 로 답한다 — 대조로 확인했다.
+   */
+  it('회원이 아니면 후보 목록이 비어 있다', async () => {
+    await asOutsider()
+    expect(await endpoints.users('', 'pt_cl')).toEqual([])
+  })
+
+  /*
+   * **길이가 답이 되면 안 된다.** 없는 은행에는 아무나 담아 주고 감춘 은행에는 빈
+   * 목록을 주면, 빈 목록이 「그 은행은 있다」가 된다. 물어본 사람이 새로 아는 것이
+   * 없어야 한다 — 계약: docs/API.md 「비공개 은행에서 회원이 아닌 사람은 없는
+   * 사람과 구별되지 않아야 한다」
+   */
+  it('없는 은행과 못 보는 은행이 같은 답이다', async () => {
+    await asOutsider()
+    expect(await endpoints.users('', 'pt_없는것' as PointTypeId)).toEqual([])
+  })
+
+  it('회원에게는 그대로 온다 — 감추는 것이 지우는 것이 되지 않는다', async () => {
+    const handles = (await endpoints.users('', 'pt_cl')).map((user) => user.handle)
+    expect(handles).toContain('@jisoo')
+    expect(handles).not.toContain('@minho')
+  })
+
+  /*
+   * 후보 목록 옆에 같은 문이 하나 더 있었다. 최근 목록은 **명부보다 더 새는 쪽이다** —
+   * 명부는 누가 속하는지고 이것은 누가 움직였는지라, 길이가 0 이 아닌 것 하나로
+   * 감춘 은행의 존재까지 드러난다. 실서버는 `[]` 로 답한다.
+   */
+  it('회원이 아니면 최근 목록도 비어 있다', async () => {
+    await asOutsider()
+    expect(await endpoints.recent('pt_cl')).toEqual([])
+    expect(await endpoints.recent('pt_없는것' as PointTypeId)).toEqual([])
+  })
+
+  /*
+   * **한 번도 안 보낸 사람은 이것을 증명하지 못한다.** 그 사람은 애초에 목록이 없어서,
+   * 감추는 것이 없어도 빈 답이 온다. 재려면 **보낸 적이 있고 지금은 남남인** 사람이
+   * 있어야 한다 — 나가면서 자기 목록이 사라지는 것이 아니기 때문이다.
+   */
+  it('보낸 적이 있어도 나간 뒤에는 최근 목록이 비어 있다', async () => {
+    await endpoints.createInvite('pt_cl', 'u_jisu', key())
+    await asOutsider()
+    await endpoints.acceptInvite('pt_cl')
+
+    await asIssuer()
+    await endpoints.createTransfer({ pointTypeId: 'pt_cl', toId: 'u_jisu', amount: 5_000 }, key())
+
+    await asOutsider()
+    await endpoints.createTransfer({ pointTypeId: 'pt_cl', toId: 'u_jisoo', amount: 1_000 }, key())
+    expect((await endpoints.recent('pt_cl')).map((user) => user.id)).toEqual(['u_jisoo'])
+
+    await endpoints.leaveBank('pt_cl')
+    expect(await endpoints.recent('pt_cl')).toEqual([])
   })
 
   it('만든 사람은 자기 비공개 은행에 닿는다', async () => {
@@ -824,6 +937,56 @@ describe('나가기와 내보내기', () => {
     setTokens(session)
   }
 
+  /*
+   * **응답이 유실됐고 다시 눌렀다.** 그 사람이 아는 것은 「안 됐다」뿐이라 다시 누르고,
+   * 이미 나간 상태다. 서버는 도달성으로 문을 열고 지우는 것은 없는 것을 지워도 되므로
+   * `204` 다 — 계약: docs/API.md 「이미 나간 사람이 다시 나가도 `204`」.
+   *
+   * 회원인지로 문을 지키면 두 번째가 `404` 가 되고, **화면은 그것을 「이 은행이 없다」로
+   * 읽는다.** 방금까지 보던 은행이다.
+   */
+  it('이미 나간 사람이 다시 나가도 성공이다', async () => {
+    await asJisoo()
+    await endpoints.leaveBank('pt_cl')
+    // 잔액이 남아 도달성은 그대로다
+    await expect(endpoints.leaveBank('pt_cl')).resolves.toBeUndefined()
+  })
+
+  /*
+   * 「닿지 못하면 없는 은행」을 나가기에 적용하면 틀린다 — 잔액 0 으로 나간 사람은 더는
+   * 닿지 못하므로 다시 눌렀을 때 「이 은행이 없어요」를 본다. 방금까지 보던 은행이다.
+   * 그래서 답을 「지금 회원인가」 하나로 모은다. 계약: docs/API.md 「회원 자격」
+   */
+  it('닿지도 못하는 사람이 나가도 성공이다', async () => {
+    setTokens(await endpoints.login({ handle: '@jisu', password: 'point' }))
+    await expect(endpoints.leaveBank('pt_cl')).resolves.toBeUndefined()
+  })
+
+  // 답이 하나라 존재가 새지 않는다. 갈리는 순간 없는 id 와 감춘 은행이 구별된다
+  it('그 id 의 은행이 없어도 나가기는 성공이다', async () => {
+    await expect(endpoints.leaveBank('pt_nope' as PointTypeId)).resolves.toBeUndefined()
+  })
+
+  // 공개 은행에는 회원이 없다. 「없는 은행」이라고 답하면 있는 은행에 거짓말을 한다
+  it('공개 은행에서 나가려 하면 회원 개념이 없다고 답한다', async () => {
+    await expect(endpoints.leaveBank('pt_on')).rejects.toMatchObject({
+      code: 'NOT_A_PRIVATE_BANK',
+    })
+  })
+
+  /*
+   * 나간 사람은 지금 받을 수 없다. 최근 목록에 그대로 두면 화면이 **보낼 수 없는
+   * 사람을 제일 누르기 쉬운 자리에 놓는다** — 그 자리는 대상 선택의 첫 줄이다.
+   * 잔액처럼 지우는 것이 아니라 지금 보낼 수 있는 사람만 담는 것이다.
+   */
+  it('내보내진 사람은 최근 목록에서 빠진다', async () => {
+    await endpoints.createTransfer({ pointTypeId: 'pt_cl', toId: 'u_jisoo', amount: 1_000 }, key())
+    expect((await endpoints.recent('pt_cl')).map((u) => u.id)).toEqual(['u_jisoo'])
+
+    await endpoints.removeMember('pt_cl', 'u_jisoo')
+    expect(await endpoints.recent('pt_cl')).toEqual([])
+  })
+
   /** 계약: docs/API.md — 명부는 셋으로 답한다 */
   it('회원에게는 목록을 준다', async () => {
     expect((await endpoints.members('pt_cl')).map((u) => u.handle).sort()).toEqual([
@@ -1029,13 +1192,13 @@ describe('상한 변경', () => {
     await expect(endpoints.changeCap(GM, 10_000_000, key())).rejects.toMatchObject({ status: 400 })
   })
 
-  it('같은 키로 다시 보내도 이력은 한 줄이다', async () => {
+  // 「지금과 같은 값이면 400」이 멱등성 검사보다 앞서면, 성공한 요청이 400 으로 돌아온다.
+  it('같은 키로 다시 보내면 같은 값이라고 거절하지 않는다', async () => {
     const k = key()
     await endpoints.changeCap(GM, 20_000_000, k)
     await expect(endpoints.changeCap(GM, 20_000_000, k)).resolves.toMatchObject({
       issueCap: 20_000_000,
     })
-    await expect(endpoints.history()).resolves.toHaveLength(1)
   })
 
   // 응답을 못 받고 다시 누르면 상한은 이미 새 값이다. 같은 값 판정이 앞서면
@@ -1048,10 +1211,14 @@ describe('상한 변경', () => {
     await expect(endpoints.changeCap(GM, 20_000_000, k)).resolves.toMatchObject({
       issueCap: 20_000_000,
     })
-    await expect(endpoints.history()).resolves.toHaveLength(1)
   })
 
-  it('내역에 이체와 섞여 최신순으로 온다', async () => {
+  /*
+   * 원장 밖에 남는다 — 전기가 없어 사건이 되지 않는다(docs/LEDGER.md 4 단계).
+   * 바꾼 사람의 내역에도 안 오르는 것이 요점이다: 「보유자에게만 안 보인다」면
+   * 그것은 감추는 규칙인데, 여기서 정한 것은 **내역이 아니라는 것**이다.
+   */
+  it('내역에 오르지 않는다. 바꾼 사람에게도', async () => {
     const sent = await endpoints.createTransfer(
       { pointTypeId: GM, toId: 'u_jisu', amount: 1_000 },
       key(),
@@ -1059,28 +1226,22 @@ describe('상한 변경', () => {
     await endpoints.changeCap(GM, 20_000_000, key())
 
     await expect(endpoints.history()).resolves.toMatchObject([
-      { type: 'capChange', capChange: { previousCap: 10_000_000, issueCap: 20_000_000 } },
+      { type: 'transfer', transfer: { id: sent.id } },
+    ])
+
+    // 금머니를 45,000 가진 사람에게도 마찬가지다.
+    await signInAs('@jisu')
+    await expect(endpoints.history()).resolves.toMatchObject([
       { type: 'transfer', transfer: { id: sent.id } },
     ])
   })
 
-  // 발행자만 아는 변경은 약속이 아니다 — docs/JOURNEY.md 여정 8
-  it('그 포인트를 가진 사람의 내역에 보인다', async () => {
+  // 지금 상한은 늘 실려 온다 — 변경이 내역에서 빠져도 보유자가 상한을 아는 길은 남는다.
+  it('바뀐 상한은 보유자의 은행 페이지에 그대로 보인다', async () => {
     await endpoints.changeCap(GM, 20_000_000, key())
 
-    // @jisu 는 금머니를 45,000 가지고 있다.
     await signInAs('@jisu')
-    await expect(endpoints.history()).resolves.toMatchObject([
-      { type: 'capChange', capChange: { pointTypeId: GM, byId: ME } },
-    ])
-  })
-
-  it('안 가진 사람의 내역에는 없다', async () => {
-    await endpoints.changeCap(GM, 20_000_000, key())
-
-    // @jisoo 는 온포인트만 가진다.
-    await signInAs('@jisoo')
-    await expect(endpoints.history()).resolves.toEqual([])
+    await expect(endpoints.pointType(GM)).resolves.toMatchObject({ issueCap: 20_000_000 })
   })
 })
 
@@ -1261,7 +1422,98 @@ describe('지갑은 관계로 담는다', () => {
     expect(after?.pointType.membership).toBe('member')
   })
 
-  it('나가면 다시 빠진다 — 잔액이 없으면 관계도 없다', async () => {
+  /*
+   * **가진 적 없는 0 과 가졌던 0 은 다르다** — 여정 1 이 가르려던 것이 이것이다.
+   * 값이 둘 다 0 이라 담기느냐 마느냐가 유일한 재료이고, 걸러 내면 화면은 그 둘을
+   * 구별할 수 없다. 담는 기준이 잔액 `> 0` 이 아니라 **받은 적 있는가**인 이유다.
+   */
+  it('전액을 보내도 담긴다. 한 번도 안 받은 은행은 안 담긴다', async () => {
+    await endpoints.createTransfer(
+      { pointTypeId: 'pt_on', toId: 'u_jisoo', amount: balanceOf('pt_on', ME) },
+      key(),
+    )
+    // @minho 는 온포인트의 발행자도 아니고 공개 은행이라 회원도 아니다 — 남는 관계는 하나다.
+    const spent = (await endpoints.wallet()).balances.find((b) => b.pointType.id === 'pt_on')
+    expect(spent).toMatchObject({ amount: 0 })
+
+    // @jisu 는 금머니만 가진다. 온포인트는 가진 적이 없다.
+    setTokens(await endpoints.login({ handle: '@jisu', password: 'point' }))
+    const never = (await endpoints.wallet()).balances.find((b) => b.pointType.id === 'pt_on')
+    expect(never).toBeUndefined()
+  })
+
+  /*
+   * **한 번 받은 사람은 영원히 닿는다.** 이미 본 은행을 다시 감출 수는 없고, 내보내기가
+   * 끊는 것은 앞으로의 거래이지 존재를 안다는 사실이 아니다 — docs/API.md.
+   *
+   * 담기는데 못 닿으면 카드는 있고 페이지는 없다. 그래서 둘을 한 자리에서 잰다.
+   */
+  it('다 쓰고 나가도 비공개 은행에 닿고 카드도 남는다', async () => {
+    setTokens(await endpoints.login({ handle: '@jisoo', password: 'point' }))
+    await endpoints.createTransfer(
+      { pointTypeId: 'pt_cl', toId: 'u_minho', amount: balanceOf('pt_cl', 'u_jisoo') },
+      key(),
+    )
+    await endpoints.leaveBank('pt_cl')
+
+    await expect(endpoints.pointType('pt_cl')).resolves.toMatchObject({ membership: 'outsider' })
+    const held = (await endpoints.wallet()).balances.find((b) => b.pointType.id === 'pt_cl')
+    expect(held).toMatchObject({ amount: 0, sendable: 0 })
+  })
+
+  /*
+   * **지갑에 담기는 것은 반드시 닿는다.** 반대는 열려 있다 — 초대만 받은 사람은 닿지만
+   * 안 담긴다. 카드는 있는데 페이지가 `404` 면 같은 사실을 두 곳이 다르게 말한다.
+   *
+   * 지금 성립하는 것은 **두 목록이 겹쳐서일 뿐**이다. 어느 한쪽에 항목을 더할 때 반대쪽을
+   * 보지 않으면 깨지고, 깨진 것은 그 항목을 가진 사람만 만난다. 서버는 이것을
+   * `ReachabilityTest` 로 잰다 — 이 PR 이 담는 관계 셋을 다시 썼으므로 여기에도 둔다.
+   */
+  async function walletIsReachable(who: string): Promise<void> {
+    const { balances } = await endpoints.wallet()
+    for (const { pointType } of balances) {
+      await expect(
+        endpoints.pointType(pointType.id),
+        `${who} 의 지갑에 ${pointType.name} 이 있는데 은행 페이지가 없다`,
+      ).resolves.toBeTruthy()
+    }
+  }
+
+  const HANDLES = ['@minho', '@jisoo', '@taeyun', '@seoyeon', '@junho', '@jisu', '@onmart', '@solcafe']
+
+  it('담기는 것은 반드시 닿는다 — 시드의 관계 전부', async () => {
+    for (const handle of HANDLES) {
+      setTokens(await endpoints.login({ handle, password: 'point' }))
+      await walletIsReachable(handle)
+    }
+  })
+
+  // 시드만 보면 「겹쳐 있다」를 확인할 뿐이다. 이 PR 이 새로 만든 상태들에서 다시 본다.
+  it('담기는 것은 반드시 닿는다 — 상태가 움직인 뒤에도', async () => {
+    // 가졌던 0: 공개 은행에서 전액을 보낸다
+    await endpoints.createTransfer(
+      { pointTypeId: 'pt_on', toId: 'u_jisoo', amount: balanceOf('pt_on', ME) },
+      key(),
+    )
+    await walletIsReachable('전액을 보낸 @minho')
+
+    // 들어왔지만 아직 없는 0: 초대를 수락한다
+    await endpoints.createInvite('pt_cl', 'u_jisu', key())
+    setTokens(await endpoints.login({ handle: '@jisu', password: 'point' }))
+    await endpoints.acceptInvite('pt_cl')
+    await walletIsReachable('막 들어온 @jisu')
+
+    // 다 쓰고 나간 사람: 관계는 「받은 적 있다」 하나만 남는다
+    setTokens(await endpoints.login({ handle: '@jisoo', password: 'point' }))
+    await endpoints.createTransfer(
+      { pointTypeId: 'pt_cl', toId: 'u_minho', amount: balanceOf('pt_cl', 'u_jisoo') },
+      key(),
+    )
+    await endpoints.leaveBank('pt_cl')
+    await walletIsReachable('다 쓰고 나간 @jisoo')
+  })
+
+  it('나가면 다시 빠진다 — 받은 적이 없으면 관계도 없다', async () => {
     await endpoints.createInvite('pt_cl', 'u_jisu', key())
     setTokens(await endpoints.login({ handle: '@jisu', password: 'point' }))
     await endpoints.acceptInvite('pt_cl')
@@ -1269,29 +1521,6 @@ describe('지갑은 관계로 담는다', () => {
 
     const held = (await endpoints.wallet()).balances.find((b) => b.pointType.id === 'pt_cl')
     expect(held).toBeUndefined()
-  })
-
-  /*
-   * 지갑을 넓히면 내역이 따라 넓어진다. 계약이 「상한 변경은 **그 포인트가 자기 지갑에
-   * 있는 사람**과 발행자에게 간다」고 하고, 이 Mock 은 그 집합을 `balancesOf` 에서
-   * 그대로 읽는다 — 한 곳을 고쳐 두 곳이 함께 움직인다.
-   *
-   * 방향은 맞아 보인다. 상한은 은행 페이지에 보이는 공개 사실이고, 회원이 그 변화를
-   * 아는 것이 일관된다. 다만 **아무도 의도한 적 없이 따라 움직인 것**이라 적어 둔다.
-   */
-  it('잔액 0 인 회원도 상한 변경 내역을 받는다', async () => {
-    await endpoints.createInvite('pt_cl', 'u_jisu', key())
-    setTokens(await endpoints.login({ handle: '@jisu', password: 'point' }))
-    await endpoints.acceptInvite('pt_cl')
-    await expect(endpoints.history()).resolves.toEqual([])
-
-    setTokens(await endpoints.login({ handle: '@minho', password: 'point' }))
-    await endpoints.changeCap('pt_cl', 9_000_000, key())
-
-    setTokens(await endpoints.login({ handle: '@jisu', password: 'point' }))
-    const mine = await endpoints.history()
-    expect(mine).toHaveLength(1)
-    expect(mine[0]).toMatchObject({ type: 'capChange' })
   })
 
   // 잔액이 남으면 나가도 담긴다. 쓸 수 없을 뿐이다 — 계약: docs/API.md

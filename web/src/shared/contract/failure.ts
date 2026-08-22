@@ -30,6 +30,20 @@ export const FAILURE_CODES = [
   'MALFORMED_REQUEST',
   /** 그 이체가 없거나 내 것이 아니다 */
   'TRANSFER_NOT_FOUND',
+  /** 그 발행이 없거나 내 것이 아니다. 발행은 이체가 아니라 코드를 빌려 쓰지 않는다 */
+  'ISSUE_NOT_FOUND',
+  /*
+   * 상점(여정 12·13). **아직 서버가 내지 않는다** — 원장 6 단계다. 그래도 배열에
+   * 두는 이유는 이 배열이 「서버가 말할 수 있는 것」이라서다. 빠뜨린 코드는 `SERVER` 로
+   * 떨어지고, 그러면 확정된 실패가 「어디까지 갔는지 알 수 없어요」가 된다.
+   */
+  'LISTING_NOT_FOUND',
+  'OUT_OF_STOCK',
+  'PURCHASE_LIMIT_EXCEEDED',
+  'STOCK_BELOW_SOLD',
+  'LISTING_UNLISTED',
+  'ISSUER_CANNOT_BUY',
+  'VOUCHER_NOT_FOUND',
   /** 결과를 알 수 없다. 이 둘만 그렇다 */
   'NETWORK',
   'SERVER',

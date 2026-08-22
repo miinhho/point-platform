@@ -1,5 +1,12 @@
 
 // UI 문체는 해요체. 규칙은 copy.test.ts 가 지킨다.
+
+/** 이체·발행 흐름에서는 날 수 없는 코드의 「돈이 어디 있는가」. 그 흐름은 손대지 않았다 */
+const NOT_FROM_HERE = {
+  whereTransfer: '아무것도 나가지 않았어요',
+  whereIssue: '발행되지 않았어요',
+} as const
+
 export const ko = {
   common: {
     loading: '불러오는 중',
@@ -34,7 +41,8 @@ export const ko = {
 
   history: {
     title: '내역',
-    empty: '아직 보낸 것이 없어요',
+    /** 받은 것도 내역이다. 보낸 것만 말하면 받기만 한 사람에게 「없다」가 거짓이 된다 */
+    empty: '아직 오간 것이 없어요',
     loadFailed: '내역을 불러오지 못했어요',
     detailFailed: '이 내역을 불러오지 못했어요',
     detailAbsent: '이 기록은 볼 수 없어요',
@@ -42,15 +50,19 @@ export const ko = {
     issuedTo: '{{name}} 발행',
     detailTitleTransfer: '이체 내역',
     detailTitleIssue: '발행 내역',
-    at: '보낸 시각',
+    /*
+     * 방향은 글자가 말한다. 색으로 가르면 색맹·저조도에서 사라지고, 화살표를 쓰려면
+     * 아이콘 세트가 필요한데 이 앱의 이모지는 은행 표식이라 뜻이 겹친다.
+     * 조사가 상대 이름에 붙어 「누구에게 → 얼마」 순서를 그대로 둔 채 방향까지 싣는다.
+     */
+    toName: '{{name}}에게',
+    fromName: '{{name}}에게서',
+    sentAt: '보낸 시각',
+    receivedAt: '받은 시각',
     issuedAt: '발행한 시각',
     /** 그때의 값이다. 지금 값이 아니다 — 계약: docs/API.md */
     supplyAfter: '발행 뒤 총 유통량',
     capAt: '그때의 발행 상한',
-    /** 상한 변경 줄. 이체 줄의 위계를 빌려 쓰지 않는다 — 여정 8 */
-    capRaised: '{{name}} 발행 상한이 올랐어요',
-    capLowered: '{{name}} 발행 상한이 내렸어요',
-    capFromTo: '{{from}} → {{to}}',
   },
 
   create: {
@@ -344,6 +356,11 @@ export const ko = {
       whereTransfer: '아무것도 나가지 않았어요',
       whereIssue: '발행되지 않았어요',
     },
+    ISSUE_NOT_FOUND: {
+      title: '그 발행을 찾을 수 없어요',
+      whereTransfer: '아무것도 나가지 않았어요',
+      whereIssue: '발행되지 않았어요',
+    },
     BAD_CREDENTIALS: {
       title: '핸들이나 암호가 맞지 않아요',
       whereTransfer: '아무것도 나가지 않았어요',
@@ -354,6 +371,18 @@ export const ko = {
       whereTransfer: '아무것도 나가지 않았어요',
       whereIssue: '발행되지 않았어요',
     },
+    /*
+     * 상점(여정 12·13). 아직 서버가 내지 않고 화면도 없다. 「돈이 어디 있는가」는 살 때의
+     * 화면이 자기 자리에서 말할 것이고, 여기 붙는 문구는 **이체·발행 흐름에서는 이 코드가
+     * 날 수 없다**는 사실 그대로다.
+     */
+    LISTING_NOT_FOUND: { title: '이 품목을 찾을 수 없어요', ...NOT_FROM_HERE },
+    OUT_OF_STOCK: { title: '남은 재고보다 많아요', ...NOT_FROM_HERE },
+    PURCHASE_LIMIT_EXCEEDED: { title: '한 사람이 살 수 있는 수를 넘어요', ...NOT_FROM_HERE },
+    STOCK_BELOW_SOLD: { title: '이미 판 수보다 낮아요', ...NOT_FROM_HERE },
+    LISTING_UNLISTED: { title: '내린 품목은 고칠 수 없어요', ...NOT_FROM_HERE },
+    ISSUER_CANNOT_BUY: { title: '은행장은 자기 품목을 살 수 없어요', ...NOT_FROM_HERE },
+    VOUCHER_NOT_FOUND: { title: '이 교환권을 찾을 수 없어요', ...NOT_FROM_HERE },
     NETWORK: {
       title: '서버에 닿지 못했어요',
       whereTransfer: '보내졌는지 알 수 없어요. 다시 시도해도 두 번 나가지 않아요',

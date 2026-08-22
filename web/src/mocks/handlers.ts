@@ -23,6 +23,16 @@ const STATUS: Record<FailureCode, number> = {
   CAP_BELOW_ISSUED: 422,
   MALFORMED_REQUEST: 400,
   TRANSFER_NOT_FOUND: 404,
+  ISSUE_NOT_FOUND: 404,
+  // 상점(여정 12·13). 이 Mock 은 아직 그 경로를 서지 않지만 표는 비워 두지 않는다 —
+  // 빠진 코드는 타입이 잡고, 빠진 채로 두면 나중에 조용히 500 이 된다.
+  LISTING_NOT_FOUND: 404,
+  OUT_OF_STOCK: 422,
+  PURCHASE_LIMIT_EXCEEDED: 422,
+  STOCK_BELOW_SOLD: 422,
+  LISTING_UNLISTED: 409,
+  ISSUER_CANNOT_BUY: 409,
+  VOUCHER_NOT_FOUND: 404,
   NETWORK: 599,
   SERVER: 500,
 }
@@ -295,11 +305,11 @@ export const handlers = [
 
   http.get(
     '*/api/recent',
-    authed((_userId, request) => {
+    authed((userId, request) => {
       const params = new URL(request.url).searchParams
       const pointTypeId = params.get('pointTypeId')
       if (!pointTypeId) return fail('POINT_TYPE_NOT_FOUND')
-      return ledger.recentFor(pointTypeId, Number(params.get('limit') ?? 4))
+      return ledger.recentFor(pointTypeId, userId, Number(params.get('limit') ?? 4))
     }),
   ),
 
@@ -321,7 +331,7 @@ export const handlers = [
     const auth = requireUser(request)
     if (auth instanceof Response) return auth
     const issue = ledger.findIssue(String(params.id), auth.userId)
-    if (!issue) return fail('TRANSFER_NOT_FOUND')
+    if (!issue) return fail('ISSUE_NOT_FOUND')
     return HttpResponse.json(issue)
   }),
 
@@ -369,9 +379,11 @@ export const handlers = [
     const auth = requireUser(request)
     if (auth instanceof Response) return auth
 
-    const target = String(params.userId) === 'me' ? auth.userId : String(params.userId)
     try {
-      ledger.removeMember(auth.userId, String(params.id), target)
+      // 나가기와 내보내기는 다른 물음이다 — 「지금 회원인가」와 「은행장인가」
+      if (String(params.userId) === 'me') ledger.leaveBank(auth.userId, String(params.id))
+      else ledger.removeMember(auth.userId, String(params.id), String(params.userId))
+      if (drawResponseLoss()) return HttpResponse.error()
       return new HttpResponse(null, { status: 204 })
     } catch (error) {
       if (error instanceof ledger.LedgerError) return fail(error.code)
@@ -410,7 +422,9 @@ export const handlers = [
     if (auth instanceof Response) return auth
 
     try {
-      return HttpResponse.json(ledger.acceptInvite(auth.userId, String(params.id)))
+      const joined = ledger.acceptInvite(auth.userId, String(params.id))
+      if (drawResponseLoss()) return HttpResponse.error()
+      return HttpResponse.json(joined)
     } catch (error) {
       if (error instanceof ledger.LedgerError) return fail(error.code)
       throw error

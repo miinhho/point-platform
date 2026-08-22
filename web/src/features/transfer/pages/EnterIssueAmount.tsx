@@ -2,6 +2,7 @@ import { Button, Text } from '@chakra-ui/react'
 import { useSetAtom } from 'jotai'
 import { useTranslation } from 'react-i18next'
 import { toGrouped } from '@/shared/format'
+import { headroomOf } from '@/shared/headroom'
 import { BackButton } from '@/shared/ui/BackButton'
 import { IssuerSuffix } from '@/shared/ui/IssuerSuffix'
 import { Body, Footer, Gutter, Header, Screen, Title } from '@/shared/ui/Screen'
@@ -28,8 +29,7 @@ export function EnterIssueAmount({
   const edit = useSetAtom(editAmountAtom)
   const next = useSetAtom(toConfirmAtom)
 
-  // 여력은 서버가 판정해 실어 준다 — 상한 외의 규칙이 생겨도 화면은 모른다.
-  const ceiling = draft.pointType.issuableHeadroom
+  const ceiling = headroomOf(draft.pointType)
   const amount = amountOf(draft)
   const over = amount > ceiling
 
