@@ -49,5 +49,22 @@ enum class FailureCode(val status: HttpStatus) {
     // 「이체를 찾을 수 없어요」가 뜬다.
     ISSUE_NOT_FOUND(HttpStatus.NOT_FOUND),
 
+    // 없는 것과 내려간 것과 안 보이는 것이 같은 답이다 — 갈리면 무엇이 있었는지가 샌다.
+    LISTING_NOT_FOUND(HttpStatus.NOT_FOUND),
+    VOUCHER_NOT_FOUND(HttpStatus.NOT_FOUND),
+
+    // 셋을 사려는데 둘만 남았으면 둘을 팔지 않는다 — 세 개가 하나의 결정이다.
+    OUT_OF_STOCK(HttpStatus.UNPROCESSABLE_ENTITY),
+    PURCHASE_LIMIT_EXCEEDED(HttpStatus.UNPROCESSABLE_ENTITY),
+
+    // 상한을 이미 발행한 양보다 낮추지 못하는 것과 같은 규칙이다.
+    STOCK_BELOW_SOLD(HttpStatus.UNPROCESSABLE_ENTITY),
+
+    // 내린 것은 끝난 것이고 되살리는 길을 두지 않는다 — 다시 팔려면 새 약속을 건다.
+    LISTING_UNLISTED(HttpStatus.CONFLICT),
+
+    // 순효과 0 인 줄이 남는다. 자기에게 보내는 것을 막는 것과 같은 이유다.
+    ISSUER_CANNOT_BUY(HttpStatus.CONFLICT),
+
     SERVER(HttpStatus.INTERNAL_SERVER_ERROR),
 }

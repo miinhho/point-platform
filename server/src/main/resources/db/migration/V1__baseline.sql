@@ -81,7 +81,7 @@ create table journal_entries (
     id              bigint      not null auto_increment,
     public_id       binary(16)  not null,
     -- 전기 모양에서 유추하지 않는다. 유추하면 내역을 그리는 쪽이 원장 규칙을 알아야 한다.
-    kind            enum ('ISSUE','TRANSFER','CAP_CHANGE') not null,
+    kind            enum ('ISSUE','TRANSFER','CAP_CHANGE','PURCHASE') not null,
     requester_id    bigint      not null,
     idempotency_key varchar(36) not null,
     point_type_id   bigint      not null,
@@ -159,6 +159,79 @@ create table cap_changes (
     primary key (id),
     constraint uk_cap_changes_journal_entry unique (journal_entry_id),
     constraint fk_cap_changes_journal_entry foreign key (journal_entry_id) references journal_entries (id)
+) engine = InnoDB;
+
+-- 상점. **품목 행이 그 품목의 뮤텍스다** — 구매·재고 수정·내리기 셋 다 이 행을 잠그고
+-- 읽는다. 환불이 없으므로 여기가 마지막 방어선이다 (docs/API.md 「상점」).
+create table listings (
+    id               bigint       not null auto_increment,
+    public_id        binary(16)   not null,
+    point_type_id    bigint       not null,
+    -- 이름과 값은 고치는 길이 없다. 바꾸면 이미 산 사람의 교환권이 가리키는 것이 바뀐다.
+    name             varchar(80)  not null,
+    description      varchar(255) null,
+    price            bigint       not null,
+    -- null 은 무제한이고, 기본값이 아니라 게시할 때 고른 것이다 (docs/JOURNEY.md 여정 12).
+    stock            int          null,
+    per_person_limit int          null,
+    -- 판 수를 접어 두는 칸이 없다. 그 품목의 교환권을 센다 — 접어 둔 칸은 틀렸는지 알
+    -- 방법이 없는데 그 위에 재고 판정이 선다 (docs/LEDGER.md 6 단계).
+    -- 아무도 안 샀으면 행이 사라지고, 팔린 뒤에는 여기가 찍힌다.
+    unlisted_at      datetime(6)  null,
+    created_at       datetime(6)  not null,
+    idempotency_key  varchar(36)  not null,
+    primary key (id),
+    constraint uk_listings_public_id unique (public_id),
+    -- 요청자 열이 없다. 게시할 수 있는 사람은 그 은행의 은행장 하나뿐이라 은행이 곧 요청자다.
+    constraint uk_listings_point_type_key unique (point_type_id, idempotency_key),
+    constraint ck_listings_price_positive check (price > 0),
+    constraint ck_listings_stock_positive check (stock is null or stock > 0),
+    constraint ck_listings_limit_positive check (per_person_limit is null or per_person_limit > 0),
+    key ix_listings_point_type (point_type_id, created_at),
+    constraint fk_listings_point_type foreign key (point_type_id) references point_types (id)
+) engine = InnoDB;
+
+-- 구매는 원장에서 평범한 이체다 (산 사람 −N · 은행장 +N). 여기 남는 것은 사건이 모르는
+-- 것 — 무엇을 몇 개 샀는가뿐이다. 산 사람도 시각도 포인트도 사건의 것이다.
+create table purchases (
+    id               bigint      not null auto_increment,
+    journal_entry_id bigint      not null,
+    listing_id       bigint      not null,
+    -- 사건이 아는 것(요청자)을 다시 갖는 유일한 칸이다. 뮤텍스 안에서 「이 사람이 몇 개
+    -- 샀는가」를 두 표만 보고 답하려고 둔다 — 사건까지 조인하면 그 잠금 읽기가 사건 표의
+    -- 인덱스 범위를 잠그고, 그 사람의 다른 이체·발행이 그 자리에서 막힌다.
+    -- 사건의 요청자와 같다는 것은 불변식이 본다 (Invariants).
+    buyer_id         bigint      not null,
+    -- 그때의 이름. 지금은 이름을 고치는 길이 없어 품목의 것과 늘 같지만, 이 줄이 품목보다
+    -- 오래 살아야 하는 기록이라 스스로 들고 있는다 (docs/API.md 「상점」).
+    listing_name     varchar(80) not null,
+    quantity         int         not null,
+    amount           bigint      not null,
+    primary key (id),
+    constraint uk_purchases_journal_entry unique (journal_entry_id),
+    constraint ck_purchases_quantity_positive check (quantity > 0),
+    -- 재고 판정과 1 인 한도 판정이 둘 다 이 인덱스로 그 품목의 교환권에 닿는다.
+    key ix_purchases_listing_buyer (listing_id, buyer_id),
+    constraint fk_purchases_journal_entry foreign key (journal_entry_id) references journal_entries (id),
+    constraint fk_purchases_listing foreign key (listing_id) references listings (id),
+    constraint fk_purchases_buyer foreign key (buyer_id) references users (id)
+) engine = InnoDB;
+
+-- 교환권은 원장 밖의 기록이고 **한 장이 한 개다** — 「세 잔짜리 한 장」은 없다.
+-- 부분적으로 쓰인 상태를 만들지 않는다 (docs/JOURNEY.md 여정 13).
+--
+-- 가진 사람도 발행 시각도 품목도 여기 없다. 전부 구매와 그 사건이 아는 것이고, 「내
+-- 교환권 최신순」은 ix_journal_entries_requester 로 사건에서부터 답해진다.
+create table vouchers (
+    id          bigint      not null auto_increment,
+    public_id   binary(16)  not null,
+    purchase_id bigint      not null,
+    -- 두 번째 redeem 이 이 값을 덮지 않는다 — 덮으면 「커피를 건넨 때」가 거짓이 된다.
+    redeemed_at datetime(6) null,
+    primary key (id),
+    constraint uk_vouchers_public_id unique (public_id),
+    key ix_vouchers_purchase (purchase_id),
+    constraint fk_vouchers_purchase foreign key (purchase_id) references purchases (id)
 ) engine = InnoDB;
 
 -- 회원 자격은 비공개 은행에만 있다. 공개 은행에는 행이 생기지 않는다.

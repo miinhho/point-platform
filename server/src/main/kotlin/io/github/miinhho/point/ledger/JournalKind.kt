@@ -7,4 +7,7 @@ enum class JournalKind(val posts: Boolean) {
 
     /** 전기가 없는 사건. 잔액은 안 움직이지만 약속이 바뀐 것은 사건이다. */
     CAP_CHANGE(posts = false),
+
+    /** 상점 구매. 산 사람 −N · 은행장 +N 의 평범한 이체라 유통량을 줄이지 않는다. */
+    PURCHASE(posts = true),
 }

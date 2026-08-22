@@ -25,7 +25,9 @@ class DomainExceptionHandler : ResponseEntityExceptionHandler() {
     @ExceptionHandler(DomainFailureException::class)
     fun onDomainFailure(e: DomainFailureException): ResponseEntity<FailureResponse> =
         // 여기 오는 것은 전부 트랜잭션이 롤백된 뒤다 — 아무것도 남지 않았다고 단정할 수 있다.
-        ResponseEntity.status(e.status).body(FailureResponse.none(e.code, e.message))
+        ResponseEntity.status(e.status).body(
+            FailureResponse.none(e.code, e.message).copy(remaining = e.remaining, myRemainingLimit = e.myRemainingLimit),
+        )
 
     /**
      * 교착에서 죽은 쪽 · 락 대기에서 진 쪽 · 커넥션을 못 얻은 것. 셋 다 **트랜잭션이 통째로

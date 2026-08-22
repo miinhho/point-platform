@@ -33,15 +33,30 @@ class DisciplineTest {
      * 이름을 박았던 것과 같은 모양이고 한 겹 위일 뿐이다.
      *
      * 새 잠금이 생기면 여기서 빨개진다. 그때 [LEDGER_TABLES] 에 그 표를 더하거나, 원장이
-     * 지키는 것이 아니라면 왜 아닌지를 적고 뺀다.
+     * 지키는 것이 아니면 [SHOP_TABLES] 처럼 **왜 아닌지를 적고** 옮긴다.
      */
     @Test
     fun `잠그는 메서드가 검사 밖에 있지 않다`() {
-        val locking = sources().filter { (path, _) -> path.endsWith("Repository.kt") }
-            .flatMap { (_, text) -> text.split("\n\n") }
+        val locking = repositoryBlocks()
             .filter { block -> LOCKS.any { it in block } }
             .mapNotNull { Regex("\\bfun\\s+(\\w+)").find(it)?.groupValues?.get(1) }
-        assertEquals(emptyList(), locking - ledgerWriteNames().toSet(), "잠그는데 아무도 안 보는 메서드가 있다")
+        val watched = (ledgerWriteNames() + tableWriteNames(SHOP_TABLES)).toSet()
+        assertEquals(emptyList(), locking - watched, "잠그는데 아무도 안 보는 메서드가 있다")
+    }
+
+    /**
+     * **락 순서는 품목 행 → 원장 적용부다.** 적용부가 품목을 알면 반대 방향이 생기고, 두
+     * 방향이 있으면 교착은 부하가 그만큼 오른 날에 처음 난다 — 그날은 되돌릴 곳이 없다.
+     *
+     * **패키지로 묻는다.** 클래스 이름 목록으로 물었더니 목록에 없는 이름(`PurchaseRepository`)
+     * 이 그대로 통과했다 — 이름은 늘어나고 목록은 안 늘어난다. import 한 줄이면 이름이 몇 개
+     * 생기든 걸리고, 원장의 낱말인 `JournalKind.PURCHASE` 는 import 가 아니라 안 걸린다.
+     */
+    @Test
+    fun `적용부는 상점을 모른다`() {
+        val leaked = sources().filter { (path, _) -> path.contains("ledger$SEP") }
+            .filter { (_, text) -> SHOP_PACKAGE in text }
+        assertEquals(emptyList(), leaked.map { it.first }, "적용부가 상점을 참조한다 — 락 순서가 두 방향이 됐다")
     }
 
     /**
@@ -51,12 +66,26 @@ class DisciplineTest {
      * 그 자리가 검사 밖이다. 실제로 `point_types` 를 잠그는 것은 다른 리포지토리에 있다.
      * 고르는 기준은 **어느 표를 건드리는가** 하나다.
      */
-    private fun ledgerWriteNames(): List<String> =
-        sources().filter { (path, _) -> path.endsWith("Repository.kt") }
-            .flatMap { (_, text) -> text.split("\n\n") }
-            .filter { block -> LOCKS_OR_WRITES.any { it in block } && LEDGER_TABLES.any { it in block } }
+    private fun ledgerWriteNames(): List<String> = tableWriteNames(LEDGER_TABLES)
+
+    private fun tableWriteNames(tables: List<String>): List<String> =
+        repositoryBlocks()
+            .filter { block -> LOCKS_OR_WRITES.any { it in block } && tables.any { it in block } }
             .mapNotNull { Regex("\\bfun\\s+(\\w+)").find(it)?.groupValues?.get(1) }
             .distinct()
+
+    /**
+     * 리포지토리를 메서드 단위로 쪼개되 **주석은 걷는다.** 안 걷으면 「여기서는 `for update`
+     * 를 쓰지 않는다」라고 적은 자리가 잠그는 것으로 세어진다 — 검사가 코드가 아니라 글을
+     * 읽게 된다.
+     */
+    private fun repositoryBlocks(): List<String> =
+        sources().filter { (path, _) -> path.endsWith("Repository.kt") }
+            .flatMap { (_, text) ->
+                text.lineSequence()
+                    .filterNot { it.trimStart().let { line -> line.startsWith("//") || line.startsWith("*") || line.startsWith("/*") } }
+                    .joinToString("\n").split("\n\n")
+            }
 
     // 읽는 것은 막지 않는다 — 내역이 사건을 읽어야 세 목록을 합치지 않는다.
     @Test
@@ -98,7 +127,7 @@ class DisciplineTest {
      * 들어오는 순간 규칙을 고치려면 판을 띄워야 하고, 그때부터 규칙은 어댑터로 스며든다.
      */
     @Test
-    fun `원장의 규칙은 아무것도 import 하지 않는다`() {
+    fun `규칙은 아무것도 import 하지 않는다`() {
         val leaked = PURE.map { it to text(it) }
             .filter { (_, text) -> text.lineSequence().any { it.startsWith("import ") } }
         assertEquals(emptyList(), leaked.map { it.first }, "규칙이 바깥을 알기 시작했다")
@@ -132,8 +161,19 @@ class DisciplineTest {
         // 원장이 지키는 표. 회원 자격도 refresh 도 원장 밖이라 여기 없다.
         val LEDGER_TABLES = listOf("accounts", "point_types")
 
+        /**
+         * 원장 밖에서 잠그는 표. 상점의 뮤텍스는 품목 행이고 그것은 잔액이 아니라 **약속**을
+         * 지킨다 — 재고와 1 인 한도. 적용부에 넣으면 원장이 상점을 알게 되고 락 순서가 두
+         * 방향이 된다(위 「적용부는 품목을 모른다」).
+         */
+        val SHOP_TABLES = listOf("listings", "vouchers")
+        const val SHOP_PACKAGE: String = "import io.github.miinhho.point.shop."
+
         // DB 도 스프링도 모르는 자리. 늘어나면 여기 적는다 — 적지 않으면 검사를 안 받는다.
-        val PURE = listOf("ledger/Draft.kt", "ledger/Supply.kt", "ledger/JournalKind.kt", "ledger/AccountKind.kt")
+        val PURE = listOf(
+            "ledger/Draft.kt", "ledger/Supply.kt", "ledger/JournalKind.kt", "ledger/AccountKind.kt",
+            "shop/Stall.kt", "shop/Buyability.kt", "shop/Change.kt",
+        )
         val ALLOWED_REQUIRES_NEW = listOf("auth${SEP}")
     }
 }

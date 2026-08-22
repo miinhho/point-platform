@@ -7,4 +7,7 @@ class DomainFailureException(
     val code: FailureCode,
     message: String,
     val status: HttpStatus = code.status,
+    /** 수량을 고치라는 실패는 **고친 값을 함께 준다** — 화면이 다시 물어보지 않는다. */
+    val remaining: Int? = null,
+    val myRemainingLimit: Int? = null,
 ) : RuntimeException(message)

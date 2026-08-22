@@ -18,6 +18,10 @@ interface AccountRepository : JpaRepository<Account, Long> {
     @Query("select a.pointTypeId from Account a where a.userId = :userId")
     fun pointTypeIdsHeldBy(userId: Long): Set<Long>
 
+    /** 한 포인트의 내 잔액. 행이 없으면 null 이고 그것은 「받은 적 없다」다. */
+    @Query("select a.balance from Account a where a.pointTypeId = :pointTypeId and a.userId = :userId")
+    fun balanceOf(pointTypeId: Long, userId: Long): Long?
+
     /** 포인트별 공급. 발행량은 발행 계정 잔액의 부호를 뒤집은 것이다. */
     @Query("select a.pointTypeId, -a.balance, a.issueCap from Account a where a.kind = io.github.miinhho.point.ledger.AccountKind.ISSUANCE and a.pointTypeId in :pointTypeIds")
     fun suppliesOf(pointTypeIds: Collection<Long>): List<Array<Any>>
