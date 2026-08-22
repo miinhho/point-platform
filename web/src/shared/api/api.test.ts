@@ -1422,7 +1422,46 @@ describe('지갑은 관계로 담는다', () => {
     expect(after?.pointType.membership).toBe('member')
   })
 
-  it('나가면 다시 빠진다 — 잔액이 없으면 관계도 없다', async () => {
+  /*
+   * **가진 적 없는 0 과 가졌던 0 은 다르다** — 여정 1 이 가르려던 것이 이것이다.
+   * 값이 둘 다 0 이라 담기느냐 마느냐가 유일한 재료이고, 걸러 내면 화면은 그 둘을
+   * 구별할 수 없다. 담는 기준이 잔액 `> 0` 이 아니라 **받은 적 있는가**인 이유다.
+   */
+  it('전액을 보내도 담긴다. 한 번도 안 받은 은행은 안 담긴다', async () => {
+    await endpoints.createTransfer(
+      { pointTypeId: 'pt_on', toId: 'u_jisoo', amount: balanceOf('pt_on', ME) },
+      key(),
+    )
+    // @minho 는 온포인트의 발행자도 아니고 공개 은행이라 회원도 아니다 — 남는 관계는 하나다.
+    const spent = (await endpoints.wallet()).balances.find((b) => b.pointType.id === 'pt_on')
+    expect(spent).toMatchObject({ amount: 0 })
+
+    // @jisu 는 금머니만 가진다. 온포인트는 가진 적이 없다.
+    setTokens(await endpoints.login({ handle: '@jisu', password: 'point' }))
+    const never = (await endpoints.wallet()).balances.find((b) => b.pointType.id === 'pt_on')
+    expect(never).toBeUndefined()
+  })
+
+  /*
+   * **한 번 받은 사람은 영원히 닿는다.** 이미 본 은행을 다시 감출 수는 없고, 내보내기가
+   * 끊는 것은 앞으로의 거래이지 존재를 안다는 사실이 아니다 — docs/API.md.
+   *
+   * 담기는데 못 닿으면 카드는 있고 페이지는 없다. 그래서 둘을 한 자리에서 잰다.
+   */
+  it('다 쓰고 나가도 비공개 은행에 닿고 카드도 남는다', async () => {
+    setTokens(await endpoints.login({ handle: '@jisoo', password: 'point' }))
+    await endpoints.createTransfer(
+      { pointTypeId: 'pt_cl', toId: 'u_minho', amount: balanceOf('pt_cl', 'u_jisoo') },
+      key(),
+    )
+    await endpoints.leaveBank('pt_cl')
+
+    await expect(endpoints.pointType('pt_cl')).resolves.toMatchObject({ membership: 'outsider' })
+    const held = (await endpoints.wallet()).balances.find((b) => b.pointType.id === 'pt_cl')
+    expect(held).toMatchObject({ amount: 0, sendable: 0 })
+  })
+
+  it('나가면 다시 빠진다 — 받은 적이 없으면 관계도 없다', async () => {
     await endpoints.createInvite('pt_cl', 'u_jisu', key())
     setTokens(await endpoints.login({ handle: '@jisu', password: 'point' }))
     await endpoints.acceptInvite('pt_cl')

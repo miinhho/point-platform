@@ -320,23 +320,23 @@ export function findPointType(pointTypeId: PointTypeId, userId: UserId): PointTy
 }
 
 /**
- * 그 사람에게 이 은행이 존재하는가. `404` 는 **존재를 감추는 규칙**이지 회원을
- * 가르는 규칙이 아니다 — 잔액 행이 있다는 것은 이미 닿았다는 증거이고, 이미 아는
- * 것을 감추면 감춰지는 것이 아니라 고장난 것처럼 보인다. 계약: docs/API.md
- */
-/**
  * 이 은행의 **존재를 알아도 되는가.** 지갑이 담는 기준과 다르고, 맞추면 틀린다 —
- * 계약: docs/API.md 「지갑과 도달성은 다른 물음이다」
+ * 계약: docs/API.md 「지갑과 도달성은 다른 물음이다」. `404` 는 존재를 감추는 규칙이지
+ * 회원을 가르는 규칙이 아니다.
  *
- * 여기서 잔액을 보는 이유는 나온 사람의 언 잔액이 계약이 의도해서 만든 상태이기
- * 때문이다. 카드는 있는데 페이지가 없으면 같은 사실을 두 곳이 다르게 말한다.
+ * **한 번 받은 사람은 영원히 닿는다.** 다 쓰고 나가도 그 은행의 페이지는 계속 보인다 —
+ * 이미 본 은행을 다시 감출 수는 없고, 은행장이 내보내기로 끊는 것은 앞으로의 거래이지
+ * 존재를 안다는 사실이 아니다.
+ *
+ * 은행장이 여기 없는 이유는 창설이 그를 회원으로 넣기 때문이다. 그 둘 중 하나가 빠지면
+ * 자기가 만든 은행에 못 닿는다.
  */
 function reachable(pointType: SeedPoint, userId: UserId): boolean {
   return (
     pointType.visibility === 'public' ||
     isMember(pointType.id, userId) ||
     isInvited(pointType.id, userId) ||
-    balanceOf(pointType.id, userId) > 0
+    hasReceived(pointType.id, userId)
   )
 }
 
@@ -364,11 +364,27 @@ export function balanceOf(pointTypeId: PointTypeId, userId: UserId): Points {
 }
 
 /**
+ * 받은 적이 있는가. **행의 존재가 답이다** — 행은 받을 때만 나므로 다 써서 0 이 되어도
+ * 남고, 한 번도 못 받았으면 아예 없다. 잔액 `> 0` 과 다른 물음이고, 그 차이가 「가진 적
+ * 없는 0」과 「가졌던 0」을 가른다(docs/JOURNEY.md 여정 1 · docs/LEDGER.md 3 단계).
+ */
+function hasReceived(pointTypeId: PointTypeId, userId: UserId): boolean {
+  return state.balances.has(balanceKey(pointTypeId, userId))
+}
+
+/**
  * **담는 기준은 잔액이 아니라 관계다** — 계약: docs/API.md.
  *
- * 잔액 0 이어도 발행자이거나 회원이면 담는다. 걸러 내면 화면이 그 상태를 표현할 수
- * 없다 — 초대를 수락한 사람은 처음엔 잔액이 0 이고, 수락이 초대를 소진시키므로
- * 들어온 문마저 닫힌다. 가입은 됐는데 그 은행이 어느 화면에도 없게 된다.
+ * 관계 셋: 받은 적 있다 · 발행자다 · 회원이다. 잔액 `> 0` 이 아니다.
+ *
+ * - 걸러 내면 화면이 그 상태를 표현할 수 없다. 초대를 수락한 사람은 처음엔 잔액이 0 이고,
+ *   수락이 초대를 소진시키므로 들어온 문마저 닫힌다 — 가입은 됐는데 그 은행이 어느
+ *   화면에도 없게 된다
+ * - 받은 적 있는 0 을 걸러 내면 「가진 적 없는 0」과 「가졌던 0」이 둘 다 없음이 되어
+ *   구별할 재료가 사라진다 (여정 1)
+ *
+ * 이 셋은 `reachable` 안에 있어야 한다 — 담기는데 못 닿으면 카드는 있고 페이지는 없다.
+ * 반대는 열려 있다: 초대만 받은 사람은 닿지만 안 담긴다.
  */
 export function balancesOf(userId: UserId) {
   return seedPoints()
@@ -384,8 +400,10 @@ export function balancesOf(userId: UserId) {
       }
     })
     .filter(
-      ({ pointType, amount }) =>
-        amount > 0 || pointType.canIssue || pointType.membership === 'member',
+      ({ pointType }) =>
+        hasReceived(pointType.id, userId) ||
+        pointType.canIssue ||
+        pointType.membership === 'member',
     )
 }
 
@@ -845,8 +863,8 @@ export function commitTransfer(meId: UserId, input: CommitInput): Transfer {
     throw new LedgerError('INSUFFICIENT_BALANCE')
   }
 
-  move(pointType.id, meId, -input.amount)
-  move(pointType.id, recipient.id, input.amount)
+  debit(pointType.id, meId, input.amount)
+  credit(pointType.id, recipient.id, input.amount)
   // 판단이 실제로 필요한 순간이 여기였다. 지나고 나면 판단은 끝난 것이다.
   state.spent.add(balanceKey(pointType.id, meId))
   return record(meId, pointType.id, recipient, input)
@@ -885,7 +903,7 @@ export function commitIssue(meId: UserId, input: IssueInput): Issue {
 
   const totalIssuedAfter = pointType.totalIssued + input.amount
   state.pointTypes.set(pointType.id, { ...pointType, totalIssued: totalIssuedAfter })
-  move(pointType.id, meId, input.amount)
+  credit(pointType.id, meId, input.amount)
 
   const issue: Issue = {
     id: `i_${state.issueOrder.length + 1}_${input.idempotencyKey.slice(0, 8)}`,
@@ -915,8 +933,19 @@ function requireRecipient(toId: UserId): SeedUser {
   return recipient
 }
 
-function move(pointTypeId: PointTypeId, userId: UserId, delta: Points): void {
-  state.balances.set(balanceKey(pointTypeId, userId), balanceOf(pointTypeId, userId) + delta)
+/** 입금. **행이 없으면 만든다** — 보유자 계정이 나는 자리는 여기 하나다 */
+function credit(pointTypeId: PointTypeId, userId: UserId, amount: Points): void {
+  state.balances.set(balanceKey(pointTypeId, userId), balanceOf(pointTypeId, userId) + amount)
+}
+
+/**
+ * 차감. 행을 만들지 않는다 — 잔액이 모자라면 여기 오기 전에 막히므로 행은 이미 있다.
+ * 여기서 행이 나면 「받은 적 있다」가 「보내려 한 적 있다」로 넓어진다.
+ */
+function debit(pointTypeId: PointTypeId, userId: UserId, amount: Points): void {
+  const key = balanceKey(pointTypeId, userId)
+  if (!state.balances.has(key)) return
+  state.balances.set(key, balanceOf(pointTypeId, userId) - amount)
 }
 
 function record(

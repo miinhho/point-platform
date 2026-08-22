@@ -4,6 +4,8 @@ import { screen, waitFor, within } from '@testing-library/react'
 import { userEvent } from '@testing-library/user-event'
 import { issuesApi, newIdempotencyKey, transfersApi, walletApi } from '@/shared/api'
 import { balanceOf, SEED_ISSUER } from '@/mocks/ledger'
+import { http, HttpResponse } from 'msw'
+import { server } from '@/mocks/node'
 import { renderApp, signInAs } from '@/test/render'
 import App from '@/app/App'
 
@@ -203,20 +205,30 @@ describe('설정', () => {
  * 색은 기본값으로 떨어지는데, 그 기본값도 누군가의 진짜 색이다.
  * 계약: docs/API.md
  */
-describe('전액을 보낸 포인트도 내역이 무엇인지 말한다', () => {
-  it('지갑에서 빠져도 이름이 남는다', async () => {
+/*
+ * 내역 줄은 어느 은행인지를 **스스로** 말해야 한다. 지갑에서 `pointTypeId` 로 찾아 이름을
+ * 맞추면 지갑에 없는 순간 줄이 빈다.
+ *
+ * 전에는 「전액을 보내면 지갑에서 빠진다」가 그 순간을 만들어 줬는데, 지갑이 「가졌던 0」을
+ * 담기 시작하면서 그 경우가 사라졌다 — 보낸 적이 있으면 받은 적도 있어서 카드가 남는다.
+ * 그래서 지갑을 직접 비워 놓고 잰다. 사라진 것은 예시이지 규칙이 아니다.
+ */
+describe('내역 줄은 지갑을 뒤지지 않고 스스로 은행을 말한다', () => {
+  it('지갑이 비어서 와도 이름이 남는다', async () => {
     const before = balanceOf('pt_on2', SEED_ISSUER)
     await transfersApi.createTransfer(
       { pointTypeId: 'pt_on2', toId: 'u_jisoo', amount: before },
       newIdempotencyKey(),
     )
 
+    // 전액을 보내도 카드는 「가졌던 0」으로 남는다 — 그것이 지금의 계약이다.
+    const wallet = await walletApi.wallet()
+    expect(wallet.balances.find((b) => b.pointType.id === 'pt_on2')).toMatchObject({ amount: 0 })
+
+    const me = wallet.user
+    server.use(http.get('*/api/wallet', () => HttpResponse.json({ user: me, balances: [] })))
     await openHistory()
 
-    // 지갑에는 더 없다.
-    const wallet = await walletApi.wallet()
-    expect(wallet.balances.find((b) => b.pointType.id === 'pt_on2')).toBeUndefined()
-    // 그래도 내역 줄은 어느 은행인지 말한다.
     expect(await screen.findByText(/온포인트/)).toBeTruthy()
   })
 
