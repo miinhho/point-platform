@@ -80,15 +80,20 @@ describe('조회', () => {
     expect(gm).toMatchObject({ amount: 0 })
   })
 
-  it('이름 검색은 동명이인을 모두 준다 — 화면이 구별을 책임진다', async () => {
+  it('이름 검색은 그 이름인 사람을 모두 준다 — 화면이 구별을 책임진다', async () => {
     const found = await endpoints.users('김지수')
     expect(found.map((u) => u.handle).sort()).toEqual(['@jisoo', '@jisu'])
   })
 
-  // 결과 안에서만 겹침을 세면 여기서 동명이인 방어가 꺼진다.
-  it('핸들로 검색해 한 명만 맞아도 동명이인을 함께 준다', async () => {
+  /*
+   * 맞는 사람만 온다. 겹침을 결과 안에서 세면 방어가 꺼지지만, 그것은 `nameIsShared`
+   * 가 없던 때의 이야기다 — 서버가 원장 전체를 보고 답하므로 한 명짜리 결과에서도
+   * 켜져 있다. 함께 담으면 부작용만 남는다: 핸들로 찾은 사람에게 모르는 사람이 딸려 온다.
+   */
+  it('핸들로 검색해 한 명만 맞으면 그 한 명만 준다. 겹침 표시는 켜져 있다', async () => {
     const found = await endpoints.users('@jisu')
-    expect(found.map((u) => u.handle).sort()).toEqual(['@jisoo', '@jisu'])
+    expect(found.map((u) => u.handle)).toEqual(['@jisu'])
+    expect(found[0].nameIsShared).toBe(true)
   })
 
   /*

@@ -411,7 +411,9 @@ function membershipOf(pointType: SeedPoint, userId: UserId): Membership | null {
 }
 
 /**
- * 결과에 동명이인을 함께 담는다. 겹침은 결과의 성질이 아니라 원장의 성질이다.
+ * 맞는 사람만 담는다. **동명이인을 함께 담지 않는다** — 겹치는지는 `nameIsShared` 가
+ * 이미 답하므로 함께 담는 것은 그것이 없던 때의 방어이고, 지금은 `@jisu` 로 찾은
+ * 사람에게 모르는 김지수가 딸려 나오는 부작용만 남는다. 계약: docs/API.md
  *
  * `pointTypeId` 가 오면 그 포인트로 보낼 수 있는 사람만 담는다 — 비공개 은행이면
  * 회원뿐이다. 애초에 안 뜨게 하는 것이 「회원이 아니에요」라고 말하는 것보다 낫다.
@@ -434,11 +436,9 @@ export function searchUsers(
   if (!query?.trim()) return others
 
   const needle = query.trim().toLowerCase()
-  const matched = others.filter(
+  return others.filter(
     (user) => user.name.includes(needle) || user.handle.toLowerCase().includes(needle),
   )
-  const names = new Set(matched.map((user) => user.name))
-  return others.filter((user) => names.has(user.name))
 }
 
 /**
