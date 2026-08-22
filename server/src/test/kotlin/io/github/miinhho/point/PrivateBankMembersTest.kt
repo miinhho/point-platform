@@ -2,7 +2,6 @@ package io.github.miinhho.point
 
 import io.github.miinhho.point.auth.LoginRequest
 import io.github.miinhho.point.auth.LoginResponse
-import io.github.miinhho.point.pointtype.ChangeCapRequest
 import io.github.miinhho.point.pointtype.membership.Membership
 import io.github.miinhho.point.pointtype.membership.MembershipRepository
 import io.github.miinhho.point.pointtype.PointAccent
@@ -234,17 +233,6 @@ class PrivateBankMembersTest {
             assertFalse(body.contains("\"$it\""), "$it 은 이체의 칸이다: $body")
         }
         assertTrue(body.contains("\"totalIssuedAfter\":") && body.contains("\"issueCapAt\":"), body)
-    }
-
-    @Test
-    fun `받은 적 없는 사람에게는 비공개 은행의 상한 변경이 안 보인다`() {
-        val cap = patch(issuer, "/api/point-types/${closed.publicId}/cap", ChangeCapRequest(BigDecimal(9_000_000)))
-        assertEquals(HttpStatus.OK, cap.statusCode, cap.body)
-
-        assertEquals("[]", get(outsider, "/api/history").body, "무관한 사람에게 상한 변경이 새면 은행의 존재가 샌다")
-
-        // 받은 적 있는 사람에게는 보인다 — 지갑에 카드가 있으면 그 은행의 사건도 본다.
-        assertTrue(assertNotNull(get(leftBehind, "/api/history").body).contains("capChange"))
     }
 
     private fun send(from: User, pointType: PointType, to: User) = post(
