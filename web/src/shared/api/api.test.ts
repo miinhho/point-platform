@@ -1120,6 +1120,33 @@ describe('아직 쓰지 않은 포인트', () => {
     expect(await heldOf('pt_on2')).toMatchObject({ neverSpent: false })
   })
 
+  /*
+   * **화면이 「가졌던 0」과 「들어왔지만 아직 없는 0」을 가르는 재료가 이것이다.**
+   * 회원 자격만으로는 못 가른다 — 받아서 다 쓴 회원도 회원이라, 그 카드가 「아직 받은
+   * 것이 없어요」라고 말하면 여정 1 이 가르려던 둘이 뒤바뀐다 (관측: docs/FIELD.md W20).
+   *
+   * 그 재료가 실제로 그 상태에서 오는지를 여기서 못 박는다. 화면 검사는 지갑 응답을
+   * 세워 놓고 재므로 이것을 못 본다.
+   */
+  it('회원이 받아서 다 쓰면 잔액 0 이고 neverSpent 가 꺼져 있다', async () => {
+    await endpoints.createInvite('pt_cl', 'u_jisu', key())
+    setTokens(await endpoints.login({ handle: '@jisu', password: 'point' }))
+    await endpoints.acceptInvite('pt_cl')
+    expect(await heldOf('pt_cl'), '들어왔지만 아직 없는 0').toMatchObject({
+      amount: 0,
+      neverSpent: true,
+    })
+
+    setTokens(await endpoints.login({ handle: '@minho', password: 'point' }))
+    await endpoints.createTransfer({ pointTypeId: 'pt_cl', toId: 'u_jisu', amount: 1_000 }, key())
+    setTokens(await endpoints.login({ handle: '@jisu', password: 'point' }))
+    await endpoints.createTransfer({ pointTypeId: 'pt_cl', toId: 'u_minho', amount: 1_000 }, key())
+
+    // 값은 위와 같은 0 인데 뜻이 다르다. 회원 자격도 그대로다.
+    expect(await heldOf('pt_cl'), '가졌던 0').toMatchObject({ amount: 0, neverSpent: false })
+    expect((await heldOf('pt_cl'))?.pointType.membership).toBe('member')
+  })
+
   // 발행은 쓰는 것이 아니다. 자기 지갑으로 들어올 뿐이다.
   it('발행으로는 꺼지지 않는다', async () => {
     const created = await endpoints.createPointType(

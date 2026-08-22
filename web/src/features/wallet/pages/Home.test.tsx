@@ -104,12 +104,14 @@ describe('홈', () => {
    * **서로 다르게 말하는지**는 모른다 — 그것이 이 앱이 여정 1 에서 가르려던 것이다.
    * 실서버 시드의 모양 그대로다(`@jisoo` 발행자 0 · `@jisu` 회원 0 · `@mose` 나간 뒤 잔액).
    */
-  it('0 이 셋이고 한 화면에서 서로 다르게 말한다', async () => {
+  it('0 이 넷이고 한 화면에서 서로 다르게 말한다', async () => {
     server.use(
       walletOf([
-        { pointType: { ...point('pt_mine', '동네빵집', '🍞', '장민호', 'orange'), canIssue: true }, amount: 0 },
-        { pointType: { ...point('pt_new', '동아리비', '🎪', '온마트', 'purple'), visibility: 'private', membership: 'member' }, amount: 0 },
-        { pointType: point('pt_spent', '금머니', '💎', '온마트', 'pink'), amount: 0 },
+        { pointType: { ...point('pt_mine', '동네빵집', '🍞', '장민호', 'orange'), canIssue: true }, amount: 0, neverSpent: true },
+        { pointType: { ...point('pt_new', '동아리비', '🎪', '온마트', 'purple'), visibility: 'private', membership: 'member' }, amount: 0, neverSpent: true },
+        // 같은 회원인데 받아서 다 썼다. 관계로만 가르면 이 카드가 「들어왔어요」라고 말한다
+        { pointType: { ...point('pt_used', '한동네', '🎵', '온마트', 'teal'), visibility: 'private', membership: 'member' }, amount: 0, neverSpent: false },
+        { pointType: point('pt_spent', '금머니', '💎', '온마트', 'pink'), amount: 0, neverSpent: false },
       ]),
     )
     renderApp(<Home />)
@@ -117,7 +119,8 @@ describe('홈', () => {
 
     expect(screen.getByText('발행해서 채울 수 있어요')).toBeTruthy()
     expect(screen.getByText('들어왔어요. 아직 받은 것이 없어요')).toBeTruthy()
-    expect(screen.getByText('보낼 잔액이 없어요')).toBeTruthy()
+    // 회원이든 아니든 다 쓴 0 은 같은 말을 한다 — 가르는 것은 관계가 아니라 받은 적이다
+    expect(screen.getAllByText('보낼 잔액이 없어요')).toHaveLength(2)
   })
 
   /*
@@ -128,9 +131,10 @@ describe('홈', () => {
   it('할 일이 남은 0 은 흐려지지 않는다', async () => {
     server.use(
       walletOf([
-        { pointType: { ...point('pt_mine', '동네빵집', '🍞', '장민호', 'orange'), canIssue: true }, amount: 0 },
-        { pointType: { ...point('pt_new', '동아리비', '🎪', '온마트', 'purple'), visibility: 'private', membership: 'member' }, amount: 0 },
-        { pointType: point('pt_spent', '금머니', '💎', '온마트', 'pink'), amount: 0 },
+        { pointType: { ...point('pt_mine', '동네빵집', '🍞', '장민호', 'orange'), canIssue: true }, amount: 0, neverSpent: true },
+        { pointType: { ...point('pt_new', '동아리비', '🎪', '온마트', 'purple'), visibility: 'private', membership: 'member' }, amount: 0, neverSpent: true },
+        { pointType: { ...point('pt_used', '한동네', '🎵', '온마트', 'teal'), visibility: 'private', membership: 'member' }, amount: 0, neverSpent: false },
+        { pointType: point('pt_spent', '금머니', '💎', '온마트', 'pink'), amount: 0, neverSpent: false },
       ]),
     )
     renderApp(<Home />)
@@ -138,6 +142,8 @@ describe('홈', () => {
 
     expect(cardOpacity('동네빵집')).toBe('1')
     expect(cardOpacity('동아리비')).toBe('1')
+    // 회원이어도 다 쓴 카드는 다음에 할 일이 「받기를 기다리는 것」이다
+    expect(cardOpacity('한동네')).toBe('0.55')
     expect(cardOpacity('금머니')).toBe('0.55')
   })
 
@@ -145,11 +151,11 @@ describe('홈', () => {
    * 넷째는 0 이 아니다. **가진 것이 보이는데 보낼 수 없는 것**이라 값을 읽고
    * 누르러 가는 사람에게만 걸린다 — 관측: docs/FIELD.md, 실서버 `@mose`.
    */
-  it('가진 것이 있는데 못 쓰는 카드는 0 셋 중 어느 것과도 다르게 말한다', async () => {
+  it('가진 것이 있는데 못 쓰는 카드는 0 넷 중 어느 것과도 다르게 말한다', async () => {
     server.use(
       walletOf([
-        { pointType: { ...point('pt_left', '동아리비', '🎪', '온마트', 'purple'), visibility: 'private', membership: 'outsider' }, amount: 30_000, sendable: 0 },
-        { pointType: { ...point('pt_new', '동아리비', '🎪', '온마트', 'purple'), visibility: 'private', membership: 'member' }, amount: 0 },
+        { pointType: { ...point('pt_left', '동아리비', '🎪', '온마트', 'purple'), visibility: 'private', membership: 'outsider' }, amount: 30_000, sendable: 0, neverSpent: false },
+        { pointType: { ...point('pt_new', '동아리비', '🎪', '온마트', 'purple'), visibility: 'private', membership: 'member' }, amount: 0, neverSpent: true },
       ]),
     )
     renderApp(<Home />)
