@@ -25,8 +25,6 @@ class LedgerAudit(
         postingRepository.entriesOutOfBalance().forEach { add("사건 ${it[0]} 의 전기 합이 ${it[1]} 이다") }
         postingRepository.pointTypesOutOfBalance().forEach { add("포인트 ${it[0]} 의 전기 합이 ${it[1]} 이다") }
         addAll(drifted().map { (account, sum) -> "계정 ${account.id} 의 잔액 ${account.balance} ≠ 전기 합 $sum" })
-
-        accountRepository.pointTypeIdsWithoutIssuance().forEach { add("포인트 $it 에 발행 계정이 없다") }
     }
 
     /** 잔액을 전기에서 다시 접는다. 고친 계정 수를 준다. */
