@@ -95,7 +95,8 @@ access 15분, refresh 14일. **refresh 는 회전한다** — 갱신하면 옛 �
 | `PATCH` | `/api/point-types/:id/cap` | `PointType` | 상한 변경. 발행자만. `Idempotency-Key` 필수 |
 | `GET` | `/api/transfers/:id` | `Transfer` | 단건. **404 는 일어나지 않았다는 뜻** |
 | `GET` | `/api/transfers/by-key?idempotencyKey=` | `Transfer \| null` | 결과를 모를 때의 확인 |
-| `GET` | `/api/history?pointTypeId=&limit=` | `HistoryEntry[]` | 내역, 최신순. 이체와 발행 |
+| `GET` | `/api/history?pointTypeId=&limit=` | `HistoryEntry[]` | 내역, 최신순. 이체 · 발행 · 구매 |
+| — | 상점 엔드포인트 | — | 아래 「상점」 |
 
 이체 본문:
 
@@ -217,14 +218,16 @@ access 15분, refresh 14일. **refresh 는 회전한다** — 갱신하면 옛 �
 
 ### 내역은 이체만이 아니다
 
-`GET /api/history` 는 두 종류를 시간순으로 섞어서 준다 — **내 포인트가 움직인 것**만이다.
+`GET /api/history` 는 세 종류를 시간순으로 섞어서 준다 — **내 포인트가 움직인 것**만이다.
+구매는 은행장 쪽에도 한 줄이다(받은 쪽).
 
 ```ts
 type HistoryEntry =
   | { type: 'transfer'; transfer: Transfer }
   | { type: 'issue'; issue: Issue }
+  | { type: 'purchase'; purchase: Purchase }
 
-/** 그 줄이 어느 포인트인가. 두 갈래 모두 싣고, 단건 조회도 싣는다 */
+/** 그 줄이 어느 포인트인가. 세 갈래 모두 싣고, 단건 조회도 싣는다 */
 interface PointMark {
   name: string
   emoji: string
@@ -233,7 +236,7 @@ interface PointMark {
   issuerHandle: string
 }
 
-**두 갈래 모두 `point` 를 싣는다. 단건 조회(`GET /api/transfers/:id` ·
+**세 갈래 모두 `point` 를 싣는다. 단건 조회(`GET /api/transfers/:id` ·
 `GET /api/issues/:id`)도 싣는다.**
 
 클라이언트가 `pointTypeId` 로 지갑을 뒤져 이름을 맞추면 안 된다. **지갑과 내역은 모수가
@@ -456,10 +459,130 @@ ALREADY_MEMBER` 다. **이것이 불변식이고 서버가 검사한다.** 깨�
 (둘 다 `409`) 은행장이 바뀌는 경로도 없으므로, 나가기·내보내기가 겹쳐도 지킬 것이 없다.
 은행 행을 잠그지 않는다 — 잠그면 돈 경로가 FK 로 스치는 행을 쥐게 된다(`docs/LEDGER.md`).
 
+### 상점 (여정 12·13)
+
+은행장이 포인트로 살 수 있는 것을 **게시**하고, 회원(공개면 누구나)이 **산다.** 사는 것은 그
+자리에서 끝난다 — 포인트가 빠지고 **교환권**이 생긴다. 교환권을 실제 물건으로 바꾸는 것은
+별개의 일이다. 앱은 이행을 보증하지 않고 환불도 없다(`docs/JOURNEY.md` 여정 13).
+
+| 메서드 | 경로 | 응답 | 설명 |
+|---|---|---|---|
+| `GET` | `/api/point-types/:id/listings` | `Listing[]` | 품목. 회원(공개면 누구나). 다 팔린 것도 담는다 |
+| `GET` | `/api/listings/:id` | `Listing` | 품목 하나 |
+| `POST` | `/api/point-types/:id/listings` | `Listing` `201` | 게시. 은행장만. `Idempotency-Key` 필수 |
+| `PATCH` | `/api/listings/:id` | `Listing` | 재고·1인 한도·소개 수정. 은행장만 |
+| `DELETE` | `/api/listings/:id` | `204` | 내린다. 은행장만. 팔린 뒤에도 된다 — 교환권은 남는다 |
+| `POST` | `/api/listings/:id/purchases` | `PurchaseResult` `201` | 산다. `Idempotency-Key` 필수 |
+| `GET` | `/api/purchases/by-key?idempotencyKey=` | `PurchaseResult \| null` | 결과를 모를 때의 확인 |
+| `GET` | `/api/vouchers` | `Voucher[]` | 내 교환권. 최신순 |
+| `GET` | `/api/vouchers/:id` | `Voucher` | 교환권 하나. 가진 사람과 그 은행의 은행장 |
+| `POST` | `/api/vouchers/:id/redeem` | `Voucher` | 썼다고 표시. **은행장만.** 멱등 |
+
+```ts
+interface Listing {
+  id: string
+  pointTypeId: PointTypeId
+  name: string                 // 공백 제외 1~20자
+  description: string | null   // 공백 제외 0~60자
+  price: Points                // 한 개 값. 바꾸지 않는다 — 바꾸려면 새로 올린다
+  /** 약속한 개수. null 은 무제한 — 기본값이 아니라 명시적으로 고른 것이다 */
+  stock: number | null
+  /** 지금까지 판 개수 */
+  sold: number
+  /** stock - sold. 무제한이면 null. 0 이면 0 이라고 말한다 — 숨기지 않는다 */
+  remaining: number | null
+  /** 한 사람이 살 수 있는 개수. null 은 제한 없음 */
+  perPersonLimit: number | null
+  /** 보는 사람이 앞으로 더 살 수 있는 개수. 제한 없으면 null. 은행장에게는 null */
+  myRemainingLimit: number | null
+  createdAt: string
+  /** 내린 시각. 내린 품목은 은행장에게만 오고 살 수 없다 */
+  unlistedAt: string | null
+}
+
+/** 한 번의 구매. 수량은 화면의 편의이고 원장의 단위는 교환권 하나다 */
+interface Purchase {
+  id: string
+  listingId: string
+  listingName: string          // 그때의 이름. 품목이 내려가도 줄은 남는다
+  pointTypeId: PointTypeId
+  quantity: number
+  amount: Points               // price × quantity. 원장에 나간 액수
+  /** 보는 사람 기준 — 산 사람이면 참, 받은 은행장이면 거짓 */
+  outgoing: boolean
+  occurredAt: string
+}
+
+interface Voucher {
+  id: string
+  purchaseId: string
+  listingId: string
+  listingName: string
+  pointTypeId: PointTypeId
+  ownerId: UserId
+  issuedAt: string
+  redeemedAt: string | null
+}
+
+interface PurchaseResult {
+  purchase: Purchase
+  vouchers: Voucher[]          // quantity 장
+}
+```
+
+**게시 본문** — `{ name, description?, price, stock, perPersonLimit }`. `stock` 과
+`perPersonLimit` 은 **키가 반드시 있어야 한다** — 값은 양의 정수이거나 `null`. 빠지면 `400`.
+재고 없이 게시할 수 없고, 무제한은 기본값이 아니라 고르는 것이다(여정 12). `price` 는 안전
+범위의 양의 정수.
+
+**수정** — `stock` · `perPersonLimit` · `description` 만. 재고는 **이미 판 수보다 낮출 수
+없다**(`422 STOCK_BELOW_SOLD`) — 늘리는 것은 약속을 키우니 자유롭다. 발행 상한과 같은
+규칙이다. `price` 와 `name` 은 바꾸지 않는다 — 산 사람의 교환권이 가리키는 것이 바뀐다.
+
+**내리기** — 아직 아무도 안 샀으면 행이 사라진다. 팔린 뒤에는 `unlistedAt` 이 찍히고
+살 수 없게 된다. **이미 산 사람의 교환권은 그대로다.** 둘 다 `204` 이고, 이미 내린 것을
+다시 내려도 `204` 다.
+
+**누가 보는가** — 품목은 **비공개 은행이면 회원만**, 공개면 누구나. 회원이 아닌데 닿는
+사람(잔액이 남은 채 나간 사람)은 `403 NOT_MEMBER` — 명부와 같은 문이다. 닿지 못하면 `404`.
+내린 품목은 은행장에게만 온다.
+
+**산다** — 본문 `{ quantity }`, 양의 정수. 검사 순서는 멱등성 키 → 품목이 살 수 있는
+상태인가 → 회원인가 → 재고 → 1인 한도 → 잔액이고, **어느 하나라도 걸리면 아무것도 팔지
+않는다.** 셋을 사려는데 둘만 남았으면 둘을 팔지 않는다 — 세 개가 하나의 결정이다(여정 13).
+응답의 `remaining` · `myRemainingLimit` 으로 화면이 다시 정하게 한다.
+
+| 실패 | 코드 |
+|---|---|
+| 품목이 없거나 내려갔거나 닿지 못한다 | `404 LISTING_NOT_FOUND` |
+| 비공개 은행의 비회원 | `403 NOT_MEMBER` |
+| 재고보다 많다 | `422 OUT_OF_STOCK` — 본문에 `remaining` |
+| 1인 한도를 넘는다 | `422 PURCHASE_LIMIT_EXCEEDED` — 본문에 `myRemainingLimit` |
+| 잔액이 모자란다 | `422 INSUFFICIENT_BALANCE` |
+| 은행장이 자기 품목을 산다 | `400` — 순효과 0 인 줄이다. 나 자신에게 보내기와 같다 |
+
+**구매는 원장에서 평범한 이체다.** 산 사람 `−amount` · 은행장 `+amount`, 사건 `kind` 는
+`PURCHASE`. 유통량을 줄이지 않는다(`docs/LEDGER.md`). 교환권은 원장 밖의 기록이고 사건 하나에
+`quantity` 장이 묶인다. 그래서 **같은 키로 다시 오면 같은 교환권들이 온다** — 새로 찍지
+않는다.
+
+**재고와 1인 한도는 잠그고 읽는다.** 품목 행이 그 품목의 뮤텍스다 — 마지막 하나를 둘이 동시에
+사면 재고가 음수가 된다. 환불이 없으므로 여기가 마지막 방어선이다. 락 순서는 **품목 행 →
+원장 적용부**이고, 원장 적용부가 품목 행을 기다리는 경로는 없다.
+
+**교환권을 쓰는 것** — 은행장이 `redeem` 으로 표시한다. 커피를 건넸다는 뜻이고 앱 밖의
+일을 적는 것뿐이다. 이미 쓴 것을 다시 표시해도 `200` 으로 같은 교환권을 준다. 산 사람은
+자기 교환권을 보기만 한다 — 되돌리는 길은 없다. **교환권은 한 장이 한 개다.** 「세 잔짜리
+한 장」은 없다 — 부분적으로 쓰인 상태를 만들지 않는다(여정 13).
+
+**내역** — 산 사람의 내역에 `purchase` 줄(`outgoing: true`), 은행장의 내역에도 한 줄
+(`outgoing: false`). 교환권 자체는 내역이 아니라 `GET /api/vouchers` 다.
+
 ### 아직 계약이 아닌 것
 
 `docs/JOURNEY.md` 의 방향이 앞으로 여기에 더할 것들이다. **아직 확정되지 않았으므로
-구현하지 않는다.** 확정되면 더할 것: 게시 품목과 교환권(여정 12·13), 뭉뚱그린 통계.
+구현하지 않는다.** 확정되면 더할 것: 뭉뚱그린 통계(여정 8 — 돌고 있는 양 · 최근 이체 건수 ·
+교환된 비율).
 
 `PointType.visibility` 는 창설 시 정해지고 **나중에 바꿀 수 없다.** 공개를 비공개로
 바꾸면 이미 받은 사람들이 회원이 아닌 채로 잔액만 남게 되고, 반대로 바꾸면 초대로만
@@ -610,6 +733,11 @@ SDK 를 쓰는 쪽은 그것을 보고 「가입하면 되겠구나」로 읽는
 | `TRANSFER_NOT_FOUND` | 404 | 그 이체가 없거나 내 것이 아님 | 없음 |
 | `ISSUE_NOT_FOUND` | 404 | 그 발행이 없거나 내 것이 아님 | 없음 |
 | `CAP_BELOW_ISSUED` | 422 | 이미 발행한 양보다 낮은 상한 | 상한 고치기 |
+| `LISTING_NOT_FOUND` | 404 | 품목이 없거나 내려갔거나 내게 안 보임 | 없음 |
+| `OUT_OF_STOCK` | 422 | 남은 재고보다 많이 사려 함. 본문에 `remaining` | 수량 고치기 |
+| `PURCHASE_LIMIT_EXCEEDED` | 422 | 1인 한도를 넘음. 본문에 `myRemainingLimit` | 수량 고치기 |
+| `STOCK_BELOW_SOLD` | 422 | 이미 판 수보다 낮은 재고 | 재고 고치기 |
+| `VOUCHER_NOT_FOUND` | 404 | 교환권이 없거나 내 것이 아님 | 없음 |
 | `SERVER` | 5xx | 서버 오류 | **재시도** (같은 키) |
 | `NETWORK` | — | 요청이 서버에 닿지 못함 | **확인하기** → 재시도 |
 | `BAD_CREDENTIALS` | 401 | 핸들과 암호가 맞지 않음 | 다시 입력 |
@@ -668,7 +796,7 @@ SDK 를 열면 그 표를 가진 클라이언트가 우리 것만이 아니게 �
 **핸들 unique 는 정규화된 형태에 건다.** 조회만 정규화하면 `@Minho` 와 `@minho` 두 행이
 공존하고, 어느 쪽이 로그인되는지가 행 순서에 달린다.
 
-**재고와 1인 한도는 잠그고 읽는다** (상점이 붙을 때). 마지막 하나를 둘이 동시에 사면
+**재고와 1인 한도는 잠그고 읽는다.** 마지막 하나를 둘이 동시에 사면
 재고가 음수가 된다. **환불이 없으므로 여기가 마지막 방어선이다.**
 
 ## 시뮬레이션
