@@ -8,35 +8,23 @@ import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
-import java.time.Instant
 
-data class CapChangeResponse(
-    val id: String,
-    val idempotencyKey: String,
-    val pointTypeId: String,
-    val byId: String,
-    val previousCap: Long,
-    val issueCap: Long,
-    val changedAt: Instant,
-)
-
-// 셋은 서로 다른 모양이어야 한다 — 위계를 빌려 쓰면 셋이 한 종류로 읽힌다.
+// 둘은 서로 다른 모양이어야 한다 — 위계를 빌려 쓰면 둘이 한 종류로 읽힌다.
 data class HistoryEntryResponse(
     val type: String,
     val point: PointMarkResponse,
     val transfer: TransferResponse? = null,
     val issue: IssueResponse? = null,
-    val capChange: CapChangeResponse? = null,
 )
 
 @RestController
 @RequestMapping("/api")
 class HistoryController(private val historyService: HistoryService) {
     /**
-     * 이체 · 발행 · 상한 변경을 서버가 섞어서 시간순으로 준다.
+     * 이체와 발행을 서버가 섞어서 시간순으로 준다.
      *
-     * 세 목록을 클라이언트가 받아 합치면 각 목록의 limit 안에 든 것만 합쳐져
-     * 경계에서 항목이 사라진다.
+     * 상한 변경은 오지 않는다 — 유통량·상한은 발행자 화면의 것이고, 바뀐 것을 줄로 남기면
+     * 내역이 발행자의 관리 기록으로 채워진다 (docs/JOURNEY.md 여정 10).
      */
     @GetMapping("/history")
     fun history(

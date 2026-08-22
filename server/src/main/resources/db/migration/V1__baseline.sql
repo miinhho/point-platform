@@ -11,6 +11,12 @@ create table users (
     -- 정규화된 형태에 건다. 조회만 정규화하면 @Minho 와 @minho 가 공존하고
     -- 어느 쪽이 로그인되는지가 행 순서에 달린다.
     constraint uk_users_handle unique (handle),
+    -- 겹치는 이름을 그 이름으로 묻는다. 없으면 응답마다 표를 통째로 훑는다.
+    key ix_users_name (name),
+    -- 부분 일치 검색. like '%q%' 는 어떤 인덱스도 못 타므로 사람이 늘수록 전체를 훑는다.
+    -- ngram 파서라 한글도 두 글자씩 쪼갠다 — 그래서 한 글자 검색은 이 인덱스로 못 하고,
+    -- 그 갈래만 훑는다 (UserRepository.matching).
+    fulltext key ft_users_search (name, handle) with parser ngram,
     constraint uk_users_public_id unique (public_id)
 ) engine = InnoDB;
 
@@ -18,19 +24,18 @@ create table point_types (
     id              bigint      not null auto_increment,
     accent          enum ('BLUE','GREEN','ORANGE','PINK','PURPLE','TEAL') not null,
     idempotency_key varchar(36) null,
-    issue_cap       bigint      not null,
     name            varchar(50) not null,
     -- 결합 이모지(ZWJ·이형 선택자·피부색)는 코드포인트가 여럿이라 한 글자로 세지 않는다.
     emoji           varchar(32) not null,
     description     varchar(255) null,
     public_id       binary(16)  not null,
-    total_issued    bigint      not null,
     created_at      datetime(6) not null,
     -- 기본값을 두지 않는다. 바꿀 수 없는 값이라 고른 적 없는 상태가 영구히 고정된다.
     visibility      enum ('PUBLIC','PRIVATE') not null,
     issuer_id       bigint      not null,
     primary key (id),
     constraint uk_point_types_public_id unique (public_id),
+    key ix_point_types_name (name),
     constraint uk_point_types_issuer_key unique (issuer_id, idempotency_key),
     constraint fk_point_types_issuer foreign key (issuer_id) references users (id)
 ) engine = InnoDB;
@@ -44,6 +49,9 @@ create table accounts (
     user_id       bigint null,
     kind          enum ('HOLDER','ISSUANCE') not null,
     balance       bigint not null,
+    -- 공급의 두 값이 한 행에 있다. 발행도 상한 변경도 이 행을 잠그므로, 잠금 한 번이
+    -- 발행량과 상한을 함께 현재 값으로 준다 (docs/LEDGER.md).
+    issue_cap     bigint null,
     -- NULL 끼리는 unique 에서 안 부딪히므로 그대로 두면 한 포인트에 발행 계정이 둘 생긴다.
     -- 0 으로 접어서 막는다. users.id 가 AUTO_INCREMENT 라 0 을 넣어도 저장되지 않고
     -- 다음 번호가 들어가므로 보유자와 겹치지 않는다 (sql_mode 에 NO_AUTO_VALUE_ON_ZERO 가 없어야 한다).
@@ -53,72 +61,104 @@ create table accounts (
     -- kind 와 user_id 가 같은 사실을 두 번 말한다. 어긋난 행을 막지 않으면
     -- (user_id null, HOLDER) 가 holder_key 0 을 먹고 진짜 발행 계정을 밀어낸다.
     constraint ck_accounts_issuance_has_no_holder check ((user_id is null) = (kind = 'ISSUANCE')),
+    -- 상한은 공급의 성질이라 보유자 계정에는 없다. 어긋나면 상한 없는 발행 계정이 생긴다.
+    constraint ck_accounts_cap_only_on_issuance check ((issue_cap is null) = (kind = 'HOLDER')),
+    -- 부호는 계정 유형이 정한다. 보유자 잔액은 은행이 진 빚이라 음수가 될 수 없고,
+    -- 발행 계정은 그 빚의 반대편이라 음수가 정상이다 (docs/LEDGER.md).
+    constraint ck_accounts_holder_not_negative check (kind = 'ISSUANCE' or balance >= 0),
+    constraint ck_accounts_issuance_not_positive check (kind = 'HOLDER' or balance <= 0),
     key ix_accounts_user (user_id),
+    -- postings 의 복합 FK 가 참조한다. id 가 PK 라 이미 유일하지만, MySQL 은 FK 의 부모
+    -- 쪽에 unique 를 요구한다 — 인덱스만으로는 제약 생성이 거절된다. PK 를 한 벌 더
+    -- 저장하는 값을 내고 전기가 사건의 포인트를 넘지 못하는 것을 산다.
+    constraint uk_accounts_id_point_type unique (id, point_type_id),
     constraint fk_accounts_point_type foreign key (point_type_id) references point_types (id),
     constraint fk_accounts_user foreign key (user_id) references users (id)
 ) engine = InnoDB;
 
--- status 컬럼이 없다. 저장된 이체는 언제나 확정된 것이다 (docs/JOURNEY.md 「버린 것」).
-create table transfers (
+-- 사건을 시간순으로 적은 원본. 추가만 된다 — 정정도 새 분개다 (docs/LEDGER.md).
+create table journal_entries (
     id              bigint      not null auto_increment,
-    amount          bigint      not null,
-    confirmed_at    datetime(6) not null,
-    created_at      datetime(6) not null,
-    idempotency_key varchar(36) not null,
     public_id       binary(16)  not null,
-    from_id         bigint      not null,
+    -- 전기 모양에서 유추하지 않는다. 유추하면 내역을 그리는 쪽이 원장 규칙을 알아야 한다.
+    kind            enum ('ISSUE','TRANSFER','CAP_CHANGE') not null,
+    requester_id    bigint      not null,
+    idempotency_key varchar(36) not null,
     point_type_id   bigint      not null,
-    to_id           bigint      not null,
+    occurred_at     datetime(6) not null,
     primary key (id),
-    constraint uk_transfers_public_id unique (public_id),
-    -- 키는 「내가 같은 요청을 두 번 보냈나」에 답한다. 전역 unique 로 두면 남이 내 키를
-    -- 선점하고, 선점당한 쪽은 재조회가 비어서 끝없이 재시도한다.
-    constraint uk_transfers_from_key unique (from_id, idempotency_key),
-    -- point_type_id 를 인덱스 중간에 두면 조건 없는 조회의 정렬이 filesort 로 떨어진다.
-    key ix_transfers_from (from_id, created_at),
-    key ix_transfers_to (to_id, created_at),
-    constraint fk_transfers_from foreign key (from_id) references users (id),
-    constraint fk_transfers_point_type foreign key (point_type_id) references point_types (id),
+    constraint uk_journal_entries_public_id unique (public_id),
+    -- 사건의 멱등성 키가 여기 하나로 모인다. 키는 「내가 같은 요청을 두 번 보냈나」에
+    -- 답하므로 요청자와 함께 건다 — 전역 unique 는 남이 내 키를 선점하게 한다.
+    constraint uk_journal_entries_requester_key unique (requester_id, idempotency_key),
+    key ix_journal_entries_point_type (point_type_id, occurred_at),
+    -- 「내가 보낸 것」·「내가 발행한 것」이 부속 기록이 아니라 사건에서 답해진다.
+    key ix_journal_entries_requester (requester_id, occurred_at),
+    constraint uk_journal_entries_id_point_type unique (id, point_type_id),
+    constraint fk_journal_entries_requester foreign key (requester_id) references users (id),
+    constraint fk_journal_entries_point_type foreign key (point_type_id) references point_types (id)
+) engine = InnoDB;
+
+-- 사건을 계정에 옮겨 적은 것. 사건당 둘 이상이고 합이 0 이다.
+create table postings (
+    id               bigint not null auto_increment,
+    journal_entry_id bigint not null,
+    account_id       bigint not null,
+    -- 사건과 계정이 각각 갖는 포인트를 여기 내려 적는다. 아래 복합 FK 둘이 이 한 값을
+    -- 양쪽에 묶으므로, 전기가 사건의 포인트를 넘는 것을 트리거 없이 DB 가 막는다.
+    point_type_id    bigint not null,
+    -- 차변·대변 칸을 나누지 않고 부호 하나로 적는다 (docs/LEDGER.md).
+    amount           bigint not null,
+    primary key (id),
+    -- 한 사건이 같은 계정을 두 번 건드리면 합이 맞아도 그 계정의 재계산과 내역 표시가 갈린다.
+    constraint uk_postings_entry_account unique (journal_entry_id, account_id),
+    -- 0 원 전기는 사건에 참여하지 않은 계정을 참여한 것처럼 보이게 한다.
+    constraint ck_postings_amount_not_zero check (amount <> 0),
+    key ix_postings_account (account_id, point_type_id),
+    constraint fk_postings_entry foreign key (journal_entry_id, point_type_id)
+        references journal_entries (id, point_type_id),
+    constraint fk_postings_account foreign key (account_id, point_type_id)
+        references accounts (id, point_type_id)
+) engine = InnoDB;
+
+-- status 컬럼이 없다. 저장된 이체는 언제나 확정된 것이다 (docs/JOURNEY.md 「버린 것」).
+-- 바깥 id 도 없다. 사건과 1:1 이라 사건의 public_id 가 곧 이 이체의 id 다.
+create table transfers (
+    id               bigint     not null auto_increment,
+    -- 사건이 아는 것을 다시 갖지 않는다 — 포인트도 보낸 사람도 시각도 키도 사건의 것이다.
+    journal_entry_id bigint     not null,
+    -- 받는 사람만 사건이 모른다. 사건의 요청자가 보낸 사람이다.
+    to_id            bigint     not null,
+    amount           bigint     not null,
+    primary key (id),
+    constraint uk_transfers_journal_entry unique (journal_entry_id),
+    constraint fk_transfers_journal_entry foreign key (journal_entry_id) references journal_entries (id),
+    key ix_transfers_to (to_id),
     constraint fk_transfers_to foreign key (to_id) references users (id)
 ) engine = InnoDB;
 
 -- 발행은 이체가 아니다. 대상이 없고, 잔액이 아니라 상한을 본다 (docs/API.md).
 create table issues (
-    id                 bigint      not null auto_increment,
-    amount             bigint      not null,
-    confirmed_at       datetime(6) not null,
-    idempotency_key    varchar(36) not null,
+    id                 bigint     not null auto_increment,
+    journal_entry_id   bigint     not null,
+    amount             bigint     not null,
     -- 일어난 때의 값이다. 지금 값에서 거꾸로 계산할 수 없다.
-    issue_cap_at       bigint      not null,
-    total_issued_after bigint      not null,
-    public_id          binary(16)  not null,
-    issuer_id          bigint      not null,
-    point_type_id      bigint      not null,
+    total_issued_after bigint     not null,
+    issue_cap_at       bigint     not null,
     primary key (id),
-    constraint uk_issues_public_id unique (public_id),
-    constraint uk_issues_issuer_key unique (issuer_id, idempotency_key),
-    key ix_issues_issuer (issuer_id, confirmed_at),
-    key ix_issues_point_type (point_type_id, confirmed_at),
-    constraint fk_issues_issuer foreign key (issuer_id) references users (id),
-    constraint fk_issues_point_type foreign key (point_type_id) references point_types (id)
+    constraint uk_issues_journal_entry unique (journal_entry_id),
+    constraint fk_issues_journal_entry foreign key (journal_entry_id) references journal_entries (id)
 ) engine = InnoDB;
 
 -- 상한 변경은 그 포인트를 가진 사람이 본다 — 발행자만 아는 값이 아니라 별도 테이블이다.
 create table cap_changes (
-    id              bigint      not null auto_increment,
-    changed_at      datetime(6) not null,
-    idempotency_key varchar(36) not null,
-    issue_cap       bigint      not null,
-    previous_cap    bigint      not null,
-    public_id       binary(16)  not null,
-    by_id           bigint      not null,
-    point_type_id   bigint      not null,
+    id               bigint     not null auto_increment,
+    journal_entry_id bigint     not null,
+    previous_cap     bigint     not null,
+    issue_cap        bigint     not null,
     primary key (id),
-    constraint uk_cap_changes_public_id unique (public_id),
-    constraint uk_cap_changes_by_key unique (by_id, idempotency_key),
-    key ix_cap_changes_point_type (point_type_id, changed_at),
-    constraint fk_cap_changes_by foreign key (by_id) references users (id),
-    constraint fk_cap_changes_point_type foreign key (point_type_id) references point_types (id)
+    constraint uk_cap_changes_journal_entry unique (journal_entry_id),
+    constraint fk_cap_changes_journal_entry foreign key (journal_entry_id) references journal_entries (id)
 ) engine = InnoDB;
 
 -- 회원 자격은 비공개 은행에만 있다. 공개 은행에는 행이 생기지 않는다.
@@ -126,7 +166,6 @@ create table cap_changes (
 create table memberships (
     point_type_id bigint      not null,
     user_id       bigint      not null,
-    joined_at     datetime(6) not null,
     primary key (point_type_id, user_id),
     key ix_memberships_user (user_id),
     constraint fk_memberships_point_type foreign key (point_type_id) references point_types (id),

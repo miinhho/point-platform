@@ -68,7 +68,7 @@ class AccountsTest {
         assertEquals(AccountKind.ISSUANCE, issuance.kind)
         assertEquals(0, issuance.balance)
         // 발행 계정은 포인트의 것이지 사람의 것이 아니다.
-        assertNull(issuance.user)
+        assertNull(issuance.userId)
     }
 
     @Test
@@ -79,7 +79,7 @@ class AccountsTest {
         // holder_key 가 0 이 되어 그 포인트의 발행 계정 자리를 먹는다.
         assertThrows<DataIntegrityViolationException> {
             accountRepository.saveAndFlush(
-                Account(pointType = pointType, user = null, kind = AccountKind.HOLDER),
+                Account(pointTypeId = pointType.id!!, userId = null, kind = AccountKind.HOLDER),
             )
         }
     }
@@ -92,7 +92,7 @@ class AccountsTest {
         // 상한을 보는 쪽이 잠글 행이라 둘이면 서로 다른 행을 잠그고 상한이 뜻을 잃는다.
         assertThrows<DataIntegrityViolationException> {
             accountRepository.saveAndFlush(
-                Account(pointType = pointType, user = null, kind = AccountKind.ISSUANCE),
+                Account(pointTypeId = pointType.id!!, userId = null, kind = AccountKind.ISSUANCE),
             )
         }
     }

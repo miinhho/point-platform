@@ -1,17 +1,12 @@
 package io.github.miinhho.point.ledger
 
-import io.github.miinhho.point.pointtype.PointType
-import io.github.miinhho.point.user.User
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.EnumType
 import jakarta.persistence.Enumerated
-import jakarta.persistence.FetchType
 import jakarta.persistence.GeneratedValue
 import jakarta.persistence.GenerationType
 import jakarta.persistence.Id
-import jakarta.persistence.JoinColumn
-import jakarta.persistence.ManyToOne
 import jakarta.persistence.Table
 
 // 잔액은 전기의 합을 접어 둔 것이다. 판정에 쓸 수 있는 이유는 같은 트랜잭션에서 잠글 수
@@ -19,14 +14,12 @@ import jakarta.persistence.Table
 @Entity
 @Table(name = "accounts")
 class Account(
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "point_type_id", nullable = false)
-    val pointType: PointType,
+    @Column(name = "point_type_id", nullable = false)
+    val pointTypeId: Long,
 
     /** 발행 계정에는 보유자가 없다. */
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id")
-    val user: User?,
+    @Column(name = "user_id")
+    val userId: Long?,
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 16)
@@ -34,6 +27,10 @@ class Account(
 
     @Column(nullable = false)
     var balance: Long = 0,
+
+    /** 발행 계정에만 있다 — 상한은 공급의 성질이고 공급은 이 행이다. */
+    @Column(name = "issue_cap")
+    var issueCap: Long? = null,
 ) {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

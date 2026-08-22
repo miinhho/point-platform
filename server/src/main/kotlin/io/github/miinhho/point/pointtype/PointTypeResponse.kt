@@ -1,5 +1,6 @@
 package io.github.miinhho.point.pointtype
 
+import io.github.miinhho.point.ledger.Supply
 import java.time.Instant
 
 data class PointTypeResponse(
@@ -13,8 +14,8 @@ data class PointTypeResponse(
     val issuerName: String,
     /** 발행자의 핸들. 유일하다 — issuerName 은 흉내낼 수 있다. */
     val issuerHandle: String,
+    /** 발행할 수 있는가. 권한 판정만 서버의 일이다 — 여유는 상한에서 유통량을 빼면 나온다. */
     val canIssue: Boolean,
-    val issuableHeadroom: Long,
     val accent: String,
     val totalIssued: Long,
     val issueCap: Long,
@@ -30,7 +31,7 @@ data class PointTypeResponse(
     val membership: String?,
 )
 
-// canIssue·issuableHeadroom 은 보는 사람에 따라 다르다 — 서버가 판정해 실어 준다.
+// canIssue 는 보는 사람에 따라 다르다 — 권한이라 서버가 판정해 실어 준다.
 // nameIsShared 는 다르다. 겹침은 원장의 성질이라 누가 보든 같다.
 // 인자를 강제한다 — 기본값을 주면 내보내는 경로가 하나 늘 때 조용히 빠진다.
 fun PointType.toResponse(
@@ -38,6 +39,7 @@ fun PointType.toResponse(
     sharedNames: Set<String>,
     memberCount: Long?,
     membership: String?,
+    supply: Supply,
 ) = PointTypeResponse(
     id = publicId.toString(),
     name = name,
@@ -47,10 +49,9 @@ fun PointType.toResponse(
     issuerName = issuer.name,
     issuerHandle = issuer.handle,
     canIssue = issuer.id == viewerId,
-    issuableHeadroom = maxOf(0, issueCap - totalIssued),
     accent = accent.name.lowercase(),
-    totalIssued = totalIssued,
-    issueCap = issueCap,
+    totalIssued = supply.issued,
+    issueCap = supply.cap,
     nameIsShared = name in sharedNames,
     createdAt = createdAt,
     visibility = visibility.name.lowercase(),

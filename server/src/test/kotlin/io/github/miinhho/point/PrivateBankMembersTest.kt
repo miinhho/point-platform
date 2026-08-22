@@ -2,9 +2,8 @@ package io.github.miinhho.point
 
 import io.github.miinhho.point.auth.LoginRequest
 import io.github.miinhho.point.auth.LoginResponse
-import io.github.miinhho.point.pointtype.ChangeCapRequest
-import io.github.miinhho.point.pointtype.Membership
-import io.github.miinhho.point.pointtype.MembershipRepository
+import io.github.miinhho.point.pointtype.membership.Membership
+import io.github.miinhho.point.pointtype.membership.MembershipRepository
 import io.github.miinhho.point.pointtype.PointAccent
 import io.github.miinhho.point.pointtype.PointType
 import io.github.miinhho.point.pointtype.PointTypeRepository
@@ -46,6 +45,7 @@ import kotlin.test.assertTrue
 class PrivateBankMembersTest {
     @Autowired lateinit var ledgerReset: LedgerReset
     @Autowired lateinit var bankFixture: BankFixture
+    @Autowired lateinit var ledgerFixture: LedgerFixture
     @Autowired lateinit var restTemplate: TestRestTemplate
     @Autowired lateinit var userRepository: UserRepository
     @Autowired lateinit var pointTypeRepository: PointTypeRepository
@@ -72,11 +72,12 @@ class PrivateBankMembersTest {
         open = bankFixture.open(point("온포인트", "🏪", PointVisibility.PUBLIC))
         closed = bankFixture.open(point("동아리비", "🎪", PointVisibility.PRIVATE))
 
-        listOf(issuer, member).forEach { membershipRepository.save(Membership(pointType = closed, user = it)) }
-        listOf(issuer, member, leftBehind).forEach {
-            accountRepository.save(Account(pointType = closed, user = it, kind = AccountKind.HOLDER, balance = 100_000))
-        }
-        accountRepository.save(Account(pointType = open, user = issuer, kind = AccountKind.HOLDER, balance = 100_000))
+        membershipRepository.save(Membership(pointType = closed, user = member))
+        // 은행장은 발행으로, 회원은 받아서, 나간 사람은 받고 나가서 잔액을 갖는다.
+        ledgerFixture.issue(closed, 100_000)
+        ledgerFixture.give(closed, member, 100_000)
+        ledgerFixture.giveThenLeave(closed, leftBehind, 100_000)
+        ledgerFixture.issue(open, 100_000)
     }
 
     @Test
@@ -120,6 +121,22 @@ class PrivateBankMembersTest {
         // 나간 사람은 은행 페이지에는 닿지만 회원 명부는 못 본다.
         assertEquals("[]", get(leftBehind, "/api/users?pointTypeId=${closed.publicId}").body)
         assertEquals("[]", get(outsider, "/api/users?pointTypeId=${closed.publicId}").body)
+    }
+
+    // 계약: docs/API.md 「필터 인자」 — 전역을 뒤지는 조회의 문은 「회원인가」다. 최근 목록이
+    // 지금 회원만 걸러 돌려주면, 이름이 나온다는 것 자체가 그 사람이 아직 회원이라는 답이 된다.
+    @Test
+    fun `최근 보낸 사람도 회원이 아니면 나가지 않는다`() {
+        // 회원이던 동안 보낸 기록을 남기고 나간다.
+        membershipRepository.save(Membership(pointType = closed, user = leftBehind))
+        assertEquals(HttpStatus.CREATED, send(leftBehind, closed, member).statusCode)
+        assertEquals(HttpStatus.NO_CONTENT, delete(leftBehind, "/api/point-types/${closed.publicId}/members/me").statusCode)
+
+        assertEquals("[]", get(leftBehind, "/api/recent?pointTypeId=${closed.publicId}").body, "나간 사람에게 지금 회원의 이름이 나간다")
+
+        // 회원에게는 그대로 나온다 — 문이 닫힌 것이지 기능이 꺼진 것이 아니다.
+        assertEquals(HttpStatus.CREATED, send(issuer, closed, member).statusCode)
+        assertTrue(assertNotNull(get(issuer, "/api/recent?pointTypeId=${closed.publicId}").body).contains("@jisoo"))
     }
 
     @Test
@@ -218,24 +235,14 @@ class PrivateBankMembersTest {
         assertTrue(body.contains("\"totalIssuedAfter\":") && body.contains("\"issueCapAt\":"), body)
     }
 
-    @Test
-    fun `잔액 0 행은 비공개 은행의 상한 변경을 보여주지 않는다`() {
-        // 거절당한 이체가 남기는 것과 같은 행이다.
-        accountRepository.save(Account(pointType = closed, user = outsider, kind = AccountKind.HOLDER, balance = 0))
-        val cap = patch(issuer, "/api/point-types/${closed.publicId}/cap", ChangeCapRequest(BigDecimal(9_000_000)))
-        assertEquals(HttpStatus.OK, cap.statusCode, cap.body)
-
-        assertEquals("[]", get(outsider, "/api/history").body, "무관한 사람에게 상한 변경이 새면 은행의 존재가 샌다")
-
-        // 잔액이 있는 사람에게는 보인다 — 지갑에 카드가 있으면 그 은행의 사건도 본다.
-        assertTrue(assertNotNull(get(leftBehind, "/api/history").body).contains("capChange"))
-    }
-
     private fun send(from: User, pointType: PointType, to: User) = post(
         from,
         "/api/transfers",
         TransferRequest(pointType.publicId.toString(), publicId(to), BigDecimal(1_000)),
     )
+
+    private fun delete(who: User, path: String): ResponseEntity<String> =
+        restTemplate.exchange(path, HttpMethod.DELETE, HttpEntity<Void>(authOf(who)), String::class.java)
 
     private fun get(who: User, path: String): ResponseEntity<String> =
         restTemplate.exchange(path, HttpMethod.GET, HttpEntity<Void>(authOf(who)), String::class.java)
@@ -267,7 +274,5 @@ class PrivateBankMembersTest {
         issuer = issuer,
         accent = PointAccent.BLUE,
         visibility = visibility,
-        issueCap = 1_000_000,
-        totalIssued = 0,
     )
 }

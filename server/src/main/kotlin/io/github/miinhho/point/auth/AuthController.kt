@@ -28,7 +28,7 @@ class AuthController(
         return LoginResponse(
             accessToken = jwtService.generateAccessToken(user.id!!),
             refreshToken = refreshTokenService.issue(user),
-            user = user.toResponse(userRepository.sharedNames()),
+            user = user.toResponse(userRepository.sharedNames(listOf(user.name))),
         )
     }
 
