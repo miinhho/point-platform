@@ -3,7 +3,7 @@ package io.github.miinhho.point.transfer
 import io.github.miinhho.point.ledger.Ledger
 import io.github.miinhho.point.shared.DomainFailureException
 import io.github.miinhho.point.shared.FailureCode
-import io.github.miinhho.point.membership.BankAccess
+import io.github.miinhho.point.pointtype.membership.BankAccess
 import io.github.miinhho.point.pointtype.PointType
 import io.github.miinhho.point.pointtype.PointTypeRepository
 import io.github.miinhho.point.user.User

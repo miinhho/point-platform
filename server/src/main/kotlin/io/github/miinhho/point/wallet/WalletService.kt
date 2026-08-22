@@ -1,8 +1,8 @@
 package io.github.miinhho.point.wallet
 
 import io.github.miinhho.point.ledger.AccountRepository
-import io.github.miinhho.point.membership.BankAccess
-import io.github.miinhho.point.membership.Relation
+import io.github.miinhho.point.pointtype.membership.BankAccess
+import io.github.miinhho.point.pointtype.membership.Relation
 import io.github.miinhho.point.pointtype.PointTypeRepository
 import io.github.miinhho.point.pointtype.PointTypeResponses
 import io.github.miinhho.point.pointtype.PointVisibility

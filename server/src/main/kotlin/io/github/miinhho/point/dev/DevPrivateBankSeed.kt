@@ -15,7 +15,7 @@ import java.math.BigDecimal
 import io.github.miinhho.point.pointtype.CreatePointTypeRequest
 import io.github.miinhho.point.pointtype.PointTypeCreateService
 import io.github.miinhho.point.pointtype.PointTypeRepository
-import io.github.miinhho.point.membership.MembershipService
+import io.github.miinhho.point.pointtype.membership.MembershipService
 
 /**
  * 비공개 은행 하나와 **관계 넷**을 채운다 — 회원 · 잔액 0 인 회원 · 초대만 받은 사람 ·

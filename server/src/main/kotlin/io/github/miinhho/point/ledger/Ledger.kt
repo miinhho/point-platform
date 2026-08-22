@@ -1,6 +1,5 @@
 package io.github.miinhho.point.ledger
 
-import io.github.miinhho.point.pointtype.PointTypeRepository
 import io.github.miinhho.point.shared.DomainFailureException
 import io.github.miinhho.point.shared.FailureCode
 import org.springframework.stereotype.Service
@@ -19,7 +18,6 @@ class Ledger(
     private val journalEntryRepository: JournalEntryRepository,
     private val postingRepository: PostingRepository,
     private val accountRepository: AccountRepository,
-    private val pointTypeRepository: PointTypeRepository,
 ) {
     class Issued(val entry: JournalEntry, val totalIssuedAfter: Long, val issueCapAt: Long)
 

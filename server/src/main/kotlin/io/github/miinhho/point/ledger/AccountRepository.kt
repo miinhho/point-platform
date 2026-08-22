@@ -73,4 +73,15 @@ interface AccountRepository : JpaRepository<Account, Long> {
         nativeQuery = true,
     )
     fun idOf(pointTypeId: Long, holderKey: Long): Long?
+
+    /**
+     * 발행 계정 없는 포인트. **표 이름으로 묻는다** — 원장이 포인트를 타입으로 알면 그 둘이
+     * 서로를 참조하고, 그 순환은 이름을 바꿔서는 사라지지 않는다.
+     */
+    @Query(
+        value = "select p.id from point_types p left join accounts a " +
+            "on a.point_type_id = p.id and a.holder_key = 0 where a.id is null",
+        nativeQuery = true,
+    )
+    fun pointTypeIdsWithoutIssuance(): List<Long>
 }

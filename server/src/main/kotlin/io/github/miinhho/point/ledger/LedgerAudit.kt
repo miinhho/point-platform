@@ -1,6 +1,5 @@
 package io.github.miinhho.point.ledger
 
-import io.github.miinhho.point.pointtype.PointTypeRepository
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
@@ -14,18 +13,20 @@ import org.springframework.transaction.annotation.Transactional
 class LedgerAudit(
     private val accountRepository: AccountRepository,
     private val postingRepository: PostingRepository,
-    private val pointTypeRepository: PointTypeRepository,
 ) {
-    /** 깨진 것들. 빈 목록이면 원장이 스스로와 맞는다. */
+    /**
+     * 깨진 것들. 빈 목록이면 원장이 스스로와 맞는다.
+     *
+     * 「발행 계정 없는 포인트」는 여기서 묻지 않는다 — 그것은 포인트가 제대로 났는가이지
+     * 원장이 스스로와 맞는가가 아니고, 만드는 길이 하나뿐이라 그 위에서 이미 막혀 있다.
+     */
     @Transactional(readOnly = true)
     fun check(): List<String> = buildList {
         postingRepository.entriesOutOfBalance().forEach { add("사건 ${it[0]} 의 전기 합이 ${it[1]} 이다") }
         postingRepository.pointTypesOutOfBalance().forEach { add("포인트 ${it[0]} 의 전기 합이 ${it[1]} 이다") }
         addAll(driftedAccounts().map { (account, sum) -> "계정 ${account.id} 의 잔액 ${account.balance} ≠ 전기 합 $sum" })
 
-        val withIssuance = accountRepository.findAll().filter { it.kind == AccountKind.ISSUANCE }.map { it.pointTypeId }.toSet()
-        pointTypeRepository.findAll().mapNotNull { it.id }.filterNot { it in withIssuance }
-            .forEach { add("포인트 $it 에 발행 계정이 없다") }
+        accountRepository.pointTypeIdsWithoutIssuance().forEach { add("포인트 $it 에 발행 계정이 없다") }
     }
 
     /** 잔액을 전기에서 다시 접는다. 고친 계정 수를 준다. */
