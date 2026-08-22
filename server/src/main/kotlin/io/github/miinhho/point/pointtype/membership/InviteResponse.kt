@@ -1,4 +1,4 @@
-package io.github.miinhho.point.membership
+package io.github.miinhho.point.pointtype.membership
 
 import java.time.Instant
 import io.github.miinhho.point.pointtype.PointTypeResponse

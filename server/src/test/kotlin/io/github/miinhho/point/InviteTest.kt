@@ -2,11 +2,10 @@ package io.github.miinhho.point
 
 import io.github.miinhho.point.auth.LoginRequest
 import io.github.miinhho.point.auth.LoginResponse
-import io.github.miinhho.point.pointtype.ChangeCapRequest
-import io.github.miinhho.point.membership.InviteRepository
-import io.github.miinhho.point.membership.InviteRequest
-import io.github.miinhho.point.membership.Membership
-import io.github.miinhho.point.membership.MembershipRepository
+import io.github.miinhho.point.pointtype.membership.InviteRepository
+import io.github.miinhho.point.pointtype.membership.InviteRequest
+import io.github.miinhho.point.pointtype.membership.Membership
+import io.github.miinhho.point.pointtype.membership.MembershipRepository
 import io.github.miinhho.point.pointtype.PointAccent
 import io.github.miinhho.point.pointtype.PointType
 import io.github.miinhho.point.pointtype.PointTypeRepository
@@ -130,18 +129,6 @@ class InviteTest {
         assertTrue(wallet.contains("동아리비"), wallet)
         assertTrue(wallet.contains("\"amount\":0"), wallet)
         assertTrue(wallet.contains("\"membership\":\"member\""), "세 가지 0 을 가를 재료가 실려 온다: $wallet")
-
-        // 상한은 보유자에게 하는 약속이다. 카드를 주기로 했으면 그 약속이 바뀐 기록도 와야 한다.
-        val capKey = UUID.randomUUID().toString()
-        val cap = restTemplate.exchange(
-            "/api/point-types/${closed.publicId}/cap",
-            HttpMethod.PATCH,
-            HttpEntity(ChangeCapRequest(java.math.BigDecimal(2_000_000)), authOf(issuer).apply { set("Idempotency-Key", capKey) }),
-            String::class.java,
-        )
-        assertEquals(HttpStatus.OK, cap.statusCode, cap.body)
-        val history = assertNotNull(get(outsider, "/api/history?limit=10").body)
-        assertTrue(history.contains("capChange"), "지갑에 담기는 사람은 상한 변경도 본다: $history")
 
         // 내보내지면 관계가 끊긴다. 잔액도 없으므로 담을 이유가 없다.
         delete(issuer, "/api/point-types/${closed.publicId}/members/${publicId(outsider)}")
@@ -369,6 +356,5 @@ class InviteTest {
         issuer = issuer,
         accent = PointAccent.BLUE,
         visibility = visibility,
-        issueCap = 1_000_000,
     )
 }

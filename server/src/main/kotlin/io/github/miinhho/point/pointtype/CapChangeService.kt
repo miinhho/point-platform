@@ -3,12 +3,11 @@ package io.github.miinhho.point.pointtype
 import io.github.miinhho.point.ledger.Ledger
 import io.github.miinhho.point.shared.DomainFailureException
 import io.github.miinhho.point.shared.FailureCode
-import io.github.miinhho.point.user.UserRepository
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.math.BigDecimal
 import java.util.UUID
-import io.github.miinhho.point.membership.BankAccess
+import io.github.miinhho.point.pointtype.membership.BankAccess
 
 private const val MAX_SAFE_INTEGER = 9_007_199_254_740_991L
 
@@ -16,7 +15,6 @@ private const val MAX_SAFE_INTEGER = 9_007_199_254_740_991L
 class CapChangeService(
     private val pointTypeRepository: PointTypeRepository,
     private val capChangeRepository: CapChangeRepository,
-    private val userRepository: UserRepository,
     private val ledger: Ledger,
     private val pointTypeResponses: PointTypeResponses,
     private val bankAccess: BankAccess,
@@ -24,7 +22,8 @@ class CapChangeService(
     @Transactional(readOnly = true)
     fun findByIdempotencyKey(key: String, viewerId: Long): PointTypeResponse? =
         capChangeRepository.findByRequesterAndKey(viewerId, key)
-            ?.let { pointTypeResponses.of(it.pointType, viewerId) }
+            ?.let { pointTypeRepository.findById(it.journalEntry.pointTypeId).orElse(null) }
+            ?.let { pointTypeResponses.of(it, viewerId) }
 
     /**
      * 상한을 바꾼다. 되돌릴 수 없고 이력에 남는다.
@@ -59,13 +58,10 @@ class CapChangeService(
             throw DomainFailureException(FailureCode.MALFORMED_REQUEST, "지금과 같은 값")
         }
 
-        pointType.issueCap = newCap
-        pointTypeRepository.save(pointType)
+        ledger.setCap(pointType.id!!, newCap)
         capChangeRepository.saveAndFlush(
             CapChange(
                 journalEntry = capped.entry,
-                pointType = pointType,
-                by = userRepository.getReferenceById(actorId),
                 previousCap = previousCap,
                 issueCap = newCap,
             ),

@@ -20,6 +20,7 @@ repositories {
 }
 
 dependencies {
+	implementation("org.springframework.modulith:spring-modulith-api:2.0.0")
 	implementation("org.springframework.boot:spring-boot-starter-actuator")
 	implementation("org.springframework.boot:spring-boot-starter-data-jpa")
 	implementation("org.springframework.boot:spring-boot-flyway")
@@ -35,6 +36,7 @@ dependencies {
 	runtimeOnly("io.micrometer:micrometer-registry-prometheus")
 	runtimeOnly("com.mysql:mysql-connector-j")
 	developmentOnly("org.springframework.boot:spring-boot-docker-compose")
+	testImplementation("org.springframework.modulith:spring-modulith-starter-test:2.0.0")
 	testImplementation("org.springframework.boot:spring-boot-starter-actuator-test")
 	testImplementation("org.springframework.boot:spring-boot-starter-data-jpa-test")
 	testImplementation("org.springframework.boot:spring-boot-starter-security-test")

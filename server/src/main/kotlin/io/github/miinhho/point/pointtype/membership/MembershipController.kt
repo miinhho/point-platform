@@ -1,4 +1,4 @@
-package io.github.miinhho.point.membership
+package io.github.miinhho.point.pointtype.membership
 
 import io.github.miinhho.point.shared.DomainFailureException
 import io.github.miinhho.point.shared.FailureCode

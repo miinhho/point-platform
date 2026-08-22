@@ -1,8 +1,8 @@
 package io.github.miinhho.point.wallet
 
 import io.github.miinhho.point.ledger.AccountRepository
-import io.github.miinhho.point.membership.BankAccess
-import io.github.miinhho.point.membership.Relation
+import io.github.miinhho.point.pointtype.membership.BankAccess
+import io.github.miinhho.point.pointtype.membership.Relation
 import io.github.miinhho.point.pointtype.PointTypeRepository
 import io.github.miinhho.point.pointtype.PointTypeResponses
 import io.github.miinhho.point.pointtype.PointVisibility
@@ -22,7 +22,7 @@ class WalletService(
     private val transferRepository: TransferRepository,
 ) {
     @Transactional(readOnly = true)
-    fun me(userId: Long) = requireUser(userId).toResponse(userRepository.sharedNames())
+    fun me(userId: Long) = requireUser(userId).let { it.toResponse(userRepository.sharedNames(listOf(it.name))) }
 
     // 담는 기준은 잔액이 아니라 관계다 — 초대를 수락한 사람은 아직 아무것도 못 받았어도
     // 그 은행의 회원이다. 안 담으면 가입은 됐는데 그 은행이 어느 화면에도 없다
@@ -31,7 +31,7 @@ class WalletService(
     @Transactional(readOnly = true)
     fun wallet(userId: Long): WalletResponse {
         val user = requireUser(userId)
-        val amountByType = accountRepository.findByUserId(userId).associate { it.pointType.id to it.balance }
+        val amountByType = accountRepository.findByUserId(userId).associate { it.pointTypeId to it.balance }
         val relations = bankAccess.relationsOf(userId)
         val myMemberships = bankAccess.memberOf(userId)
         // 관계가 있는 것만 읽는다 — 전부 읽어 메모리에서 거르면 은행이 늘수록 무거워진다.
@@ -50,7 +50,7 @@ class WalletService(
                 sendable = if (locked) 0 else amount,
             )
         }
-        return WalletResponse(user.toResponse(userRepository.sharedNames()), balances)
+        return WalletResponse(user.toResponse(userRepository.sharedNames(listOf(user.name))), balances)
     }
 
     companion object {

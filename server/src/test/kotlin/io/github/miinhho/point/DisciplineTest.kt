@@ -18,20 +18,28 @@ import kotlin.test.assertTrue
 class DisciplineTest {
     @Test
     fun `잔액을 바꾸거나 잠그는 문장은 적용부에만 있다`() {
-        val names = balanceWriteNames()
+        val names = ledgerWriteNames()
         // 목록을 손으로 적으면 새 메서드가 생긴 날부터 검사가 조용히 안 본다 — 소스에서 뽑는다.
-        assertTrue(names.size >= 4, "잔액을 바꾸는 메서드를 못 찾았다: $names")
+        assertTrue(names.size >= 5, "잔액을 바꾸거나 잠그는 메서드를 못 찾았다: $names")
 
-        val callers = sourcesOutside("ledger").filter { (_, text) -> names.any { "$it(" in text } }
+        // 선언이 아니라 호출을 찾는다 — 리포지토리 자신은 그 이름을 갖고 있을 뿐이다.
+        val callers = sourcesOutside("ledger").filter { (_, text) -> names.any { ".$it(" in text } }
         assertEquals(emptyList(), callers.map { it.first }, "적용부 밖에서 잔액을 바꾼다 — 락 순서와 전기가 그 자리를 안 지난다")
     }
 
-    /** 쓰거나(`@Modifying`) 잠그는(`for update`·`for share`) 것 전부. 읽기만 하는 것은 뺀다. */
-    private fun balanceWriteNames(): List<String> {
-        val text = text("ledger/AccountRepository.kt")
-        return Regex("(@Modifying|for update|for share)[\\s\\S]{0,600}?\\bfun\\s+(\\w+)")
-            .findAll(text).map { it.groupValues[2] }.distinct().toList()
-    }
+    /**
+     * 원장이 지키는 표를 **잠그거나 바꾸는** 메서드 전부. 읽기만 하는 것은 뺀다.
+     *
+     * 파일 이름도 메서드 이름도 박지 않는다 — 어느 쪽을 박아도 다른 자리에 잠금이 생긴 날
+     * 그 자리가 검사 밖이다. 실제로 `point_types` 를 잠그는 것은 다른 리포지토리에 있다.
+     * 고르는 기준은 **어느 표를 건드리는가** 하나다.
+     */
+    private fun ledgerWriteNames(): List<String> =
+        sources().filter { (path, _) -> path.endsWith("Repository.kt") }
+            .flatMap { (_, text) -> text.split("\n\n") }
+            .filter { block -> LOCKS_OR_WRITES.any { it in block } && LEDGER_TABLES.any { it in block } }
+            .mapNotNull { Regex("\\bfun\\s+(\\w+)").find(it)?.groupValues?.get(1) }
+            .distinct()
 
     // 읽는 것은 막지 않는다 — 내역이 사건을 읽어야 세 목록을 합치지 않는다.
     @Test
@@ -101,6 +109,10 @@ class DisciplineTest {
 
         // @Lock 은 애너테이션, LockModeType 은 그 인자, entityManager.lock 은 직접 부르는 길.
         val ENTITY_LOCKS = listOf("LockModeType", "@Lock", "entityManager.lock")
+        val LOCKS_OR_WRITES = listOf("@Modifying", "for update", "for share")
+
+        // 원장이 지키는 표. 회원 자격도 refresh 도 원장 밖이라 여기 없다.
+        val LEDGER_TABLES = listOf("accounts", "point_types")
 
         // DB 도 스프링도 모르는 자리. 늘어나면 여기 적는다 — 적지 않으면 검사를 안 받는다.
         val PURE = listOf("ledger/Draft.kt", "ledger/Supply.kt", "ledger/JournalKind.kt", "ledger/AccountKind.kt")

@@ -1,4 +1,4 @@
-package io.github.miinhho.point.user
+package io.github.miinhho.point.dev
 
 import org.springframework.boot.ApplicationArguments
 import org.springframework.boot.ApplicationRunner
@@ -6,6 +6,8 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.core.annotation.Order
 import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.stereotype.Component
+import io.github.miinhho.point.user.User
+import io.github.miinhho.point.user.UserRepository
 
 /**
  * 실기동에서 쓸 계정을 채운다. **가입 엔드포인트를 여는 것이 아니다** — 가입은 제공자

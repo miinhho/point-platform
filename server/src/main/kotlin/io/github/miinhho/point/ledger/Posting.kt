@@ -1,6 +1,5 @@
 package io.github.miinhho.point.ledger
 
-import io.github.miinhho.point.pointtype.PointType
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.FetchType
@@ -24,9 +23,8 @@ class Posting(
     val account: Account,
 
     // 사건과 계정 양쪽의 복합 FK 가 이 한 값에 걸린다 — 전기가 사건의 포인트를 넘지 못한다.
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "point_type_id", nullable = false, updatable = false)
-    val pointType: PointType,
+    @Column(name = "point_type_id", nullable = false, updatable = false)
+    val pointTypeId: Long,
 
     /** 부호 하나다. 보유자 +, 발행 − 가 아니라 그 계정에 더해지는 양이다. */
     @Column(nullable = false, updatable = false)

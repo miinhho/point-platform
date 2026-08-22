@@ -1,4 +1,4 @@
-package io.github.miinhho.point.membership
+package io.github.miinhho.point.pointtype.membership
 
 import io.github.miinhho.point.ledger.AccountRepository
 import org.springframework.stereotype.Service

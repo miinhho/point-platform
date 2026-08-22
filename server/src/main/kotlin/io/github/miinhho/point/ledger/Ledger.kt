@@ -1,9 +1,7 @@
 package io.github.miinhho.point.ledger
 
-import io.github.miinhho.point.pointtype.PointTypeRepository
 import io.github.miinhho.point.shared.DomainFailureException
 import io.github.miinhho.point.shared.FailureCode
-import io.github.miinhho.point.user.UserRepository
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Propagation
 import org.springframework.transaction.annotation.Transactional
@@ -20,8 +18,6 @@ class Ledger(
     private val journalEntryRepository: JournalEntryRepository,
     private val postingRepository: PostingRepository,
     private val accountRepository: AccountRepository,
-    private val pointTypeRepository: PointTypeRepository,
-    private val userRepository: UserRepository,
 ) {
     class Issued(val entry: JournalEntry, val totalIssuedAfter: Long, val issueCapAt: Long)
 
@@ -62,15 +58,19 @@ class Ledger(
     /**
      * 공급을 잠그고 지금 값을 준다. 발행 계정 행이 그 포인트의 뮤텍스다.
      *
-     * 둘 다 잠금 읽기다 — 일반 읽기는 REPEATABLE READ 스냅샷이라, 잠그기 전에 커밋된 상한
-     * 변경이 안 보여 낡은 상한으로 발행이 통과한다.
+     * 잠금 읽기라 현재 값을 본다 — 일반 읽기는 REPEATABLE READ 스냅샷이라, 잠그기 전에
+     * 커밋된 상한 변경이 안 보여 낡은 상한으로 발행이 통과한다.
      */
     @Transactional(propagation = Propagation.MANDATORY)
     fun lockSupply(pointTypeId: Long): Supply {
-        val issued = -(accountRepository.lockIssuance(pointTypeId) ?: error("발행 계정이 없다: $pointTypeId"))
-        val cap = pointTypeRepository.lockIssueCap(pointTypeId)
-            ?: throw DomainFailureException(FailureCode.POINT_TYPE_NOT_FOUND, "포인트 없음")
-        return Supply(issued = issued, cap = cap)
+        val row = accountRepository.lockIssuance(pointTypeId).firstOrNull() ?: error("발행 계정이 없다: $pointTypeId")
+        return Supply(issued = -(row[0] as Long), cap = row[1] as Long)
+    }
+
+    /** 상한을 바꾼다. [lockSupply] 로 공급을 쥔 아래에서만 부른다. */
+    @Transactional(propagation = Propagation.MANDATORY)
+    fun setCap(pointTypeId: Long, newCap: Long) {
+        check(accountRepository.setIssueCap(pointTypeId, newCap) == 1) { "발행 계정이 없다: $pointTypeId" }
     }
 
     /**
@@ -79,7 +79,7 @@ class Ledger(
      * 차감이 실패하면 예외가 트랜잭션을 되돌리므로 먼저 더한 것도 함께 사라진다.
      */
     private fun apply(entry: JournalEntry, draft: Draft) {
-        val pointTypeId = entry.pointType.id!!
+        val pointTypeId = entry.pointTypeId
         draft.ordered.forEach { line -> settle(pointTypeId, line) }
         draft.lines.forEach { line -> post(entry, line) }
     }
@@ -101,20 +101,20 @@ class Ledger(
         journalEntryRepository.saveAndFlush(
             JournalEntry(
                 kind = kind,
-                requester = userRepository.getReferenceById(requesterId),
+                requesterId = requesterId,
                 idempotencyKey = idempotencyKey,
-                pointType = pointTypeRepository.getReferenceById(pointTypeId),
+                pointTypeId = pointTypeId,
             ),
         )
 
     private fun post(entry: JournalEntry, line: Draft.Line) {
-        val accountId = accountRepository.idOf(entry.pointType.id!!, line.holderKey)
+        val accountId = accountRepository.idOf(entry.pointTypeId, line.holderKey)
             ?: error("전기할 계정이 없다: ${line.holderKey}")
         postingRepository.saveAndFlush(
             Posting(
                 journalEntry = entry,
                 account = accountRepository.getReferenceById(accountId),
-                pointType = entry.pointType,
+                pointTypeId = entry.pointTypeId,
                 amount = line.amount,
             ),
         )

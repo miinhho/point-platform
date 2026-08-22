@@ -63,7 +63,6 @@ class IssueTest {
                 issuer = issuer,
                 accent = PointAccent.BLUE,
                 visibility = PointVisibility.PUBLIC,
-                issueCap = 1_000_000,
             ),
         )
     }

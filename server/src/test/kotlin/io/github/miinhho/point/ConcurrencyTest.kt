@@ -2,10 +2,10 @@ package io.github.miinhho.point
 
 import io.github.miinhho.point.pointtype.ChangeCapRequest
 import io.github.miinhho.point.pointtype.CreatePointTypeRequest
-import io.github.miinhho.point.membership.InviteRequest
-import io.github.miinhho.point.membership.Membership
-import io.github.miinhho.point.membership.MembershipId
-import io.github.miinhho.point.membership.MembershipRepository
+import io.github.miinhho.point.pointtype.membership.InviteRequest
+import io.github.miinhho.point.pointtype.membership.Membership
+import io.github.miinhho.point.pointtype.membership.MembershipId
+import io.github.miinhho.point.pointtype.membership.MembershipRepository
 import io.github.miinhho.point.auth.LoginRequest
 import io.github.miinhho.point.auth.LoginResponse
 import io.github.miinhho.point.auth.RefreshRequest
@@ -84,7 +84,6 @@ class ConcurrencyTest {
                 issuer = issuer,
                 accent = PointAccent.PURPLE,
                 visibility = PointVisibility.PUBLIC,
-                issueCap = 1_000_000,
             ),
         )
     }
@@ -355,7 +354,7 @@ class ConcurrencyTest {
 
         assertTrue(responses.all { it.statusCode.is2xxSuccessful }, "전부 성공 응답이어야 한다: ${responses.map { it.statusCode }}")
         assertEquals(1, capChangeRepository.count(), "이력은 한 줄만 남아야 한다")
-        assertEquals(2_000_000, pointTypeRepository.findById(pointType.id!!).orElseThrow().issueCap)
+        assertEquals(2_000_000, accountRepository.findAll().single { it.pointTypeId == pointType.id && it.kind == AccountKind.ISSUANCE }.issueCap!!)
     }
 
     // 계약: docs/API.md — 쓰기는 멱등성 키를 상태 검사보다 먼저 본다.
@@ -490,12 +489,12 @@ class ConcurrencyTest {
 
     // 유통량의 정본은 발행 계정 잔액이다.
     private fun issuedOf() = -accountRepository.findAll()
-        .single { it.pointType.id == pointType.id && it.kind == AccountKind.ISSUANCE }.balance
+        .single { it.pointTypeId == pointType.id && it.kind == AccountKind.ISSUANCE }.balance
 
-    private fun capOf() = pointTypeRepository.findById(pointType.id!!).orElseThrow().issueCap
+    private fun capOf() = accountRepository.findAll().single { it.pointTypeId == pointType.id && it.kind == AccountKind.ISSUANCE }.issueCap!!
 
     private fun balanceOf(user: User) =
-        accountRepository.findByUserId(user.id!!).firstOrNull { it.pointType.id == pointType.id }?.balance ?: 0
+        accountRepository.findByUserId(user.id!!).firstOrNull { it.pointTypeId == pointType.id }?.balance ?: 0
 
     private fun publicId(user: User) = user.publicId.toString()
     private fun publicPointTypeId() = pointType.publicId.toString()
@@ -551,7 +550,6 @@ class ConcurrencyTest {
                 issuer = issuer,
                 accent = PointAccent.BLUE,
                 visibility = PointVisibility.PRIVATE,
-                issueCap = 1_000_000,
             ),
         )
         membershipRepository.save(Membership(pointType = bank, user = issuer))

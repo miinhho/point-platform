@@ -96,6 +96,25 @@ class NameIsSharedTest {
         assertTrue(alone.contains("\"nameIsShared\":false"), "박태윤은 하나뿐이다: $alone")
     }
 
+    /**
+     * 계약: docs/API.md — `q` 는 이름과 핸들의 **부분 일치**다. 전문 인덱스는 두 글자씩
+     * 쪼개므로 한 글자 검색이 조용히 빈 목록이 되는 것이 회귀이고, 그 갈래를 여기서 본다.
+     */
+    @Test
+    fun `검색은 이름 가운데도 한 글자도 문다`() {
+        // 이름 가운데 — 앞에서부터가 아니다.
+        val middle = assertNotNull(get("/api/users?q=지수"))
+        assertTrue(middle.contains("\"handle\":\"@jisu\""), "이름 가운데를 물어야 한다: $middle")
+
+        // 한 글자 — 전문 인덱스에 없는 자리라 갈래가 따로 있다.
+        val single = assertNotNull(get("/api/users?q=박"))
+        assertTrue(single.contains("박태윤"), "한 글자도 물어야 한다: $single")
+
+        // 핸들 가운데.
+        val handle = assertNotNull(get("/api/users?q=aeyu"))
+        assertTrue(handle.contains("@taeyun"), "핸들 가운데를 물어야 한다: $handle")
+    }
+
     @Test
     fun `me 와 login 응답에도 실린다`() {
         assertTrue(assertNotNull(get("/api/me")).contains("\"nameIsShared\":true"))
@@ -116,5 +135,5 @@ class NameIsSharedTest {
 
     private fun point(name: String, emoji: String, issuer: User, accent: PointAccent) =
         PointType(name = name, emoji = emoji, issuer = issuer, accent = accent,
-            visibility = PointVisibility.PUBLIC, issueCap = 1_000_000)
+            visibility = PointVisibility.PUBLIC,)
 }
