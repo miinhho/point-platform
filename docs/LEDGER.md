@@ -356,7 +356,7 @@ InnoDB 가 교착을 풀려고 죽인 쪽, 락 대기에서 진 쪽, 풀에서 �
 | **2** | `journal_entries` · `postings` · **적용부 하나**. 첫 호출부는 발행 | 위 「잡히지 않는 것」 1·2·3·4 **전부** · `REQUIRES_NEW` 둘 · 불변식 1~5 가 검사 가능 | 진행 중 |
 | **3** | 이체가 적용부를 지난다. `ensureAccount` 와 `AccountInitializer` 가 사라진다. `HOLDS_BALANCE` 가 「받은 적 있다」(행의 존재)가 된다 — 지갑과 도달성이 같이 넓어진다. **행동 검사로 못 박는다**: 받은 적 있고 잔액 0 이고 회원 아닌 사람이 비공개 은행에 닿고 지갑에 그 카드가 있다 (`ReachabilityTest` 의 집합 비교는 이름의 뜻이 넓어지는 것을 못 본다) | 이체의 같은 키 경합 · 커넥션 절벽(요청 경로) · 락 순서가 한 곳 · 공개 은행의 「가졌던 0」 | |
 | **4** | 내역이 분개장 쿼리 하나(`occurred_at, id` 커서). 상한 변경은 내역에서 빠지고 원장 밖에 남는다 | 세 목록을 합치는 내역 · `findAll()` 필터 | |
-| **5** | 재계산과 대사. `accounts.balance` 를 전기에서 다시 만드는 경로 · 부팅·주기 검사 · 교착·락 패배 → `none` · 트랜잭션 시간 제한 · 풀 크기와 지표 | 「잔액이 틀렸는지 알 방법이 없다」 · `unknown` 의 과잉 | |
+| **5** | 재계산과 대사. `accounts.balance` 를 전기에서 다시 만드는 경로 · 부팅 검사 · **주기 검사는 앱이 하지 않는다** — 불변식 위반 수를 Prometheus 게이지 셋으로 낸다(`ledger_entries_out_of_balance` · `ledger_point_types_out_of_balance` · `ledger_accounts_drifted`, 전부 0 이어야 하고 0 이 아닌 순간이 알림). 판단은 Grafana·Slack · 교착·락 패배 → `none` · 트랜잭션 시간 제한 · 풀 크기와 지표 | 「잔액이 틀렸는지 알 방법이 없다」 · `unknown` 의 과잉 | |
 | **6** | 상점. 구매 = 산 사람 −N · 은행장 +N 의 평범한 이체 + 교환권 기록. 재고·1 인 한도는 잠그고 읽는다 | 여정 12·13 의 되돌릴 수 없는 것 | |
 
 **원장 전환이 끝나면 프론트가 한 번에 맞출 것.** 전환 중에는 Mock 을 맞추지 않는다 — 계약이
@@ -368,6 +368,11 @@ InnoDB 가 교착을 풀려고 죽인 쪽, 락 대기에서 진 쪽, 풀에서 �
 - 지갑이 「받은 적 있는 0」을 담는다 (`479b49c`) — Mock 의 `amount > 0 || canIssue || member` 필터
 - 상한 변경이 내역에서 빠진다 — `HistoryEntry` 의 `capChange` 갈래와 화면 분기(4 파일) 삭제
 - 내역이 커서(`occurred_at, id`)를 받으면 그 인자
+- `Transfer.id` · `Issue.id` 값이 바뀐다(사건 id, 형태는 UUID 그대로) — PR #31
+- `Transfer`: `fromId` · `toId` · `createdAt` · `confirmedAt` 이 빠지고 `outgoing` · `occurredAt` — 방향을 id 로 맞춰 보던 자리
+- `Issue.confirmedAt` → `occurredAt`
+- `PointType.issuableHeadroom` 이 빠진다 — 은행 페이지 「남은 여력」은 `issueCap - totalIssued`
+- 검색이 동명이인을 함께 담지 않는다 — 한 명 결과에도 `nameIsShared` 로 핸들 강조
 
 **2 단계의 시작 조건** — 리뷰에서 나온 것이라 여기 못 박는다.
 
