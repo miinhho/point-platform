@@ -1,18 +1,21 @@
-package io.github.miinhho.point.user
+package io.github.miinhho.point.transfer
 
-import io.github.miinhho.point.membership.BankAccess
-import io.github.miinhho.point.membership.MembershipRepository
+import io.github.miinhho.point.pointtype.membership.BankAccess
+import io.github.miinhho.point.pointtype.membership.MembershipRepository
 import io.github.miinhho.point.pointtype.PointType
 import io.github.miinhho.point.pointtype.PointTypeRepository
 import io.github.miinhho.point.pointtype.PointVisibility
-import io.github.miinhho.point.transfer.TransferRepository
 import org.springframework.data.domain.Limit
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.util.UUID
+import io.github.miinhho.point.user.User
+import io.github.miinhho.point.user.UserRepository
+import io.github.miinhho.point.user.UserResponse
+import io.github.miinhho.point.user.toResponse
 
 @Service
-class UserQueryService(
+class RecipientService(
     private val userRepository: UserRepository,
     private val pointTypeRepository: PointTypeRepository,
     private val membershipRepository: MembershipRepository,
