@@ -1461,6 +1461,58 @@ describe('지갑은 관계로 담는다', () => {
     expect(held).toMatchObject({ amount: 0, sendable: 0 })
   })
 
+  /*
+   * **지갑에 담기는 것은 반드시 닿는다.** 반대는 열려 있다 — 초대만 받은 사람은 닿지만
+   * 안 담긴다. 카드는 있는데 페이지가 `404` 면 같은 사실을 두 곳이 다르게 말한다.
+   *
+   * 지금 성립하는 것은 **두 목록이 겹쳐서일 뿐**이다. 어느 한쪽에 항목을 더할 때 반대쪽을
+   * 보지 않으면 깨지고, 깨진 것은 그 항목을 가진 사람만 만난다. 서버는 이것을
+   * `ReachabilityTest` 로 잰다 — 이 PR 이 담는 관계 셋을 다시 썼으므로 여기에도 둔다.
+   */
+  async function walletIsReachable(who: string): Promise<void> {
+    const { balances } = await endpoints.wallet()
+    for (const { pointType } of balances) {
+      await expect(
+        endpoints.pointType(pointType.id),
+        `${who} 의 지갑에 ${pointType.name} 이 있는데 은행 페이지가 없다`,
+      ).resolves.toBeTruthy()
+    }
+  }
+
+  const HANDLES = ['@minho', '@jisoo', '@taeyun', '@seoyeon', '@junho', '@jisu', '@onmart', '@solcafe']
+
+  it('담기는 것은 반드시 닿는다 — 시드의 관계 전부', async () => {
+    for (const handle of HANDLES) {
+      setTokens(await endpoints.login({ handle, password: 'point' }))
+      await walletIsReachable(handle)
+    }
+  })
+
+  // 시드만 보면 「겹쳐 있다」를 확인할 뿐이다. 이 PR 이 새로 만든 상태들에서 다시 본다.
+  it('담기는 것은 반드시 닿는다 — 상태가 움직인 뒤에도', async () => {
+    // 가졌던 0: 공개 은행에서 전액을 보낸다
+    await endpoints.createTransfer(
+      { pointTypeId: 'pt_on', toId: 'u_jisoo', amount: balanceOf('pt_on', ME) },
+      key(),
+    )
+    await walletIsReachable('전액을 보낸 @minho')
+
+    // 들어왔지만 아직 없는 0: 초대를 수락한다
+    await endpoints.createInvite('pt_cl', 'u_jisu', key())
+    setTokens(await endpoints.login({ handle: '@jisu', password: 'point' }))
+    await endpoints.acceptInvite('pt_cl')
+    await walletIsReachable('막 들어온 @jisu')
+
+    // 다 쓰고 나간 사람: 관계는 「받은 적 있다」 하나만 남는다
+    setTokens(await endpoints.login({ handle: '@jisoo', password: 'point' }))
+    await endpoints.createTransfer(
+      { pointTypeId: 'pt_cl', toId: 'u_minho', amount: balanceOf('pt_cl', 'u_jisoo') },
+      key(),
+    )
+    await endpoints.leaveBank('pt_cl')
+    await walletIsReachable('다 쓰고 나간 @jisoo')
+  })
+
   it('나가면 다시 빠진다 — 받은 적이 없으면 관계도 없다', async () => {
     await endpoints.createInvite('pt_cl', 'u_jisu', key())
     setTokens(await endpoints.login({ handle: '@jisu', password: 'point' }))

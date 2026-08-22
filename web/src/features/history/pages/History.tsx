@@ -41,23 +41,29 @@ export function History() {
         >
           {data?.length === 0 ? <Note>{t('history.empty')}</Note> : null}
 
-          {data?.map((entry) =>
-            entry.type === 'transfer' ? (
-              <TransferRow
-                key={entry.transfer.id}
-                transfer={entry.transfer}
-                point={entry.point}
-                onOpen={() => go({ name: 'historyDetail', transferId: entry.transfer.id })}
-              />
-            ) : (
-              <IssueRow
-                key={entry.issue.id}
-                issue={entry.issue}
-                point={entry.point}
-                onOpen={() => go({ name: 'issueDetail', issueId: entry.issue.id })}
-              />
-            ),
-          )}
+          {data?.map((entry) => {
+            if (entry.type === 'transfer') {
+              return (
+                <TransferRow
+                  key={entry.transfer.id}
+                  transfer={entry.transfer}
+                  point={entry.point}
+                  onOpen={() => go({ name: 'historyDetail', transferId: entry.transfer.id })}
+                />
+              )
+            }
+            if (entry.type === 'issue') {
+              return (
+                <IssueRow
+                  key={entry.issue.id}
+                  issue={entry.issue}
+                  point={entry.point}
+                  onOpen={() => go({ name: 'issueDetail', issueId: entry.issue.id })}
+                />
+              )
+            }
+            return notDrawn(entry)
+          })}
         </Loadable>
       </Body>
     </Screen>
@@ -93,6 +99,17 @@ function TransferRow({ transfer, point, onOpen }: TransferRowProps) {
       </motion.div>
     </RowButton>
   )
+}
+
+/**
+ * 아직 그리지 않는 갈래. **인자가 `never` 라 갈래가 늘면 여기서 컴파일이 멈춘다.**
+ *
+ * 계약에는 구매가 더 있고(원장 6 단계) 서버가 그것을 내기 시작하는 날이 온다. 그때
+ * 「나머지는 발행」으로 두면 `entry.issue` 가 없어 **내역 화면 전체가 죽는다** — 실패
+ * 코드를 빠뜨렸을 때보다 크고 늦게 터진다.
+ */
+function notDrawn(_entry: never): null {
+  return null
 }
 
 /** 발행에는 「누구에게」가 없다. 이체 줄의 위계를 빌려 쓰면 둘이 한 종류로 읽힌다 */

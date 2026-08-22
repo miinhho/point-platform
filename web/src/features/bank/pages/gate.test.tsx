@@ -39,8 +39,8 @@ describe('막힌 주소는 은행 페이지로 대체한다', () => {
   })
 
   /*
-   * 잔액이 남으면 은행 페이지는 계속 보인다(계약: docs/API.md). 그래서 **닿기는
-   * 하는데 회원은 아닌** 사람이 생기고, 명부는 그 사람에게 열리지 않아야 한다.
+   * **한 번 받은 사람은 영원히 닿는다**(계약: docs/API.md). 그래서 **닿기는 하는데
+   * 회원은 아닌** 사람이 생기고, 명부는 그 사람에게 열리지 않아야 한다.
    */
   it('나온 사람에게 명부가 열리지 않는다', async () => {
     setTokens(await (await import('@/shared/api')).authApi.login({ handle: '@taeyun', password: 'point' }))
@@ -50,7 +50,7 @@ describe('막힌 주소는 은행 페이지로 대체한다', () => {
 
     await waitFor(() => expect(location.pathname).toBe('/points/pt_hd'))
     await settle()
-    // 잔액이 남아 있으므로 은행 페이지 자체는 보인다
+    // 받은 적이 있으므로 은행 페이지 자체는 보인다 — 잔액을 다 써도 그렇다
     expect(await screen.findByText('이 은행의 회원이 아니에요')).toBeTruthy()
   })
 
@@ -115,11 +115,15 @@ describe('나가면 홈으로 간다', () => {
   })
 
   /*
-   * **잔액이 없으면 그 은행은 그 사람에게 없어진다**(`reachable` 이 잔액에 기댄다).
+   * **관계가 하나도 안 남으면 그 은행은 그 사람에게 없어진다.** `@jisu` 가 그 경우다 —
+   * 수락이 초대를 소진했고, 받은 적이 없고, 나가서 회원도 아니다. `reachable` 이 보는
+   * 넷(공개·회원·초대·받은 적)이 전부 거짓이다. **잔액이 아니다** — 다 쓰고 나간 사람은
+   * 잔액이 0 이어도 계속 닿는다(`7ab776b` 「한 번 받은 사람은 영원히 닿는다」).
+   *
    * 은행 페이지로 보내면 「못 불러왔어요 · 다시 시도」에 갇히고, 다시 시도는 영원히
    * 404 다 — 자기가 방금 한 일의 결과인데 우리가 실패했다고 말하는 것이다.
    */
-  it('잔액이 없어도 실패 화면에 갇히지 않는다', async () => {
+  it('관계가 안 남아 은행이 사라져도 실패 화면에 갇히지 않는다', async () => {
     setTokens(await authApi.login({ handle: '@minho', password: 'point' }))
     await invitesApi.createInvite('pt_cl', 'u_jisu', newIdempotencyKey())
     setTokens(await authApi.login({ handle: '@jisu', password: 'point' }))
